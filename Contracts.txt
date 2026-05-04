@@ -1,0 +1,260 @@
+﻿Контракты минималистичной акторной системы
+
+Документ дополняет Манифест. Содержит сигнатуры всех сущностей, их отношения и уточняющие комментарии.
+Детали реализации опущены.
+
+1. Письмо (Letter)
+
+public abstract class Letter
+{
+    public Guid Sender { get; set; }
+    public Guid Receiver { get; set; }
+
+    protected Letter(Guid sender, Guid receiver);
+}
+
+Комментарий: поля мутабельны для случая, когда то же письмо служит ответом — отправитель
+меняет Sender/Receiver местами и отправляет обратно (п. 6 Манифеста: аккумулятор).
+Все наследники — sealed (п. 12).
+
+2. Системные письма
+
+public sealed class ShutdownLetter : Letter
+{
+    public ShutdownLetter(Guid receiver);
+}
+
+public sealed class PanicLetter : Letter
+{
+    public PanicLetter(Guid receiver);
+}
+
+public sealed class TimeServiceLetter : Letter
+{
+    public TimeoutCallback Callback { get; init; }
+
+    public TimeServiceLetter(Guid receiver, TimeoutCallback callback);
+}
+
+Комментарий: ShutdownLetter — кооперативное завершение актора (п. 21).
+PanicLetter — немедленное аварийное завершение (п. 18).
+TimeServiceLetter — уведомление о сработавшем таймауте (п. 23).
+Отправитель системных писем — SystemUids.System или SystemUids.TimeService.
+
+3. Идентификаторы системных акторов
+
+public static class SystemUids
+{
+    public static readonly Guid System;
+    public static readonly Guid TimeService;
+    public static readonly Guid Model;
+}
+
+Комментарий: константные идентификаторы, доступные через экземпляр ActorSystem (п. 15).
+System используется как отправитель ShutdownLetter и PanicLetter.
+TimeService — отправитель TimeServiceLetter.
+
+4. Таймаут и сервис времени
+
+public readonly struct TimeoutCallback : IEquatable<TimeoutCallback>
+{
+    public Guid ActorUid { get; init; }
+    public int CallbackId { get; init; }
+    public Action Action { get; init; }
+}
+
+public interface ITimeService
+{
+    DateTime UtcNow { get; }
+
+    // Регистрирует коллбек на указанный deadline.
+    // Если коллбек с таким (ActorUid, CallbackId) уже зарегистрирован — старая регистрация заменяется новой.
+    TimeoutCallback Register(DateTime deadline, TimeoutCallback callback);
+    TimeoutCallback Register(TimeSpan timeout, TimeoutCallback callback);
+
+    // Удаляет регистрацию коллбека. Если коллбек не найден — ничего не делает.
+    void Unregister(TimeoutCallback callback);
+}
+
+Комментарий: TimeoutCallback создаётся актором один раз в конструкторе.
+Один и тот же экземпляр может регистрироваться многократно с разными дедлайнами.
+CallbackId уникален в рамках одного актора, назначается актором.
+Ключ в таблице таймаутов — (ActorUid, CallbackId).
+Unregister удаляет запись полностью — и из таблицы, и из очереди ожидания.
+TimeServiceLetter доставляет коллбек актору-получателю; обработка состоит в вызове callback.Action().
+
+5. Актор
+
+public abstract class Actor
+{
+    public Guid Uid { get; }
+    public string Name { get; }
+    public IActorSystem System { get; }
+
+    protected Actor(Guid uid, string name, IActorSystem system, int queueCapacity = 256);
+}
+
+Внутренние члены (доступны только ActorSystem):
+
+internal bool TryEnqueue(Letter letter);
+internal async Task RunAsync(CancellationToken ct);
+internal void HandleSynchronously(Letter letter);
+
+Защищённые члены (переопределяются наследниками):
+
+protected abstract Task OnLetter(Letter letter);
+protected virtual Task OnShutdown() => Task.CompletedTask;
+
+Комментарий: Uid — универсально уникальный идентификатор. System — единственная ссылка на внешний мир,
+через неё доступны Logger, TimeService, Settings. Очередь писем встроена в актор
+(bounded, размер задаётся в конструкторе).
+При переполнении очереди письма молча отбрасываются.
+
+Цикл обработки (RunAsync) последовательно читает письма из очереди и вызывает OnLetter.
+При получении ShutdownLetter вызывает OnShutdown, затем удаляет актор из реестра.
+
+HandleSynchronously используется в отладочном режиме (Settings.SynchronousProcessing) — вызывает OnLetter
+непосредственно в потоке отправителя.
+
+6. Системный актор
+
+public abstract class SystemActor : Actor
+{
+    protected SystemActor(Guid uid, IActorSystem system);
+}
+
+Комментарий: системные акторы имеют константные идентификаторы из SystemUids. Независимы от прикладной задачи. 
+Создаются через DI и передаются в конструктор ActorSystem. Могут отправлять письма только как
+ответ на входящее письмо.
+
+7. Модельный актор (родитель прикладных акторов)
+
+public abstract class ModelActor : SystemActor
+{
+    protected ModelActor(Guid uid, string name, IActorSystem system);
+
+    // Регистрирует актор в системе. Активация — отдельным вызовом ReleaseAll.
+    protected Guid Create(Actor actor);
+
+    // Активирует всех созданных акторов, очищает внутренний список.
+    protected void ReleaseAll();
+}
+
+Комментарий: ModelActor — промежуточное звено между системными и прикладными акторами (п. 15).
+Имеет константный Uid. В OnLetter (реакция на StartLetter от системы) создаёт все прикладные
+акторы через Create, затем активирует их через ReleaseAll. Порядок гарантирует:
+на момент отправки первого рабочего письма все акторы уже зарегистрированы в реестре.
+
+8. Реестр акторов
+
+internal sealed class ActorRegistry
+{
+    public void Add(Actor actor);
+    public void Remove(Guid uid);
+    public bool TryGet(Guid uid, out Actor actor);
+    public string GetName(Guid uid);
+    public int Count { get; }
+    public List<Actor> GetAll();
+}
+
+Комментарий: внутренний класс, недоступный внешнему коду (п. 10). Единственное место в системе
+с прямыми ссылками на экземпляры Actor. Потокобезопасен — используется из разных акторов
+одновременно. GetAll() возвращает снапшот для рассылки Shutdown/Panic.
+
+9. Акторная система (интерфейс и реализация)
+
+public interface IActorSystem
+{
+    void Send(Letter letter);
+    void RegisterActor(Actor actor);
+    void UnregisterActor(Guid uid);
+    Task WaitForShutdownAsync();
+    CancellationToken CancellationToken { get; }
+    SystemUids Uids { get; }
+    ILogger Logger { get; }
+    ITimeService Time { get; }
+    Settings Settings { get; }
+}
+
+public sealed class ActorSystem : IActorSystem
+{
+    public ActorSystem(Settings settings);
+
+    public ILogger Logger { get; }
+    public ITimeService Time { get; }
+    public Settings Settings { get; }
+    public CancellationToken CancellationToken { get; }
+
+    public void RegisterActor(Actor actor);
+    public void UnregisterActor(Guid uid);
+    public void Send(Letter letter);
+
+    public void Start();
+    public void Shutdown();
+    public void Panic();
+    public Task WaitForShutdownAsync();
+}
+
+Комментарий: создаётся DI первым, получает простые объекты: ILogger, ITimeService,
+Settings (п. 13). Системные акторы создаются DI позже, получают IActorSystem в конструктор
+и регистрируют себя через RegisterActor. RegisterActor только добавляет актора в реестр,
+но не запускает цикл обработки — циклы всех акторов запускаются одновременно вызовом
+Start(). Send() при Settings.SynchronousProcessing == true обрабатывает письмо синхронно
+в потоке отправителя. Shutdown() — кооперативное завершение (рассылка ShutdownLetter),
+Panic() — аварийное (рассылка PanicLetter, отмена токена).
+WaitForShutdownAsync() ожидает опустошения реестра.
+
+10. Настройки
+
+public sealed class Settings
+{
+    public TimeSpan DefaultTimeout { get; init; }
+    public bool IsProduction { get; init; }
+    public bool SynchronousProcessing { get; init; }
+}
+
+Комментарий: иммутабелен после создания. SynchronousProcessing — режим синхронной обработки
+писем для отладки. В продакшене должен быть false.
+
+11. Логгер
+
+Используется стандартный Microsoft.Extensions.Logging.ILogger. Акторы получают его через System.Logger.
+
+12. Жизненный цикл
+
+Инициализация:
+  DI → ActorSystem(logger, timeService, settings)
+  DI → SystemActor(Uid, system)     // конструктор: base(uid, system) → RegisterActor(this)
+  DI → ModelActor(Uid, system)      // конструктор: base + отправляет себе InitializeModelLetter
+
+Запуск:
+  ActorSystem.Start()
+    → запуск циклов (RunAsync) всем зарегистрированным акторам
+    → ModelActor читает InitializeModelLetter
+      → BuildModel()
+        → Create(актор1), Create(актор2), ...
+        → ReleaseAll()
+    → система готова к работе
+
+Штатная работа:
+  Актор асинхронно ожидает письма из очереди (без занятия потока)
+  При получении — последовательная обработка: OnLetter(letter)
+  Отправка — System.Send(letter)
+
+Завершение актора:
+  Получен ShutdownLetter
+  → OnShutdown()
+  → System.UnregisterActor(Uid)
+
+Завершение системы:
+  ActorSystem.Shutdown()
+    → рассылка ShutdownLetter всем акторам
+    → ожидание опустошения реестра
+    → WaitForShutdownAsync() завершается
+
+Аварийное завершение:
+  ActorSystem.Panic()
+    → CancellationToken.Cancel()
+    → рассылка PanicLetter всем акторам
+    → акторы завершаются
+    → WaitForShutdownAsync() завершается
