@@ -1,4 +1,4 @@
-﻿namespace MinimalActorSystem.Tests;
+﻿namespace MinimalActorSystem.Tests.Core;
 
 public sealed class SettingsTests
 {

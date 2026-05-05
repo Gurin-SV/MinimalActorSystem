@@ -4,7 +4,7 @@
 		<TargetFramework>netstandard2.1</TargetFramework>
 		<LangVersion>12.0</LangVersion>
 		<Nullable>enable</Nullable>
-		<NoWarn>$(NoWarn);CS1591</NoWarn>
+		<NoWarn>$(NoWarn);CS1591;IDE0130</NoWarn>
 	</PropertyGroup>
 
 	<ItemGroup>

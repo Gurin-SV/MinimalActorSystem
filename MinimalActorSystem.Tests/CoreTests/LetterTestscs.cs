@@ -1,4 +1,4 @@
-﻿namespace MinimalActorSystem.Tests;
+﻿namespace MinimalActorSystem.Tests.Core;
 
 public sealed class LetterTests
 {
@@ -30,29 +30,9 @@ public sealed class LetterTests
         Assert.Equal(newReceiver, letter.Receiver);
     }
 
-    // Проверка: ShutdownLetter сохраняет Sender и Receiver
-    [Fact]
-    public void LetterTests_003()
-    {
-        var letter = new ShutdownLetter(Sender, Receiver);
-
-        Assert.Equal(Sender, letter.Sender);
-        Assert.Equal(Receiver, letter.Receiver);
-    }
-
-    // Проверка: PanicLetter сохраняет Sender и Receiver
-    [Fact]
-    public void LetterTests_004()
-    {
-        var letter = new PanicLetter(Sender, Receiver);
-
-        Assert.Equal(Sender, letter.Sender);
-        Assert.Equal(Receiver, letter.Receiver);
-    }
-
     // Проверка: TimeServiceLetter сохраняет Sender, Receiver и Callback
     [Fact]
-    public void LetterTests_005()
+    public void LetterTests_003()
     {
         var callback = new TimeoutCallback(Receiver, 1, () => { });
         var letter = new TimeServiceLetter(Sender, Receiver, callback);

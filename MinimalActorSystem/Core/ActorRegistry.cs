@@ -1,10 +1,10 @@
-﻿using System.Linq;
+﻿using System.Collections.Concurrent;
 
 namespace MinimalActorSystem;
 
 internal sealed class ActorRegistry
 {
-    private readonly Dictionary<Guid, Actor> _actors = [];
+    private readonly ConcurrentDictionary<Guid, Actor> _actors = [];
     private TaskCompletionSource<bool>? _emptyTcs;
 
     public int Count => _actors.Count;
@@ -16,7 +16,7 @@ internal sealed class ActorRegistry
 
     public void Remove(Guid uid)
     {
-        _actors.Remove(uid);
+        _actors.TryRemove(uid, out _);
         if (_actors.Count == 0)
         {
             _emptyTcs?.TrySetResult(true);
@@ -35,7 +35,7 @@ internal sealed class ActorRegistry
 
     public List<Actor> GetAll()
     {
-        return _actors.Values.ToList();
+        return [.. _actors.Values];
     }
 
     public Task WaitForEmptyAsync()

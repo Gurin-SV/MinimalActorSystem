@@ -6,7 +6,10 @@ public interface IActorSystem
     void RegisterActor(Actor actor);
     void UnregisterActor(Guid uid);
     Task WaitForShutdownAsync();
+    string GetActorName(Guid uid);
+    List<Actor> GetAllActors();
     CancellationToken CancellationToken { get; }
+    bool IsPanic { get; }
     SystemUids Uids { get; }
     ILogger Logger { get; }
     ITimeService TimeService { get; }
@@ -34,12 +37,15 @@ public sealed class ActorSystem(Settings settings) : IActorSystem
 
     private readonly ActorRegistry _registry = new();
     private readonly CancellationTokenSource _cts = new();
+    private volatile bool _isPanic;
+    private volatile bool _started;
 
     public SystemUids Uids { get; } = new();
     public ILogger Logger { get; private set; } = new NullLogger();
     public ITimeService TimeService { get; private set; } = new NullTimeService();
     public Settings Settings { get; } = settings;
     public CancellationToken CancellationToken => _cts.Token;
+    public bool IsPanic => _isPanic;
 
     internal int ActorCount => _registry.Count;
 
@@ -56,6 +62,8 @@ public sealed class ActorSystem(Settings settings) : IActorSystem
     public void RegisterActor(Actor actor)
     {
         _registry.Add(actor);
+        if (_started)
+            _ = actor.RunAsync(CancellationToken);
     }
 
     public void UnregisterActor(Guid uid)
@@ -76,6 +84,7 @@ public sealed class ActorSystem(Settings settings) : IActorSystem
 
     public void Start()
     {
+        _started = true;
         foreach (var actor in _registry.GetAll())
         {
             _ = actor.RunAsync(CancellationToken);
@@ -84,20 +93,25 @@ public sealed class ActorSystem(Settings settings) : IActorSystem
 
     public void Shutdown()
     {
-        foreach (var actor in _registry.GetAll())
-        {
-            Send(new ShutdownLetter(Uids.System, actor.Uid));
-        }
+        _cts.Cancel();
     }
 
     public void Panic()
     {
-        foreach (var actor in _registry.GetAll())
-        {
-            actor.HandleSynchronously(new PanicLetter(Uids.System, actor.Uid));
-        }
+        _isPanic = true;
         _cts.Cancel();
     }
 
+    public string GetActorName(Guid uid)
+    {
+        return _registry.GetName(uid);
+    }
+    
+    public List<Actor> GetAllActors()
+    {
+        return _registry.GetAll();
+    }
+
     public Task WaitForShutdownAsync() => _registry.WaitForEmptyAsync();
+
 }

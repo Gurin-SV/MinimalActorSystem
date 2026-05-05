@@ -1,4 +1,4 @@
-﻿namespace MinimalActorSystem.Tests;
+﻿namespace MinimalActorSystem.Tests.Core;
 
 public sealed class ActorSystemTests
 {
@@ -7,6 +7,8 @@ public sealed class ActorSystemTests
     {
         protected override Task OnLetter(Letter letter) => Task.CompletedTask;
     }
+
+    private sealed class TestLetter(Guid sender, Guid receiver) : Letter(sender, receiver) { }
 
     private sealed class TestActor(
         Guid uid,
@@ -22,6 +24,19 @@ public sealed class ActorSystemTests
         {
             _received.Add(letter);
             _tcs?.TrySetResult(true);
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class TestActorWithShutdown(Guid uid, string name, IActorSystem system,
+        TaskCompletionSource<bool> shutdownTcs)
+        : Actor(uid, name, system)
+    {
+        protected override Task OnLetter(Letter letter) => Task.CompletedTask;
+
+        protected override Task OnShutdown()
+        {
+            shutdownTcs.TrySetResult(true);
             return Task.CompletedTask;
         }
     }
@@ -69,26 +84,17 @@ public sealed class ActorSystemTests
         Assert.Equal(1, system.ActorCount);
     }
 
-    // Проверка: RunAsync обрабатывает письма через OnLetter
+    // Проверка: WaitForShutdownAsync завершается при опустошении реестра
     [Fact]
-    public async Task ActorTests_003()
+    public async Task ActorSystemTests_003()
     {
         var system = new ActorSystem(new Settings());
-        var received = new List<Letter>();
-        var tcs = new TaskCompletionSource<bool>();
-        var actor = new TestActor(Guid.NewGuid(), "test", system, received, tcs);
-        var letter = new ShutdownLetter(Guid.NewGuid(), actor.Uid);
+        var actor = new FakeActor(Guid.NewGuid(), "test", system);
+        system.RegisterActor(actor);
 
-        actor.TryEnqueue(letter);
-        var cts = new CancellationTokenSource();
-        var task = actor.RunAsync(cts.Token);
+        system.UnregisterActor(actor.Uid);
 
-        await tcs.Task.WaitAsync(TimeSpan.FromSeconds(1));
-        cts.Cancel();
-        await task;
-
-        Assert.Single(received);
-        Assert.Same(letter, received[0]);
+        await system.WaitForShutdownAsync();
     }
 
     // Проверка: Send доставляет письмо в очередь (асинхронный режим)
@@ -101,13 +107,16 @@ public sealed class ActorSystemTests
         var actor = new TestActor(Guid.NewGuid(), "test", system, received, tcs);
         system.RegisterActor(actor);
         system.Start();
-        var letter = new ShutdownLetter(system.Uids.System, actor.Uid);
+        var letter = new TestLetter(system.Uids.System, actor.Uid);
 
         system.Send(letter);
 
         await tcs.Task.WaitAsync(TimeSpan.FromSeconds(1));
         Assert.Single(received);
         Assert.Same(letter, received[0]);
+
+        system.Shutdown();
+        await system.WaitForShutdownAsync();
     }
 
     // Проверка: Send не падает, если получатель не найден
@@ -116,7 +125,7 @@ public sealed class ActorSystemTests
     {
         var system = new ActorSystem(new Settings());
 
-        system.Send(new ShutdownLetter(system.Uids.System, Guid.NewGuid()));
+        system.Send(new TestLetter(system.Uids.System, Guid.NewGuid()));
     }
 
     // Проверка: Send в синхронном режиме обрабатывает письмо сразу
@@ -129,7 +138,7 @@ public sealed class ActorSystemTests
         var actor = new TestActor(Guid.NewGuid(), "test", system, received);
         system.RegisterActor(actor);
         system.Start();
-        var letter = new ShutdownLetter(system.Uids.System, actor.Uid);
+        var letter = new TestLetter(system.Uids.System, actor.Uid);
 
         system.Send(letter);
 
@@ -150,47 +159,34 @@ public sealed class ActorSystemTests
         Assert.Equal(2, system.ActorCount); // сам ModelActor + 1 прикладной из BuildModel
     }
 
-    // Проверка: Shutdown рассылает ShutdownLetter
     [Fact]
     public async Task ActorSystemTests_008()
     {
         var system = new ActorSystem(new Settings());
-        var received = new List<Letter>();
-        var tcs = new TaskCompletionSource<bool>();
-        var actor = new TestActor(Guid.NewGuid(), "test", system, received, tcs);
+        var shutdownTcs = new TaskCompletionSource<bool>();
+        var actor = new TestActorWithShutdown(Guid.NewGuid(), "test", system, shutdownTcs);
         system.RegisterActor(actor);
         system.Start();
 
         system.Shutdown();
 
-        await tcs.Task.WaitAsync(TimeSpan.FromSeconds(1));
-        Assert.Contains(received, l => l is ShutdownLetter);
+        await shutdownTcs.Task.WaitAsync(TimeSpan.FromSeconds(1));
+        await system.WaitForShutdownAsync();
     }
 
     [Fact]
-    public void ActorSystemTests_009()
+    public async Task ActorSystemTests_009()
     {
         var system = new ActorSystem(new Settings());
-        var received = new List<Letter>();
-        var actor = new TestActor(Guid.NewGuid(), "test", system, received);
+        var shutdownTcs = new TaskCompletionSource<bool>();
+        var actor = new TestActorWithShutdown(Guid.NewGuid(), "test", system, shutdownTcs);
         system.RegisterActor(actor);
         system.Start();
 
         system.Panic();
 
-        Assert.Contains(received, l => l is PanicLetter);
-    }
-
-    // Проверка: WaitForShutdownAsync завершается при опустошении реестра
-    [Fact]
-    public async Task ActorSystemTests_010()
-    {
-        var system = new ActorSystem(new Settings());
-        var actor = new FakeActor(Guid.NewGuid(), "test", system);
-        system.RegisterActor(actor);
-
-        system.UnregisterActor(actor.Uid);
-
+        Assert.True(system.IsPanic);
+        await shutdownTcs.Task.WaitAsync(TimeSpan.FromSeconds(1));
         await system.WaitForShutdownAsync();
     }
 }

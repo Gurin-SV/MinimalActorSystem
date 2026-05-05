@@ -1,9 +1,11 @@
 ﻿using Microsoft.Extensions.Logging;
 
-namespace MinimalActorSystem.Tests;
+namespace MinimalActorSystem.Tests.Core;
 
 public sealed class ActorTests
 {
+    private sealed class TestLetter(Guid sender, Guid receiver) : Letter(sender, receiver);
+
     private sealed class FakeActor(Guid uid, string name, IActorSystem system)
         : Actor(uid, name, system)
     {
@@ -21,7 +23,7 @@ public sealed class ActorTests
     }
 
     private sealed class TestActorWithShutdown(Guid uid, string name, IActorSystem system)
-    : Actor(uid, name, system)
+        : Actor(uid, name, system)
     {
         public bool ShutdownCalled { get; private set; }
 
@@ -35,7 +37,7 @@ public sealed class ActorTests
     }
 
     private sealed class ThrowingActor(Guid uid, string name, IActorSystem system)
-    : Actor(uid, name, system)
+        : Actor(uid, name, system)
     {
         protected override Task OnLetter(Letter letter)
             => throw new InvalidOperationException("test error");
@@ -76,7 +78,7 @@ public sealed class ActorTests
     {
         var system = new ActorSystem(new Settings());
         var actor = new FakeActor(Guid.NewGuid(), "test", system);
-        var letter = new ShutdownLetter(Guid.NewGuid(), actor.Uid);
+        var letter = new TestLetter(Guid.NewGuid(), actor.Uid);
 
         var result = actor.TryEnqueue(letter);
 
@@ -90,13 +92,13 @@ public sealed class ActorTests
         var system = new ActorSystem(new Settings());
         var received = new List<Letter>();
         var actor = new TestActor(Guid.NewGuid(), "test", system, received);
-        var letter = new ShutdownLetter(Guid.NewGuid(), actor.Uid);
+        var letter = new TestLetter(Guid.NewGuid(), actor.Uid);
 
         actor.TryEnqueue(letter);
         var cts = new CancellationTokenSource();
         var task = actor.RunAsync(cts.Token);
 
-        await Task.Delay(50);
+        await Task.Delay(1);
         cts.Cancel();
         await task;
 
@@ -139,7 +141,7 @@ public sealed class ActorTests
         var system = new ActorSystem(new Settings());
         var received = new List<Letter>();
         var actor = new TestActor(Guid.NewGuid(), "test", system, received);
-        var letter = new ShutdownLetter(Guid.NewGuid(), actor.Uid);
+        var letter = new TestLetter(Guid.NewGuid(), actor.Uid);
 
         actor.HandleSynchronously(letter);
 
@@ -155,7 +157,7 @@ public sealed class ActorTests
         var system = new ActorSystem(new Settings());
         system.SetLogger(logger);
         var actor = new ThrowingActor(Guid.NewGuid(), "test", system);
-        var letter = new ShutdownLetter(Guid.NewGuid(), actor.Uid);
+        var letter = new TestLetter(Guid.NewGuid(), actor.Uid);
 
         actor.HandleSynchronously(letter);
 

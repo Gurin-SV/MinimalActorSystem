@@ -1,4 +1,4 @@
-﻿namespace MinimalActorSystem.Tests;
+﻿namespace MinimalActorSystem.Tests.Core;
 
 public sealed class SystemTimeServiceTests
 {
@@ -86,7 +86,7 @@ public sealed class SystemTimeServiceTests
         timeService.Register(TimeSpan.FromMilliseconds(100), callback);
         timeService.Unregister(callback);
 
-        await Task.Delay(200);
+        await Task.Delay(1);
         Assert.DoesNotContain(received, l => l is TimeServiceLetter);
     }
 

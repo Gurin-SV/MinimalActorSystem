@@ -1,10 +1,10 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
 		<TargetFramework>net8.0</TargetFramework>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
-		<NoWarn>$(NoWarn);CS1591</NoWarn>
+		<NoWarn>$(NoWarn);CS1591;IDE0130</NoWarn>
 
 		<IsPackable>false</IsPackable>
 		<IsTestProject>true</IsTestProject>
@@ -23,6 +23,7 @@
 
 	<ItemGroup>
 		<Using Include="Xunit" />
+		<Using Include="Xunit.Abstractions" />
 	</ItemGroup>
 
 </Project>

@@ -26,10 +26,7 @@ public abstract class Actor
     protected Actor(Guid uid, string name, IActorSystem system)
         : this(uid, name, system, system.Settings.DefaultQueueCapacity) { }
 
-    internal bool TryEnqueue(Letter letter)
-    {
-        return _channel.Writer.TryWrite(letter);
-    }
+    internal bool TryEnqueue(Letter letter) => _channel.Writer.TryWrite(letter);
 
     internal async Task RunAsync(CancellationToken ct)
     {
@@ -42,7 +39,6 @@ public abstract class Actor
             }
         }
         catch (OperationCanceledException) { }
-
         await OnShutdown();
         System.UnregisterActor(Uid);
     }
@@ -55,7 +51,7 @@ public abstract class Actor
         }
         catch (Exception ex)
         {
-            System.Logger.LogError(ex, "Ошибка в акторе {Uid}", Uid);
+            System.Logger.LogError(ex, "Error in actor {Name}", System.GetActorName(Uid));
         }
     }
 
