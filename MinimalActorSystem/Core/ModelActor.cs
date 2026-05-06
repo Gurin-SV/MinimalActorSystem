@@ -7,24 +7,28 @@ public abstract class ModelActor : SystemActor
     protected ModelActor(Guid uid, string name, IActorSystem system)
         : base(uid, name, system)
     {
+        Trace("Sending InitializeModelLetter to self");
         System.Send(new InitializeModelLetter(System.Uids.System, uid));
     }
 
-    protected sealed override Task OnLetter(Letter letter)
+    protected sealed override ValueTask OnLetter(Letter letter)
     {
         if (letter is InitializeModelLetter)
         {
+            Trace("BuildModel starting");
             BuildModel();
-            return Task.CompletedTask;
+            Trace($"BuildModel completed, {_pending.Count} actors pending");
+            return default;
         }
         return OnModelLetter(letter);
     }
 
     protected abstract void BuildModel();
-    protected abstract Task OnModelLetter(Letter letter);
+    protected abstract ValueTask OnModelLetter(Letter letter);
 
     protected Guid Create(Actor actor)
     {
+        Trace($"Creating: {actor.Name}");
         System.RegisterActor(actor);
         _pending.Add(actor);
         return actor.Uid;
@@ -32,6 +36,7 @@ public abstract class ModelActor : SystemActor
 
     protected void ReleaseAll()
     {
+        Trace($"ReleaseAll: {_pending.Count} actors");
         _pending.Clear();
     }
 }

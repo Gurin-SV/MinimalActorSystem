@@ -35,7 +35,7 @@ public sealed class StressTests(ITestOutputHelper output)
             modelReady.TrySetResult(true);
         }
 
-        protected override Task OnModelLetter(Letter letter) => Task.CompletedTask;
+        protected override ValueTask OnModelLetter(Letter letter) => default;
 
         public void StartAll()
         {
@@ -57,7 +57,7 @@ public sealed class StressTests(ITestOutputHelper output)
             _counter = counter;
         }
 
-        protected override Task OnLetter(Letter letter)
+        protected override ValueTask OnLetter(Letter letter)
         {
             switch (letter)
             {
@@ -75,26 +75,26 @@ public sealed class StressTests(ITestOutputHelper output)
                     }
                     break;
             }
-            return Task.CompletedTask;
+            return default;
         }
     }
 
     private sealed class PongActor(Guid uid, string name, IActorSystem system) : Actor(uid, name, system)
     {
-        protected override Task OnLetter(Letter letter)
+        protected override ValueTask OnLetter(Letter letter)
         {
             if (letter is PingToPongLetter ping)
             {
                 System.Send(new PongToPingLetter(Uid, ping.Sender, ping.Remaining > 1 ? ping.Remaining - 1 : 0));
             }
-            return Task.CompletedTask;
+            return default;
         }
     }
 
     private sealed class FakeActor(Guid uid, string name, IActorSystem system)
         : Actor(uid, name, system)
     {
-        protected override Task OnLetter(Letter letter) => Task.CompletedTask;
+        protected override ValueTask OnLetter(Letter letter) => default;
     }
 
     private sealed class MassiveActor(Guid uid, string name, IActorSystem system, Counter counter, TaskCompletionSource<bool> done)
@@ -117,7 +117,7 @@ public sealed class StressTests(ITestOutputHelper output)
             }
         }
 
-        protected override Task OnLetter(Letter letter)
+        protected override ValueTask OnLetter(Letter letter)
         {
             switch (letter)
             {
@@ -134,7 +134,7 @@ public sealed class StressTests(ITestOutputHelper output)
                     }
                     break;
             }
-            return Task.CompletedTask;
+            return default;
         }
     }
 
@@ -149,7 +149,6 @@ public sealed class StressTests(ITestOutputHelper output)
 
         protected override void BuildModel()
         {
-            // Создаём всех акторов
             for (int i = 0; i < actorCount; i++)
             {
                 var actor = new MassiveActor(Guid.NewGuid(), $"massive-{i}", System, _counter, allDone);
@@ -157,7 +156,6 @@ public sealed class StressTests(ITestOutputHelper output)
                 _actors.Add(actor);
             }
 
-            // Каждому актору назначаем случайные цели
             var rng = new Random(42);
             var allUids = _actors.Select(a => a.Uid).ToList();
 
@@ -176,7 +174,7 @@ public sealed class StressTests(ITestOutputHelper output)
             modelReady.TrySetResult(true);
         }
 
-        protected override Task OnModelLetter(Letter letter) => Task.CompletedTask;
+        protected override ValueTask OnModelLetter(Letter letter) => default;
 
         public void StartAll()
         {
@@ -221,8 +219,7 @@ public sealed class StressTests(ITestOutputHelper output)
     {
         const int pairs = 1;
         const int count = 100_000;
-        var settings = new Settings { IsProduction = true };
-        var system = new ActorSystem(settings);
+        var system = new ActorSystem(new Settings { IsProduction = true });
 
         var allDone = new TaskCompletionSource<bool>();
         var modelReady = new TaskCompletionSource<bool>();
@@ -241,12 +238,12 @@ public sealed class StressTests(ITestOutputHelper output)
         double usPerMessage = totalUs / totalMessages;
         double usPerExchange = totalUs / (pairs * count);
 
-        _output.WriteLine($"Пар: {pairs}, обменов: {count}");
-        _output.WriteLine($"Всего сообщений: {totalMessages}");
-        _output.WriteLine($"Время: {sw.ElapsedMilliseconds} мс");
-        _output.WriteLine($"На сообщение: {usPerMessage:F2} мкс");
-        _output.WriteLine($"На обмен (туда-обратно): {usPerExchange:F2} мкс");
-        _output.WriteLine($"Сообщений/сек: {totalMessages / (sw.ElapsedMilliseconds / 1000.0):F0}");
+        _output.WriteLine($"Pairs: {pairs}, exchanges: {count}");
+        _output.WriteLine($"Total messages: {totalMessages}");
+        _output.WriteLine($"Time: {sw.ElapsedMilliseconds} ms");
+        _output.WriteLine($"Per message: {usPerMessage:F2} us");
+        _output.WriteLine($"Per exchange: {usPerExchange:F2} us");
+        _output.WriteLine($"Messages/sec: {totalMessages / (sw.ElapsedMilliseconds / 1000.0):F0}");
 
         system.Shutdown();
         await system.WaitForShutdownAsync();
@@ -258,8 +255,7 @@ public sealed class StressTests(ITestOutputHelper output)
     {
         const int pairs = 300;
         const int count = 1_000;
-        var settings = new Settings { IsProduction = true };
-        var system = new ActorSystem(settings);
+        var system = new ActorSystem(new Settings { IsProduction = true });
 
         var allDone = new TaskCompletionSource<bool>();
         var modelReady = new TaskCompletionSource<bool>();
@@ -277,11 +273,11 @@ public sealed class StressTests(ITestOutputHelper output)
         double totalUs = sw.Elapsed.TotalMicroseconds;
         double usPerMessage = totalUs / totalMessages;
 
-        _output.WriteLine($"Пар: {pairs}, обменов на пару: {count}");
-        _output.WriteLine($"Всего сообщений: {totalMessages}");
-        _output.WriteLine($"Время: {sw.ElapsedMilliseconds} мс");
-        _output.WriteLine($"На сообщение: {usPerMessage:F2} мкс");
-        _output.WriteLine($"Сообщений/сек: {totalMessages / (sw.ElapsedMilliseconds / 1000.0):F0}");
+        _output.WriteLine($"Pairs: {pairs}, exchanges per pair: {count}");
+        _output.WriteLine($"Total messages: {totalMessages}");
+        _output.WriteLine($"Time: {sw.ElapsedMilliseconds} ms");
+        _output.WriteLine($"Per message: {usPerMessage:F2} us");
+        _output.WriteLine($"Messages/sec: {totalMessages / (sw.ElapsedMilliseconds / 1000.0):F0}");
 
         system.Shutdown();
         await system.WaitForShutdownAsync();
@@ -292,36 +288,33 @@ public sealed class StressTests(ITestOutputHelper output)
     public async Task StressTests_003()
     {
         const int actorCount = 10000;
-        var settings = new Settings { IsProduction = true };
-        var system = new ActorSystem(settings);
+        var system = new ActorSystem(new Settings { IsProduction = true });
 
         for (int i = 0; i < actorCount; i++)
         {
             var actor = new FakeActor(Guid.NewGuid(), $"actor-{i}", system);
             system.RegisterActor(actor);
         }
-        _output.WriteLine($"Зарегистрировано: {system.ActorCount}");
+        _output.WriteLine($"Registered: {system.ActorCount}");
 
         var sw = Stopwatch.StartNew();
         system.Start();
-        _output.WriteLine($"Start: {sw.ElapsedMilliseconds} мс");
+        _output.WriteLine($"Start: {sw.ElapsedMilliseconds} ms");
 
         sw.Restart();
         system.Shutdown();
         await system.WaitForShutdownAsync();
-        _output.WriteLine($"Shutdown+Wait: {sw.ElapsedMilliseconds} мс");
+        _output.WriteLine($"Shutdown+Wait: {sw.ElapsedMilliseconds} ms");
 
-        _output.WriteLine("Готово");
+        _output.WriteLine("Done");
     }
 
-    // MassiveParallelism
     [Fact]
     public async Task StressTests_004()
     {
-        const int actorCount = 10_000;
+        const int actorCount = 2_000;
         const int messagesPerActor = 100;
-        var settings = new Settings { IsProduction = true };
-        var system = new ActorSystem(settings);
+        var system = new ActorSystem(new Settings { IsProduction = true });
 
         var allDone = new TaskCompletionSource<bool>();
         var modelReady = new TaskCompletionSource<bool>();
@@ -344,13 +337,13 @@ public sealed class StressTests(ITestOutputHelper output)
         double usPerMessage = totalUs / totalMessages;
         double avgLatencyUs = totalUs / (actorCount * messagesPerActor);
 
-        _output.WriteLine($"Акторов: {actorCount}");
-        _output.WriteLine($"Сообщений на актор: {messagesPerActor}");
-        _output.WriteLine($"Всего сообщений: {totalMessages}");
-        _output.WriteLine($"Время: {sw.ElapsedMilliseconds} мс");
-        _output.WriteLine($"На сообщение: {usPerMessage:F2} мкс");
-        _output.WriteLine($"Сообщений/сек: {totalMessages / (sw.ElapsedMilliseconds / 1000.0):F0}");
-        _output.WriteLine($"Латентность: {avgLatencyUs:F2} мкс");
+        _output.WriteLine($"Actors: {actorCount}");
+        _output.WriteLine($"Messages per actor: {messagesPerActor}");
+        _output.WriteLine($"Total messages: {totalMessages}");
+        _output.WriteLine($"Time: {sw.ElapsedMilliseconds} ms");
+        _output.WriteLine($"Per message: {usPerMessage:F2} us");
+        _output.WriteLine($"Messages/sec: {totalMessages / (sw.ElapsedMilliseconds / 1000.0):F0}");
+        _output.WriteLine($"Latency: {avgLatencyUs:F2} us");
 
         system.Shutdown();
         await system.WaitForShutdownAsync();

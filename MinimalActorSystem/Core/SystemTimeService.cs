@@ -16,11 +16,13 @@ public sealed class SystemTimeService : ITimeService
     {
         _system = system;
         _uid = system.Uids.TimeService;
+        _system.Trace("SystemTimeService created");
         _ = RunAsync(_system.CancellationToken);
     }
 
     public void Register(DateTime deadline, TimeoutCallback callback)
     {
+        _system.Trace($"Register timeout: actor={_system.GetActorName(callback.ActorUid)} callbackId={callback.CallbackId} deadline={deadline:HH:mm:ss.fff}");
         _pending.Enqueue(new RegisterOp(deadline, callback));
     }
 
@@ -31,11 +33,13 @@ public sealed class SystemTimeService : ITimeService
 
     public void Unregister(TimeoutCallback callback)
     {
+        _system.Trace($"Unregister timeout: actor={_system.GetActorName(callback.ActorUid)} callbackId={callback.CallbackId}");
         _pending.Enqueue(new UnregisterOp(callback));
     }
 
     private async Task RunAsync(CancellationToken ct)
     {
+        _system.Trace("loop started");
         while (!ct.IsCancellationRequested)
         {
             ApplyPendingOps();
@@ -49,6 +53,7 @@ public sealed class SystemTimeService : ITimeService
                 if (_timers.TryGetValue(entry.Key, out var timer) && timer.Deadline <= now)
                 {
                     _timers.Remove(entry.Key);
+                    _system.Trace($"Timeout fired: actor={_system.GetActorName(timer.Callback.ActorUid)} callbackId={timer.Callback.CallbackId}");
                     var letter = new TimeServiceLetter(_uid, timer.Callback.ActorUid, timer.Callback);
                     _system.Send(letter);
                 }
@@ -60,9 +65,11 @@ public sealed class SystemTimeService : ITimeService
             }
             catch (OperationCanceledException)
             {
+                _system.Trace("loop cancelled");
                 return;
             }
         }
+        _system.Trace("loop finished");
     }
 
     private void ApplyPendingOps()
@@ -77,6 +84,7 @@ public sealed class SystemTimeService : ITimeService
 
                         if (_timers.TryGetValue(key, out var old))
                         {
+                            _system.Trace($"Replacing timer: actor={_system.GetActorName(reg.Callback.ActorUid)} callbackId={reg.Callback.CallbackId}");
                             _expiryIndex.Remove(new ExpiryEntry(old.Deadline, key));
                         }
 
@@ -107,15 +115,15 @@ public sealed class SystemTimeService : ITimeService
         {
             if (other is null)
                 return 1;
-            
+
             int cmp = Deadline.CompareTo(other.Deadline);
             if (cmp != 0)
                 return cmp;
-            
+
             cmp = Key.ActorUid.CompareTo(other.Key.ActorUid);
             if (cmp != 0)
                 return cmp;
-            
+
             return Key.CallbackId.CompareTo(other.Key.CallbackId);
         }
     }

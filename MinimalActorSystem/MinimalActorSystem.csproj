@@ -29,7 +29,6 @@
 
 	<ItemGroup>
 	  <Folder Include="SystemActors\" />
-	  <Folder Include="Testing\" />
 	</ItemGroup>
 	
 </Project>

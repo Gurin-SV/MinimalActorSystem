@@ -1,11 +1,13 @@
 ﻿namespace MinimalActorSystem.Tests.Core;
 
-public sealed class ActorSystemTests
+public sealed class ActorSystemTests(ITestOutputHelper output)
 {
+    private readonly ITestOutputHelper _output = output;
+
     private sealed class FakeActor(Guid uid, string name, IActorSystem system)
         : Actor(uid, name, system)
     {
-        protected override Task OnLetter(Letter letter) => Task.CompletedTask;
+        protected override ValueTask OnLetter(Letter letter) => default;
     }
 
     private sealed class TestLetter(Guid sender, Guid receiver) : Letter(sender, receiver) { }
@@ -20,11 +22,11 @@ public sealed class ActorSystemTests
         private readonly List<Letter> _received = received;
         private readonly TaskCompletionSource<bool>? _tcs = tcs;
 
-        protected override Task OnLetter(Letter letter)
+        protected override ValueTask OnLetter(Letter letter)
         {
             _received.Add(letter);
             _tcs?.TrySetResult(true);
-            return Task.CompletedTask;
+            return default;
         }
     }
 
@@ -32,12 +34,12 @@ public sealed class ActorSystemTests
         TaskCompletionSource<bool> shutdownTcs)
         : Actor(uid, name, system)
     {
-        protected override Task OnLetter(Letter letter) => Task.CompletedTask;
+        protected override ValueTask OnLetter(Letter letter) => default;
 
-        protected override Task OnShutdown()
+        protected override ValueTask OnShutdown()
         {
             shutdownTcs.TrySetResult(true);
-            return Task.CompletedTask;
+            return default;
         }
     }
 
@@ -57,26 +59,23 @@ public sealed class ActorSystemTests
             }
         }
 
-        protected override Task OnModelLetter(Letter letter) => Task.CompletedTask;
+        protected override ValueTask OnModelLetter(Letter letter) => default;
     }
 
-    // Проверка: конструктор устанавливает Settings, Uids
     [Fact]
     public void ActorSystemTests_001()
     {
         var settings = new Settings();
-
-        var system = new ActorSystem(settings);
+        var system = SystemFactory.CreateSystem(_output, settings);
 
         Assert.Same(settings, system.Settings);
         Assert.NotNull(system.Uids);
     }
 
-    // Проверка: RegisterActor увеличивает ActorCount
     [Fact]
     public void ActorSystemTests_002()
     {
-        var system = new ActorSystem(new Settings());
+        var system = SystemFactory.CreateSystem(_output);
         var actor = new FakeActor(Guid.NewGuid(), "test", system);
 
         system.RegisterActor(actor);
@@ -84,11 +83,10 @@ public sealed class ActorSystemTests
         Assert.Equal(1, system.ActorCount);
     }
 
-    // Проверка: WaitForShutdownAsync завершается при опустошении реестра
     [Fact]
     public async Task ActorSystemTests_003()
     {
-        var system = new ActorSystem(new Settings());
+        var system = SystemFactory.CreateSystem(_output);
         var actor = new FakeActor(Guid.NewGuid(), "test", system);
         system.RegisterActor(actor);
 
@@ -97,11 +95,10 @@ public sealed class ActorSystemTests
         await system.WaitForShutdownAsync();
     }
 
-    // Проверка: Send доставляет письмо в очередь (асинхронный режим)
     [Fact]
     public async Task ActorSystemTests_004()
     {
-        var system = new ActorSystem(new Settings());
+        var system = SystemFactory.CreateSystem(_output);
         var received = new List<Letter>();
         var tcs = new TaskCompletionSource<bool>();
         var actor = new TestActor(Guid.NewGuid(), "test", system, received, tcs);
@@ -119,21 +116,19 @@ public sealed class ActorSystemTests
         await system.WaitForShutdownAsync();
     }
 
-    // Проверка: Send не падает, если получатель не найден
     [Fact]
     public void ActorSystemTests_005()
     {
-        var system = new ActorSystem(new Settings());
+        var system = SystemFactory.CreateSystem(_output);
 
         system.Send(new TestLetter(system.Uids.System, Guid.NewGuid()));
     }
 
-    // Проверка: Send в синхронном режиме обрабатывает письмо сразу
     [Fact]
     public void ActorSystemTests_006()
     {
         var settings = new Settings { SynchronousProcessing = true };
-        var system = new ActorSystem(settings);
+        var system = SystemFactory.CreateSystem(_output, settings);
         var received = new List<Letter>();
         var actor = new TestActor(Guid.NewGuid(), "test", system, received);
         system.RegisterActor(actor);
@@ -146,23 +141,22 @@ public sealed class ActorSystemTests
         Assert.Same(letter, received[0]);
     }
 
-    // Проверка: Start запускает циклы акторов — ModelActor создаёт прикладных
     [Fact]
     public void ActorSystemTests_007()
     {
-        var system = new ActorSystem(new Settings());
+        var system = SystemFactory.CreateSystem(_output);
         var modelActor = new TestModelActor(system.Uids.Model, "model", system);
 
         system.Start();
 
         Assert.True(modelActor.BuildModelCalled);
-        Assert.Equal(2, system.ActorCount); // сам ModelActor + 1 прикладной из BuildModel
+        Assert.Equal(2, system.ActorCount);
     }
 
     [Fact]
     public async Task ActorSystemTests_008()
     {
-        var system = new ActorSystem(new Settings());
+        var system = SystemFactory.CreateSystem(_output);
         var shutdownTcs = new TaskCompletionSource<bool>();
         var actor = new TestActorWithShutdown(Guid.NewGuid(), "test", system, shutdownTcs);
         system.RegisterActor(actor);
@@ -177,7 +171,7 @@ public sealed class ActorSystemTests
     [Fact]
     public async Task ActorSystemTests_009()
     {
-        var system = new ActorSystem(new Settings());
+        var system = SystemFactory.CreateSystem(_output);
         var shutdownTcs = new TaskCompletionSource<bool>();
         var actor = new TestActorWithShutdown(Guid.NewGuid(), "test", system, shutdownTcs);
         system.RegisterActor(actor);

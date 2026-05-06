@@ -2,8 +2,9 @@
 
 namespace MinimalActorSystem;
 
-internal sealed class ActorRegistry
+internal sealed class ActorRegistry(IActorSystem actorSystem)
 {
+    private readonly IActorSystem _actorSystem = actorSystem;
     private readonly ConcurrentDictionary<Guid, Actor> _actors = [];
     private TaskCompletionSource<bool>? _emptyTcs;
 
@@ -19,6 +20,7 @@ internal sealed class ActorRegistry
         _actors.TryRemove(uid, out _);
         if (_actors.Count == 0)
         {
+            _actorSystem.Trace("Registry empty");
             _emptyTcs?.TrySetResult(true);
         }
     }
@@ -30,7 +32,15 @@ internal sealed class ActorRegistry
 
     public string GetName(Guid uid)
     {
-        return _actors.TryGetValue(uid, out var actor) ? actor.Name : uid.ToString();
+        if (_actors.TryGetValue(uid, out var actor))
+            return actor.Name;
+        if (uid == _actorSystem.Uids.System)
+            return "System";
+        if (uid == _actorSystem.Uids.TimeService)
+            return "TimeService";
+        if (uid == _actorSystem.Uids.Model)
+            return "Model";
+        return uid.ToString();
     }
 
     public List<Actor> GetAll()

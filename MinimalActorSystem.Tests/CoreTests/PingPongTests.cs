@@ -1,6 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
-
-namespace MinimalActorSystem.Tests.Core;
+﻿namespace MinimalActorSystem.Tests.Core;
 
 public sealed class PingPongTests(ITestOutputHelper output)
 {
@@ -19,7 +17,7 @@ public sealed class PingPongTests(ITestOutputHelper output)
     private sealed class PingActor(Guid uid, string name, IActorSystem system,
         TaskCompletionSource<bool> done) : Actor(uid, name, system)
     {
-        protected override Task OnLetter(Letter letter)
+        protected override ValueTask OnLetter(Letter letter)
         {
             switch (letter)
             {
@@ -30,18 +28,18 @@ public sealed class PingPongTests(ITestOutputHelper output)
                     done.TrySetResult(true);
                     break;
             }
-            return Task.CompletedTask;
+            return default;
         }
     }
 
     private sealed class PongActor(Guid uid, string name, IActorSystem system)
         : Actor(uid, name, system)
     {
-        protected override Task OnLetter(Letter letter)
+        protected override ValueTask OnLetter(Letter letter)
         {
             if (letter is PingLetter ping)
                 System.Send(new PongLetter(Uid, ping.Sender));
-            return Task.CompletedTask;
+            return default;
         }
     }
 
@@ -66,7 +64,7 @@ public sealed class PingPongTests(ITestOutputHelper output)
             modelReady.TrySetResult(true);
         }
 
-        protected override Task OnModelLetter(Letter letter) => Task.CompletedTask;
+        protected override ValueTask OnModelLetter(Letter letter) => default;
 
         public void StartPing()
         {
@@ -78,9 +76,7 @@ public sealed class PingPongTests(ITestOutputHelper output)
     [Fact]
     public async Task PingPongTests_001()
     {
-        var settings = new Settings { IsProduction = true };
-        var system = new ActorSystem(settings);
-        system.SetLogger(new TestOutputLogger(_output));
+        var system = SystemFactory.CreateSystem(_output);
 
         var done = new TaskCompletionSource<bool>();
         var modelReady = new TaskCompletionSource<bool>();
@@ -94,7 +90,36 @@ public sealed class PingPongTests(ITestOutputHelper output)
         var timeout = Task.Delay(TimeSpan.FromSeconds(1));
         var completed = await Task.WhenAny(done.Task, timeout);
         if (completed == timeout)
-            Assert.Fail("Таймаут ожидания Pong");
+            Assert.Fail("Timeout waiting for Pong");
+
+        system.Shutdown();
+        await system.WaitForShutdownAsync();
+
+        Assert.False(system.IsPanic);
+    }
+
+    [Fact]
+    public async Task PingPongTests_002_Debug()
+    {
+        var settings = new Settings
+        {
+            IsProduction = false,
+            SynchronousProcessing = true
+        };
+        var system = SystemFactory.CreateSystem(_output, settings);
+
+        var done = new TaskCompletionSource<bool>();
+        var modelReady = new TaskCompletionSource<bool>();
+
+        var model = new PingPongModelActor(system.Uids.Model, "pingpong-model", system, done, modelReady);
+
+        system.Start();
+
+        Assert.True(modelReady.Task.IsCompleted, "Model should be ready");
+
+        model.StartPing();
+
+        Assert.True(done.Task.IsCompleted, "Pong should be received");
 
         system.Shutdown();
         await system.WaitForShutdownAsync();

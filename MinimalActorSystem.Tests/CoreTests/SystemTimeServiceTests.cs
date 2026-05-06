@@ -1,7 +1,9 @@
 ﻿namespace MinimalActorSystem.Tests.Core;
 
-public sealed class SystemTimeServiceTests
+public sealed class SystemTimeServiceTests(ITestOutputHelper output)
 {
+    private readonly ITestOutputHelper _output = output;
+
     private sealed class TestActor(
         Guid uid,
         string name,
@@ -12,19 +14,18 @@ public sealed class SystemTimeServiceTests
         private readonly List<Letter> _received = received;
         private readonly TaskCompletionSource<bool>? _tcs = tcs;
 
-        protected override Task OnLetter(Letter letter)
+        protected override ValueTask OnLetter(Letter letter)
         {
             _received.Add(letter);
             _tcs?.TrySetResult(true);
-            return Task.CompletedTask;
+            return default;
         }
     }
 
-    // Проверка: UtcNow возвращает текущее время
     [Fact]
     public void SystemTimeServiceTests_001()
     {
-        var system = new ActorSystem(new Settings());
+        var system = SystemFactory.CreateSystem(_output);
         var timeService = new SystemTimeService(system);
         system.SetTimeService(timeService);
         var before = DateTime.UtcNow;
@@ -35,11 +36,10 @@ public sealed class SystemTimeServiceTests
         Assert.InRange(now, before, after);
     }
 
-    // Проверка: Register с TimeSpan не бросает исключений
     [Fact]
     public void SystemTimeServiceTests_002()
     {
-        var system = new ActorSystem(new Settings());
+        var system = SystemFactory.CreateSystem(_output);
         var timeService = new SystemTimeService(system);
         system.SetTimeService(timeService);
         var callback = new TimeoutCallback(Guid.NewGuid(), 1, () => { });
@@ -47,11 +47,10 @@ public sealed class SystemTimeServiceTests
         timeService.Register(TimeSpan.FromSeconds(5), callback);
     }
 
-    // Проверка: по истечении дедлайна отправляется TimeServiceLetter
     [Fact]
     public async Task SystemTimeServiceTests_003()
     {
-        var system = new ActorSystem(new Settings());
+        var system = SystemFactory.CreateSystem(_output);
         var timeService = new SystemTimeService(system);
         system.SetTimeService(timeService);
         var received = new List<Letter>();
@@ -68,11 +67,10 @@ public sealed class SystemTimeServiceTests
         Assert.Contains(received, l => l is TimeServiceLetter);
     }
 
-    // Проверка: Unregister предотвращает отправку TimeServiceLetter
     [Fact]
     public async Task SystemTimeServiceTests_004()
     {
-        var system = new ActorSystem(new Settings());
+        var system = SystemFactory.CreateSystem(_output);
         var timeService = new SystemTimeService(system);
         system.SetTimeService(timeService);
         var received = new List<Letter>();
@@ -86,15 +84,14 @@ public sealed class SystemTimeServiceTests
         timeService.Register(TimeSpan.FromMilliseconds(100), callback);
         timeService.Unregister(callback);
 
-        await Task.Delay(1);
+        await Task.Delay(200);
         Assert.DoesNotContain(received, l => l is TimeServiceLetter);
     }
 
-    // Проверка: повторный Register заменяет старый дедлайн
     [Fact]
     public async Task SystemTimeServiceTests_005()
     {
-        var system = new ActorSystem(new Settings());
+        var system = SystemFactory.CreateSystem(_output);
         var timeService = new SystemTimeService(system);
         system.SetTimeService(timeService);
         var received = new List<Letter>();

@@ -11,3 +11,5 @@ public sealed class TimeServiceLetter(Guid sender, Guid receiver, TimeoutCallbac
 {
     public TimeoutCallback Callback { get; } = callback;
 }
+
+public sealed class ShutdownLetter(Guid sender, Guid receiver) : Letter(sender, receiver);
