@@ -1,19 +1,20 @@
 ﻿namespace MinimalActorSystem.CompiledModels;
 
 /// <summary>
-/// Правило разбора XML-элемента. Определяет, какие атрибуты считать свойствами
-/// и какие из них обязательны для заполнения.
+/// Правило разбора XML-элемента. Определяет, какие атрибуты считать свойствами,
+/// какие из них обязательны, и какие вложенные элементы являются группирующими.
 /// Атрибуты <c>Uid</c> и <c>Source</c> обрабатываются компилятором автоматически.
 /// </summary>
 public class ElementRule
 {
     /// <summary>
-    /// Правило по умолчанию: все атрибуты считаются свойствами, обязательных нет.
+    /// Правило по умолчанию: все атрибуты считаются свойствами, обязательных и группирующих элементов нет.
     /// </summary>
     public static readonly ElementRule Default = new();
 
     private readonly HashSet<string> _properties = [];
     private readonly HashSet<string> _required = [];
+    private readonly HashSet<string> _groupElements = [];
 
     /// <summary>
     /// Регистрирует атрибут как свойство элемента.
@@ -60,6 +61,26 @@ public class ElementRule
     }
 
     /// <summary>
+    /// Регистрирует вложенный элемент как группирующий (маркер).
+    /// Сам элемент в модель не попадает, его дети разбираются рекурсивно.
+    /// </summary>
+    public ElementRule WithGroupElement(string name)
+    {
+        _groupElements.Add(name);
+        return this;
+    }
+
+    /// <summary>
+    /// Регистрирует несколько вложенных элементов как группирующие.
+    /// </summary>
+    public ElementRule WithGroupElements(params string[] names)
+    {
+        foreach (var name in names)
+            _groupElements.Add(name);
+        return this;
+    }
+
+    /// <summary>
     /// Является ли атрибут свойством.
     /// Если свойства не указаны явно — все атрибуты считаются свойствами.
     /// </summary>
@@ -71,6 +92,12 @@ public class ElementRule
     /// </summary>
     public bool IsRequired(string name)
         => _required.Contains(name);
+
+    /// <summary>
+    /// Является ли вложенный элемент группирующим.
+    /// </summary>
+    public bool IsGroupElement(string name)
+        => _groupElements.Contains(name);
 
     /// <summary>
     /// Возвращает список имён обязательных свойств.

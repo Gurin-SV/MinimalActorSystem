@@ -3,9 +3,8 @@
 namespace MinimalActorSystem.CompiledModels;
 
 /// <summary>
-/// Результат компиляции XML-описания модели в плоский граф элементов.
-/// Собирается компилятором через <see cref="Add"/>, после чего отдаётся как готовый неизменяемый результат.
-/// Каждый элемент уникален по Uid. Связи источник-потребитель выводятся из <see cref="ElementConfig.SourceUid"/>.
+/// Результат компиляции XML-описания модели в плоский набор элементов.
+/// Связи между элементами устанавливаются прикладным кодом на основе атрибутов.
 /// </summary>
 public class CompiledModel
 {
@@ -24,7 +23,6 @@ public class CompiledModel
     /// <summary>
     /// Добавляет элемент в модель. Если элемент с таким Uid уже существует, он заменяется.
     /// </summary>
-    /// <param name="element">Конфигурация элемента.</param>
     public void Add(ElementConfig element)
     {
         _elements[element.Uid] = element;
@@ -33,21 +31,16 @@ public class CompiledModel
     /// <summary>
     /// Находит элемент по идентификатору.
     /// </summary>
-    /// <param name="uid">Идентификатор элемента.</param>
-    /// <returns>Найденный элемент или <c>null</c>.</returns>
     public ElementConfig? FindElement(Guid uid)
     {
         return _elements.TryGetValue(uid, out var element) ? element : null;
     }
 
     /// <summary>
-    /// Находит все элементы, для которых указанный Uid является источником.
-    /// Соответствует направлению потока данных: источник → потребители.
+    /// Находит все элементы указанного типа.
     /// </summary>
-    /// <param name="sourceUid">Идентификатор элемента-источника.</param>
-    /// <returns>Список элементов-потребителей (может быть пустым).</returns>
-    public IReadOnlyList<ElementConfig> GetConsumersOf(Guid sourceUid)
+    public IReadOnlyList<ElementConfig> FindByType(string elementType)
     {
-        return [.. _elements.Values.Where(e => e.SourceUid == sourceUid)];
+        return [.. _elements.Values.Where(e => e.ElementType == elementType)];
     }
 }

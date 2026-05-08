@@ -1,42 +1,107 @@
 ﻿using FluentAssertions;
 using MinimalActorSystem.CompiledModels;
 
-namespace MinimalActorSystem.Tests.CompiledModel;
+namespace MinimalActorSystem.Tests.CompiledModels;
 
 public class CompiledModelTests(ITestOutputHelper output)
 {
     private readonly ITestOutputHelper _output = output;
 
+    private enum TestMode
+    {
+        Slow,
+        Fast
+    }
+
+    private class TestSensorActor(IActorSystem system, Guid uid, string name) : Actor(system, uid, name)
+    {
+        protected override ValueTask OnLetter(Letter letter) => default;
+    }
+
+    private class TestStorage
+    {
+        public string Path { get; set; } = "";
+    }
+
+    private class TestCompiledModelActor : CompiledModelActor
+    {
+        private readonly string _xml;
+        private readonly TaskCompletionSource<bool> _buildCompleted = new();
+
+        public Task BuildCompleted => _buildCompleted.Task;
+
+        public TestCompiledModelActor(IActorSystem system, string xml) : base(system)
+        {
+            _xml = xml;
+        }
+
+        public new bool HasObject(Guid uid) => base.HasObject(uid);
+        public new T GetObject<T>(Guid uid) where T : class => base.GetObject<T>(uid);
+
+        protected override CompiledModel CompileModel()
+        {
+            var compiler = new XmlModelCompiler();
+            return compiler.Compile(_xml);
+        }
+
+        protected override object CreateObject(ElementConfig element)
+        {
+            return element.ElementType switch
+            {
+                "Sensor" => new TestSensorActor(System, element.Uid, element.TryGetString("Name", out var n) ? n : ""),
+                "Storage" => new TestStorage { Path = element.TryGetString("Path", out var p) ? p : "" },
+                _ => throw new ArgumentException($"Unknown type: {element.ElementType}")
+            };
+        }
+
+        protected override ValueTask OnModelLetter(Letter letter)
+        {
+            if (letter is BuildCompletedLetter)
+            {
+                _buildCompleted.TrySetResult(true);
+            }
+            return default;
+        }
+    }
+
+    private sealed class BuildCompletedLetter(Guid sender, Guid receiver) : Letter(sender, receiver);
+
     /// <summary>
     /// Проверяет, что иерархический XML разворачивается в плоский словарь,
-    /// содержащий все элементы независимо от уровня вложенности.
+    /// группирующие элементы пропускаются, элементы без Uid исключаются.
     /// </summary>
     [Fact]
     public void CompiledModelTest001()
     {
         const string xml = @"
-            <Root>
-                <Sensor Uid=""00000000-0000-0000-0000-000000000001"" Name=""Датчик"">
-                    <PollInterval>1000</PollInterval>
-                </Sensor>
-                <Aggregator Uid=""00000000-0000-0000-0000-000000000002"" Name=""Агрегатор"" Method=""Avg"">
-                    <Source>
-                        <SensorRef SensorUid=""00000000-0000-0000-0000-000000000001"" />
-                    </Source>
-                </Aggregator>
-            </Root>";
+        <Root>
+            <Sensor Uid=""00000000-0000-0000-0000-000000000001"" Name=""Датчик"">
+                <PollInterval>1000</PollInterval>
+            </Sensor>
+            <Aggregator Uid=""00000000-0000-0000-0000-000000000002"" Name=""Агрегатор"" Method=""Avg"">
+                <Source>
+                    <SensorRef Uid=""00000000-0000-0000-0000-000000000003"" SensorUid=""00000000-0000-0000-0000-000000000001"" />
+                </Source>
+            </Aggregator>
+        </Root>";
 
-        var compiler = new XmlModelCompiler();
+        var compiler = new XmlModelCompiler()
+            .AddRule("Aggregator", new ElementRule()
+                .WithGroupElement("Source"));
+
         var model = compiler.Compile(xml);
 
-        // Должны быть: Sensor, PollInterval, Aggregator, Source, SensorRef
-        model.Count.Should().Be(5);
-        model.Uids.Should().HaveCount(5);
+        // Sensor, Aggregator, SensorRef (Source пропущен, PollInterval без Uid пропущен)
+        model.Count.Should().Be(3);
+        model.Uids.Should().HaveCount(3);
+        model.FindElement(Guid.Parse("00000000-0000-0000-0000-000000000001")).Should().NotBeNull();
+        model.FindElement(Guid.Parse("00000000-0000-0000-0000-000000000002")).Should().NotBeNull();
+        model.FindElement(Guid.Parse("00000000-0000-0000-0000-000000000003")).Should().NotBeNull();
     }
 
     /// <summary>
-    /// Проверяет, что текстовое содержимое элемента сохраняется как свойство
-    /// с ключом, равным имени элемента.
+    /// Проверяет, что вложенный элемент без атрибутов, содержащий только текст,
+    /// сохраняется как свойство родителя.
     /// </summary>
     [Fact]
     public void CompiledModelTest002()
@@ -51,13 +116,13 @@ public class CompiledModelTests(ITestOutputHelper output)
         var compiler = new XmlModelCompiler();
         var model = compiler.Compile(xml);
 
-        var pollInterval = model.Uids
-            .Select(uid => model.FindElement(uid))
-            .First(e => e!.ElementType == "PollInterval");
+        model.Count.Should().Be(1);
 
-        pollInterval.Should().NotBeNull();
-        pollInterval!.Properties.Should().ContainKey("PollInterval");
-        pollInterval.Properties["PollInterval"].Should().Be("1000");
+        var sensor = model.FindElement(Guid.Parse("00000000-0000-0000-0000-000000000001"));
+        sensor.Should().NotBeNull();
+        sensor!.HasProperty("PollInterval").Should().BeTrue();
+        sensor.TryGetString("PollInterval", out var value).Should().BeTrue();
+        value.Should().Be("1000");
     }
 
     /// <summary>
@@ -77,14 +142,18 @@ public class CompiledModelTests(ITestOutputHelper output)
 
         var config = model.FindElement(Guid.Parse("00000000-0000-0000-0000-000000000001"));
         config.Should().NotBeNull();
-        config!.Properties.Should().Contain("Host", "localhost");
-        config.Properties.Should().Contain("Port", "8080");
-        config.Properties.Should().Contain("Timeout", "30");
+        config!.HasProperty("Host").Should().BeTrue();
+        config.TryGetString("Host", out var host).Should().BeTrue();
+        host.Should().Be("localhost");
+        config.TryGetString("Port", out var port).Should().BeTrue();
+        port.Should().Be("8080");
+        config.TryGetString("Timeout", out var timeout).Should().BeTrue();
+        timeout.Should().Be("30");
     }
 
     /// <summary>
-    /// Проверяет, что атрибут Uid элемента распознаётся и используется как идентификатор.
-    /// Если Uid не указан, компилятор генерирует новый Guid.
+    /// Проверяет, что элемент с атрибутом Uid добавляется в модель,
+    /// а элемент без Uid пропускается с предупреждением.
     /// </summary>
     [Fact]
     public void CompiledModelTest004()
@@ -98,21 +167,19 @@ public class CompiledModelTests(ITestOutputHelper output)
         var compiler = new XmlModelCompiler();
         var model = compiler.Compile(xml);
 
+        model.Count.Should().Be(1);
         var withUid = model.FindElement(Guid.Parse("00000000-0000-0000-0000-000000000001"));
         withUid.Should().NotBeNull();
-        withUid!.Properties["Name"].Should().Be("Явный");
+        withUid!.TryGetString("Name", out var name).Should().BeTrue();
+        name.Should().Be("Явный");
 
-        var withoutUid = model.Uids
-            .Select(uid => model.FindElement(uid))
-            .First(e => e!.Properties["Name"] == "Авто");
-
-        withoutUid.Should().NotBeNull();
-        withoutUid!.Uid.Should().NotBe(Guid.Empty);
+        compiler.Warnings.Should().HaveCount(1);
+        compiler.Warnings[0].Should().Contain("missing Uid attribute");
     }
 
     /// <summary>
     /// Проверяет, что один и тот же элемент (по Uid) добавляется в модель только один раз,
-    /// даже если встречается в XML многократно.
+    /// даже если встречается в XML многократно. Группирующие элементы в модель не попадают.
     /// </summary>
     [Fact]
     public void CompiledModelTest005()
@@ -127,21 +194,54 @@ public class CompiledModelTests(ITestOutputHelper output)
             </Consumer>
         </Root>";
 
-        var compiler = new XmlModelCompiler();
+        var compiler = new XmlModelCompiler()
+            .AddRule("Consumer", new ElementRule()
+                .WithGroupElement("Source"));
+
         var model = compiler.Compile(xml);
 
-        // Shared должен быть только один
+        // Shared и Consumer — по одному разу
+        model.Count.Should().Be(2);
         var sharedCount = model.Uids.Count(uid => uid == Guid.Parse("00000000-0000-0000-0000-000000000001"));
         sharedCount.Should().Be(1);
-        model.Count.Should().Be(3); // Shared, Consumer, Source
+        model.FindElement(Guid.Parse("00000000-0000-0000-0000-000000000002")).Should().NotBeNull();
     }
 
     /// <summary>
-    /// Проверяет, что связь источник-потребитель устанавливается через атрибут Source.
-    /// Aggregator.Source = Sensor.Uid означает, что Sensor является источником для Aggregator.
+    /// Проверяет, что атрибут Source сохраняется как обычное свойство элемента.
+    /// Построение связей по значению Source — задача прикладного кода.
     /// </summary>
     [Fact]
     public void CompiledModelTest006()
+    {
+        const string xml = @"
+        <Root>
+            <Aggregator Uid=""00000000-0000-0000-0000-000000000001"" Source=""00000000-0000-0000-0000-000000000002"" />
+            <Sensor Uid=""00000000-0000-0000-0000-000000000002"" Name=""Датчик"" />
+        </Root>";
+
+        var compiler = new XmlModelCompiler();
+        var model = compiler.Compile(xml);
+
+        model.Count.Should().Be(2);
+
+        var aggregator = model.FindElement(Guid.Parse("00000000-0000-0000-0000-000000000001"));
+        aggregator.Should().NotBeNull();
+        aggregator!.TryGetString("Source", out var source).Should().BeTrue();
+        source.Should().Be("00000000-0000-0000-0000-000000000002");
+
+        var sensor = model.FindElement(Guid.Parse("00000000-0000-0000-0000-000000000002"));
+        sensor.Should().NotBeNull();
+        sensor!.TryGetString("Name", out var name).Should().BeTrue();
+        name.Should().Be("Датчик");
+    }
+
+    /// <summary>
+    /// Проверяет, что элементы могут быть вложены друг в друга,
+    /// все атрибуты сохраняются как свойства, вложенность не влияет на связи.
+    /// </summary>
+    [Fact]
+    public void CompiledModelTest007()
     {
         const string xml = @"
         <Root>
@@ -153,22 +253,168 @@ public class CompiledModelTests(ITestOutputHelper output)
         var compiler = new XmlModelCompiler();
         var model = compiler.Compile(xml);
 
-        foreach (var uid in model.Uids)
-        {
-            var e = model.FindElement(uid);
-            _output.WriteLine($"Uid={e!.Uid}, Type={e.ElementType}, SourceUid={e.SourceUid}");
-        }
-
-        var aggregator = model.FindElement(Guid.Parse("00000000-0000-0000-0000-000000000001"));
-        aggregator.Should().NotBeNull();
-        aggregator!.SourceUid.Should().Be(Guid.Parse("00000000-0000-0000-0000-000000000002"));
+        model.Count.Should().Be(2);
 
         var sensor = model.FindElement(Guid.Parse("00000000-0000-0000-0000-000000000002"));
         sensor.Should().NotBeNull();
-        sensor!.SourceUid.Should().BeNull();
+        sensor!.TryGetString("Name", out var name).Should().BeTrue();
+        name.Should().Be("Датчик");
 
-        var consumers = model.GetConsumersOf(Guid.Parse("00000000-0000-0000-0000-000000000002"));
-        consumers.Should().HaveCount(1);
-        consumers[0].Uid.Should().Be(Guid.Parse("00000000-0000-0000-0000-000000000001"));
+        var aggregator = model.FindElement(Guid.Parse("00000000-0000-0000-0000-000000000001"));
+        aggregator.Should().NotBeNull();
+        aggregator!.TryGetString("Source", out var source).Should().BeTrue();
+        source.Should().Be("00000000-0000-0000-0000-000000000002");
+    }
+
+    /// <summary>
+    /// Проверяет, что элемент без атрибута Uid пропускается с предупреждением,
+    /// а остальные элементы модели создаются нормально.
+    /// </summary>
+    [Fact]
+    public void CompiledModelTest008()
+    {
+        const string xml = @"
+            <Root>
+                <Sensor Name=""Без Uid"" />
+                <Sensor Uid=""00000000-0000-0000-0000-000000000001"" Name=""С Uid"" />
+            </Root>";
+
+        var compiler = new XmlModelCompiler();
+        var model = compiler.Compile(xml);
+
+        model.Count.Should().Be(1);
+        model.FindElement(Guid.Parse("00000000-0000-0000-0000-000000000001")).Should().NotBeNull();
+
+        compiler.Warnings.Should().HaveCount(1);
+        compiler.Warnings[0].Should().Contain("missing Uid attribute");
+    }
+
+    /// <summary>
+    /// Проверяет, что вложенный элемент без атрибутов и с текстом сохраняется как свойство родителя.
+    /// Элемент с атрибутами — полноценный элемент, обязан иметь Uid.
+    /// </summary>
+    [Fact]
+    public void CompiledModelTest009()
+    {
+        const string xml = @"
+        <Root>
+            <Config Uid=""00000000-0000-0000-0000-000000000001"">
+                <Host>localhost</Host>
+                <Port>8080</Port>
+                <Database Uid=""00000000-0000-0000-0000-000000000002"" Name=""MainDB"" />
+            </Config>
+        </Root>";
+
+        var compiler = new XmlModelCompiler();
+        var model = compiler.Compile(xml);
+
+        model.Count.Should().Be(2);
+
+        var config = model.FindElement(Guid.Parse("00000000-0000-0000-0000-000000000001"));
+        config.Should().NotBeNull();
+        config!.TryGetString("Host", out var host).Should().BeTrue();
+        host.Should().Be("localhost");
+        config.TryGetString("Port", out var port).Should().BeTrue();
+        port.Should().Be("8080");
+
+        var database = model.FindElement(Guid.Parse("00000000-0000-0000-0000-000000000002"));
+        database.Should().NotBeNull();
+        database!.TryGetString("Name", out var name).Should().BeTrue();
+        name.Should().Be("MainDB");
+    }
+
+    /// <summary>
+    /// Проверяет типизированное чтение свойств: string, int, long, double, bool, Guid, enum.
+    /// Включая разные форматы чисел: десятичный, шестнадцатеричный, двоичный, восьмеричный.
+    /// </summary>
+    [Fact]
+    public void CompiledModelTest010()
+    {
+        const string xml = @"<?xml version=""1.0"" encoding=""utf-8""?>
+        <Root>
+            <TypedConfig Uid=""00000000-0000-0000-0000-000000000001""
+                Name=""Тест""
+                MaxCount=""100""
+                HexCount=""0xFF""
+                BinCount=""0b1010""
+                OctCount=""0o77""
+                Total=""9999999999""
+                HexTotal=""0xFFFFFFFF""
+                Factor=""3.14""
+                Enabled=""true""
+                Disabled=""false""
+                SourceId=""00000000-0000-0000-0000-000000000002""
+                Mode=""Fast"" />
+        </Root>";
+
+        var compiler = new XmlModelCompiler();
+        var model = compiler.Compile(xml);
+
+        var config = model.FindElement(Guid.Parse("00000000-0000-0000-0000-000000000001"));
+        config.Should().NotBeNull();
+
+        config!.TryGetString("Name", out var name).Should().BeTrue();
+        name.Should().Be("Тест");
+
+        config.TryGetInt32("MaxCount", out var maxCount).Should().BeTrue();
+        maxCount.Should().Be(100);
+
+        config.TryGetInt32("HexCount", out var hexCount).Should().BeTrue();
+        hexCount.Should().Be(255);
+
+        config.TryGetInt32("BinCount", out var binCount).Should().BeTrue();
+        binCount.Should().Be(10);
+
+        config.TryGetInt32("OctCount", out var octCount).Should().BeTrue();
+        octCount.Should().Be(63);
+
+        config.TryGetInt64("Total", out var total).Should().BeTrue();
+        total.Should().Be(9999999999L);
+
+        config.TryGetInt64("HexTotal", out var hexTotal).Should().BeTrue();
+        hexTotal.Should().Be(0xFFFFFFFFL);
+
+        config.TryGetDouble("Factor", out var factor).Should().BeTrue();
+        factor.Should().BeApproximately(3.14, 0.001);
+
+        config.TryGetBoolean("Enabled", out var enabled).Should().BeTrue();
+        enabled.Should().BeTrue();
+
+        config.TryGetBoolean("Disabled", out var disabled).Should().BeTrue();
+        disabled.Should().BeFalse();
+
+        config.TryGetGuid("SourceId", out var sourceId).Should().BeTrue();
+        sourceId.Should().Be(Guid.Parse("00000000-0000-0000-0000-000000000002"));
+
+        config.TryGetEnum<TestMode>("Mode", out var mode).Should().BeTrue();
+        mode.Should().Be(TestMode.Fast);
+    }
+
+    [Fact]
+    public async Task CompiledModelTest011()
+    {
+        const string xml = @"
+        <Root>
+            <Sensor Uid=""00000000-0000-0000-0000-000000000011"" Name=""Датчик"" />
+            <Storage Uid=""00000000-0000-0000-0000-000000000012"" Path=""/data"" />
+        </Root>";
+
+        var settings = new Settings { IsProduction = false, SynchronousProcessing = true };
+        var system = new ActorSystem(settings);
+        var modelActor = new TestCompiledModelActor(system, xml);
+        system.RegisterActor(modelActor);
+
+        system.Send(new InitializeLetter(SystemUids.System, SystemUids.Model));
+        system.Send(new BuildCompletedLetter(SystemUids.System, SystemUids.Model));
+        await modelActor.BuildCompleted.WaitAsync(TimeSpan.FromSeconds(5));
+
+        system.ActorCount.Should().Be(2);
+
+        system.FindActor(Guid.Parse("00000000-0000-0000-0000-000000000011")).Should().NotBeNull();
+        system.FindActor(Guid.Parse("00000000-0000-0000-0000-000000000012")).Should().BeNull();
+
+        modelActor.HasObject(Guid.Parse("00000000-0000-0000-0000-000000000012")).Should().BeTrue();
+        var storage = modelActor.GetObject<TestStorage>(Guid.Parse("00000000-0000-0000-0000-000000000012"));
+        storage.Path.Should().Be("/data");
     }
 }

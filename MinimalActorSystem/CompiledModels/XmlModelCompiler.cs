@@ -1,22 +1,40 @@
 ﻿using System.IO;
+using System.Linq;
 using System.Xml;
 
 namespace MinimalActorSystem.CompiledModels;
 
 /// <summary>
 /// Конфигурируемый XML-компилятор модели.
-/// Разбирает плоский XML в граф <see cref="CompiledModel"/>.
-/// Связи источник-потребитель задаются явным атрибутом <c>Source</c> на элементе-потребителе.
-/// Правила разбора свойств задаются через <see cref="AddRule"/>.
+/// Разбирает XML в плоский набор <see cref="ElementConfig"/>.
+/// Обязательный атрибут — Uid (или uid, Id, id). Элементы без Uid пропускаются с предупреждением.
+/// Группирующие элементы пропускаются, их дети разбираются рекурсивно.
+/// Вложенные элементы без атрибутов, содержащие только текст, сохраняются как свойства родителя.
 /// </summary>
-public class XmlModelCompiler
+/// <remarks>
+/// Создаёт компилятор с именем атрибута идентификатора по умолчанию "Uid".
+/// </remarks>
+public class XmlModelCompiler(string uidAttributeName = "Uid")
 {
     private readonly Dictionary<string, ElementRule> _rules = [];
+    private readonly List<string> _warnings = [];
+    private readonly List<string> _errors = [];
+    private readonly string _uidAttributeName = uidAttributeName;
+
+    /// <summary>
+    /// Предупреждения, собранные в процессе компиляции.
+    /// </summary>
+    public IReadOnlyList<string> Warnings => _warnings;
+
+    /// <summary>
+    /// Ошибки, собранные в процессе компиляции.
+    /// </summary>
+    public IReadOnlyList<string> Errors => _errors;
 
     /// <summary>
     /// Добавляет правило разбора для элементов с указанным именем.
     /// </summary>
-    /// <param name="elementName">Имя XML-элемента (например "AggregatedAnalogValue").</param>
+    /// <param name="elementName">Имя XML-элемента.</param>
     /// <param name="rule">Правило разбора. Если не указано, используется <see cref="ElementRule.Default"/>.</param>
     public XmlModelCompiler AddRule(string elementName, ElementRule? rule = null)
     {
@@ -28,10 +46,12 @@ public class XmlModelCompiler
     /// Компилирует XML-строку в модель.
     /// </summary>
     /// <param name="xml">XML-описание модели.</param>
-    /// <returns>Скомпилированная модель с плоским графом элементов.</returns>
-    /// <exception cref="InvalidOperationException">Отсутствует обязательное свойство.</exception>
+    /// <returns>Скомпилированная модель.</returns>
     public CompiledModel Compile(string xml)
     {
+        _warnings.Clear();
+        _errors.Clear();
+
         using var stringReader = new StringReader(xml);
         using var xmlReader = XmlReader.Create(stringReader);
         var model = new CompiledModel();
@@ -58,43 +78,51 @@ public class XmlModelCompiler
         return model;
     }
 
-    private ElementConfig CompileElement(XmlReader reader, CompiledModel model)
+    private void CompileElement(XmlReader reader, CompiledModel model)
     {
         var elementName = reader.Name;
         var rule = _rules.TryGetValue(elementName, out var r) ? r : ElementRule.Default;
 
         var uid = ReadUid(reader);
+        if (uid == null)
+        {
+            _warnings.Add($"Element '{elementName}': missing Uid attribute. Element skipped.");
+            SkipElement(reader);
+            return;
+        }
+
         var element = new ElementConfig
         {
-            Uid = uid,
-            ElementType = elementName,
-            SourceUid = ReadSourceUid(reader)
+            Uid = uid.Value,
+            ElementType = elementName
         };
 
         while (reader.MoveToNextAttribute())
         {
             if (rule.IsProperty(reader.Name))
             {
-                element.Properties[reader.Name] = reader.Value;
+                element.AddProperty(reader.Name, reader.Value);
             }
         }
         reader.MoveToElement();
 
-        // Проверяем обязательные свойства
-        foreach (var required in rule.GetRequired())
+        var missingRequired = rule.GetRequired()
+            .Where(req => !element.HasProperty(req))
+            .ToList();
+
+        if (missingRequired.Count > 0)
         {
-            if (!element.Properties.ContainsKey(required))
-            {
-                throw new InvalidOperationException(
-                    $"Element '{elementName}' (Uid={uid}): required property '{required}' is missing.");
-            }
+            _warnings.Add(
+                $"Element '{elementName}' (Uid={uid}): missing required properties: {string.Join(", ", missingRequired)}. Element skipped.");
+            SkipElement(reader);
+            return;
         }
 
         if (reader.IsEmptyElement)
         {
             reader.ReadStartElement();
             model.Add(element);
-            return element;
+            return;
         }
 
         reader.ReadStartElement();
@@ -109,13 +137,24 @@ public class XmlModelCompiler
                     var text = reader.ReadContentAsString().Trim();
                     if (!string.IsNullOrEmpty(text))
                     {
-                        element.Properties[elementName] = text;
+                        element.AddProperty(elementName, text);
                     }
                     break;
 
                 case XmlNodeType.Element:
-                    // Вложенные элементы разбираются рекурсивно как отдельные элементы
-                    CompileElement(reader, model);
+                    if (rule.IsGroupElement(reader.Name))
+                    {
+                        CompileGroupElement(reader, model);
+                    }
+                    else if (IsTextProperty(reader))
+                    {
+                        var prop = ReadTextProperty(reader);
+                        element.AddProperty(prop.Name, prop.Text);
+                    }
+                    else
+                    {
+                        CompileElement(reader, model);
+                    }
                     break;
 
                 default:
@@ -126,22 +165,64 @@ public class XmlModelCompiler
 
         reader.ReadEndElement();
         model.Add(element);
-        return element;
     }
 
-    private static Guid ReadUid(XmlReader reader)
+    private void CompileGroupElement(XmlReader reader, CompiledModel model)
     {
-        var uidAttr = reader.GetAttribute("Uid");
-        return !string.IsNullOrEmpty(uidAttr) && Guid.TryParse(uidAttr, out var uid)
-            ? uid
-            : Guid.NewGuid();
+        if (reader.IsEmptyElement)
+        {
+            reader.ReadStartElement();
+            return;
+        }
+
+        reader.ReadStartElement();
+
+        while (reader.NodeType != XmlNodeType.EndElement)
+        {
+            if (reader.NodeType == XmlNodeType.Element)
+            {
+                CompileElement(reader, model);
+            }
+            else
+            {
+                reader.Skip();
+            }
+        }
+
+        reader.ReadEndElement();
     }
 
-    private static Guid? ReadSourceUid(XmlReader reader)
+    private static bool IsTextProperty(XmlReader reader)
     {
-        var sourceAttr = reader.GetAttribute("Source");
-        return !string.IsNullOrEmpty(sourceAttr) && Guid.TryParse(sourceAttr, out var sourceUid)
-            ? sourceUid
-            : null;
+        return reader.AttributeCount == 0 && !reader.IsEmptyElement;
+    }
+
+    private static (string Name, string Text) ReadTextProperty(XmlReader reader)
+    {
+        var name = reader.Name;
+        reader.ReadStartElement();
+        var text = reader.ReadContentAsString().Trim();
+        reader.ReadEndElement();
+        return (name, text);
+    }
+
+    private Guid? ReadUid(XmlReader reader)
+    {
+        var uidAttr = reader.GetAttribute(_uidAttributeName);
+        return !string.IsNullOrEmpty(uidAttr) && Guid.TryParse(uidAttr, out var uid) ? uid : null;
+    }
+
+    private static void SkipElement(XmlReader reader)
+    {
+        if (reader.IsEmptyElement)
+        {
+            reader.ReadStartElement();
+        }
+        else
+        {
+            reader.ReadStartElement();
+            reader.Skip();
+            reader.ReadEndElement();
+        }
     }
 }
