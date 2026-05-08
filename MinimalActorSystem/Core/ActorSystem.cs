@@ -2,32 +2,15 @@
 
 namespace MinimalActorSystem;
 
-public interface IActorSystem
-{
-    Settings Settings { get; }
-    ILogger Logger { get; }
-    ITimeService TimeService { get; }
-    CancellationToken CancellationToken { get; }
-    SystemUids Uids { get; }
-    bool IsPanic { get; }
-
-    void SetLogger(ILogger logger);
-    void SetTimeService(ITimeService timeService);
-    void RegisterActor(Actor actor);
-    void UnregisterActor(Guid uid);
-    void Send(Letter letter);
-    void Start();
-    void Shutdown();
-    void Panic();
-    Task WaitForShutdownAsync();
-    string GetActorName(Guid uid);
-    List<Actor> GetAllActors();
-    Actor? FindActor(Guid uid);
-    void Trace(string message);
-}
-
+/// <summary>
+/// Реализация акторной системы. Управляет реестром акторов, маршрутизацией писем,
+/// жизненным циклом и предоставляет доступ к инфраструктурным сервисам (логгер, время, настройки).
+/// </summary>
 public sealed class ActorSystem : IActorSystem
 {
+    /// <summary>
+    /// Пустая реализация <see cref="ILogger"/>, используемая по умолчанию. Все вызовы игнорируются.
+    /// </summary>
     private sealed class NullLogger : ILogger
     {
         public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
@@ -37,6 +20,10 @@ public sealed class ActorSystem : IActorSystem
         { }
     }
 
+    /// <summary>
+    /// Пустая реализация <see cref="ITimeService"/>, используемая по умолчанию.
+    /// Предоставляет реальное время через <see cref="DateTime.UtcNow"/>, но не обрабатывает таймауты.
+    /// </summary>
     private sealed class NullTimeService : ITimeService
     {
         public DateTime UtcNow => DateTime.UtcNow;
@@ -48,91 +35,94 @@ public sealed class ActorSystem : IActorSystem
     private readonly CancellationTokenSource _cts;
     private readonly ActorRegistry _registry;
     private volatile bool _isPanic;
-    private volatile bool _started;
 
-    public SystemUids Uids { get; }
-    public ILogger Logger { get; private set; }
-    public ITimeService TimeService { get; private set; }
+    /// <inheritdoc/>
     public Settings Settings { get; }
+
+    /// <inheritdoc/>
+    public ILogger Logger { get; set; }
+
+    /// <inheritdoc/>
+    public ITimeService TimeService { get; set; }
+
+    /// <inheritdoc/>
     public CancellationToken CancellationToken { get; }
+
+    /// <inheritdoc/>
+    public int ActorCount => _registry.Count;
+
+    /// <inheritdoc/>
     public bool IsPanic => _isPanic;
 
-    internal int ActorCount => _registry.Count;
-
+    /// <summary>
+    /// Создаёт экземпляр акторной системы с указанными настройками.
+    /// Инициализирует реестр акторов, пустые реализации логгера и сервиса времени.
+    /// </summary>
+    /// <param name="settings">Настройки системы. Иммутабельны после создания.</param>
     public ActorSystem(Settings settings)
     {
         Settings = settings;
         _cts = new();
         CancellationToken = _cts.Token;
         _registry = new(this);
-        Uids = new();
         Logger = new NullLogger();
         TimeService = new NullTimeService();
     }
 
-    public void SetLogger(ILogger logger)
-    {
-        Logger = logger;
-    }
-
-    public void SetTimeService(ITimeService timeService)
-    {
-        TimeService = timeService;
-    }
-
-    void IActorSystem.Trace(string message)
-    {
-        Logger.Log(LogLevel.Trace, "{Message}", message);
-    }
-
-    [Conditional("TRACE_ACTORS")]
-    private void Trace(string message)
-    {
-        Logger.Log(LogLevel.Trace, "{Message}", message);
-    }
-
+    /// <inheritdoc/>
     public void RegisterActor(Actor actor)
     {
         Trace(actor.Name);
         _registry.Add(actor);
-        if (_started)
-            _ = actor.RunAsync(CancellationToken);
+        _ = actor.RunAsync(CancellationToken);
     }
 
+    /// <inheritdoc/>
     public void UnregisterActor(Guid uid)
     {
         Trace(GetActorName(uid));
         _registry.Remove(uid);
     }
 
-    public void Send(Letter letter)
+    /// <inheritdoc/>
+    public bool Send(Letter letter)
     {
-        Trace($"Send {letter.GetType().Name} from {GetActorName(letter.Sender)} to {GetActorName(letter.Receiver)}");
-        if (_registry.TryGet(letter.Receiver, out var actor))
+        if (!_registry.TryGet(letter.Receiver, out var actor))
         {
-            if (Settings.SynchronousProcessing)
-                actor.HandleSynchronously(letter);
-            else
-                actor.TryEnqueue(letter);
+            Logger.LogWarning("Send failed: actor {ActorName} not found for letter {LetterType} from {SenderName}",
+                GetActorName(letter.Receiver), letter.GetType().Name, GetActorName(letter.Sender));
+            return false;
         }
+
+        bool delivered;
+        if (Settings.SynchronousProcessing)
+        {
+            actor.HandleSynchronously(letter);
+            delivered = true;
+        }
+        else
+        {
+            delivered = actor.TryEnqueue(letter);
+        }
+
+        if (!delivered)
+        {
+            Logger.LogWarning("Send failed: queue full for actor {ActorName}, letter {LetterType} from {SenderName}",
+                GetActorName(letter.Receiver), letter.GetType().Name, GetActorName(letter.Sender));
+        }
+
+        Trace($"Send {letter.GetType().Name} from {GetActorName(letter.Sender)} to {GetActorName(letter.Receiver)}: {(delivered ? "delivered" : "DROPPED")}");
+        return delivered;
     }
 
-    public void Start()
-    {
-        Trace("Start");
-        _started = true;
-        foreach (var actor in _registry.GetAll())
-        {
-            _ = actor.RunAsync(CancellationToken);
-        }
-    }
-
+    /// <inheritdoc/>
     public void Shutdown()
     {
         Trace("Shutdown");
         _cts.Cancel();
     }
 
+    /// <inheritdoc/>
     public void Panic()
     {
         Trace("Panic");
@@ -140,26 +130,49 @@ public sealed class ActorSystem : IActorSystem
         _cts.Cancel();
     }
 
+    /// <inheritdoc/>
     public Task WaitForShutdownAsync()
     {
         Trace("WaitForShutdownAsync");
         return _registry.WaitForEmptyAsync();
     }
 
+    /// <inheritdoc/>
     public string GetActorName(Guid uid)
     {
         return _registry.GetName(uid);
     }
 
+    /// <inheritdoc/>
     public List<Actor> GetAllActors()
     {
         return _registry.GetAll();
     }
 
+    /// <inheritdoc/>
     public Actor? FindActor(Guid uid)
     {
         if (_registry.TryGet(uid, out var actor))
             return actor;
         return null;
+    }
+
+    /// <summary>
+    /// Явная реализация <see cref="IActorSystem.Trace"/> для диагностического логирования.
+    /// </summary>
+    /// <param name="message">Диагностическое сообщение.</param>
+    void IActorSystem.Trace(string message)
+    {
+        Logger.Log(LogLevel.Trace, "{Message}", message);
+    }
+
+    /// <summary>
+    /// Внутренний метод диагностического логирования. Активен только при определении символа <c>TRACE_ACTORS</c>.
+    /// </summary>
+    /// <param name="message">Диагностическое сообщение.</param>
+    [Conditional("TRACE_ACTORS")]
+    private void Trace(string message)
+    {
+        Logger.Log(LogLevel.Trace, "{Message}", message);
     }
 }

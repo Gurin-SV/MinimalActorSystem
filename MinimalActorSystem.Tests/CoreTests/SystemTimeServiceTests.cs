@@ -4,12 +4,9 @@ public sealed class SystemTimeServiceTests(ITestOutputHelper output)
 {
     private readonly ITestOutputHelper _output = output;
 
-    private sealed class TestActor(
-        Guid uid,
-        string name,
-        IActorSystem system,
-        List<Letter> received,
-        TaskCompletionSource<bool>? tcs = null) : Actor(uid, name, system)
+    private sealed class TestActor(IActorSystem system, Guid uid, string name,
+        List<Letter> received, TaskCompletionSource<bool>? tcs = null)
+        : Actor(system, uid, name)
     {
         private readonly List<Letter> _received = received;
         private readonly TaskCompletionSource<bool>? _tcs = tcs;
@@ -27,7 +24,7 @@ public sealed class SystemTimeServiceTests(ITestOutputHelper output)
     {
         var system = SystemFactory.CreateSystem(_output);
         var timeService = new SystemTimeService(system);
-        system.SetTimeService(timeService);
+        system.TimeService = timeService;
         var before = DateTime.UtcNow;
 
         var now = timeService.UtcNow;
@@ -41,7 +38,7 @@ public sealed class SystemTimeServiceTests(ITestOutputHelper output)
     {
         var system = SystemFactory.CreateSystem(_output);
         var timeService = new SystemTimeService(system);
-        system.SetTimeService(timeService);
+        system.TimeService = timeService;
         var callback = new TimeoutCallback(Guid.NewGuid(), 1, () => { });
 
         timeService.Register(TimeSpan.FromSeconds(5), callback);
@@ -52,16 +49,15 @@ public sealed class SystemTimeServiceTests(ITestOutputHelper output)
     {
         var system = SystemFactory.CreateSystem(_output);
         var timeService = new SystemTimeService(system);
-        system.SetTimeService(timeService);
+        system.TimeService = timeService;
         var received = new List<Letter>();
         var tcs = new TaskCompletionSource<bool>();
         var receiverUid = Guid.NewGuid();
-        var actor = new TestActor(receiverUid, "receiver", system, received, tcs);
+        var actor = new TestActor(system, receiverUid, "receiver", received, tcs);
         system.RegisterActor(actor);
-        system.Start();
 
         var callback = new TimeoutCallback(receiverUid, 1, () => { });
-        timeService.Register(TimeSpan.FromMilliseconds(50), callback);
+        timeService.Register(TimeSpan.FromMilliseconds(20), callback);
 
         await tcs.Task.WaitAsync(TimeSpan.FromSeconds(2));
         Assert.Contains(received, l => l is TimeServiceLetter);
@@ -72,19 +68,18 @@ public sealed class SystemTimeServiceTests(ITestOutputHelper output)
     {
         var system = SystemFactory.CreateSystem(_output);
         var timeService = new SystemTimeService(system);
-        system.SetTimeService(timeService);
+        system.TimeService = timeService;
         var received = new List<Letter>();
         var tcs = new TaskCompletionSource<bool>();
         var receiverUid = Guid.NewGuid();
-        var actor = new TestActor(receiverUid, "receiver", system, received, tcs);
+        var actor = new TestActor(system, receiverUid, "receiver", received, tcs);
         system.RegisterActor(actor);
-        system.Start();
 
         var callback = new TimeoutCallback(receiverUid, 1, () => { });
         timeService.Register(TimeSpan.FromMilliseconds(100), callback);
         timeService.Unregister(callback);
 
-        await Task.Delay(200);
+        await Task.Delay(1);
         Assert.DoesNotContain(received, l => l is TimeServiceLetter);
     }
 
@@ -93,13 +88,12 @@ public sealed class SystemTimeServiceTests(ITestOutputHelper output)
     {
         var system = SystemFactory.CreateSystem(_output);
         var timeService = new SystemTimeService(system);
-        system.SetTimeService(timeService);
+        system.TimeService = timeService;
         var received = new List<Letter>();
         var tcs = new TaskCompletionSource<bool>();
         var receiverUid = Guid.NewGuid();
-        var actor = new TestActor(receiverUid, "receiver", system, received, tcs);
+        var actor = new TestActor(system, receiverUid, "receiver", received, tcs);
         system.RegisterActor(actor);
-        system.Start();
 
         var callback = new TimeoutCallback(receiverUid, 1, () => { });
         timeService.Register(TimeSpan.FromSeconds(10), callback);

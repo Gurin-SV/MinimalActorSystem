@@ -6,14 +6,14 @@ public sealed class ActorTests(ITestOutputHelper output)
 
     private sealed class TestLetter(Guid sender, Guid receiver) : Letter(sender, receiver);
 
-    private sealed class FakeActor(Guid uid, string name, IActorSystem system)
-        : Actor(uid, name, system)
+    private sealed class FakeActor(IActorSystem system, Guid uid, string name)
+        : Actor(system, uid, name)
     {
         protected override ValueTask OnLetter(Letter letter) => default;
     }
 
-    private sealed class TestActor(Guid uid, string name, IActorSystem system, List<Letter> received)
-        : Actor(uid, name, system)
+    private sealed class TestActor(IActorSystem system, Guid uid, string name, List<Letter> received)
+        : Actor(system, uid, name)
     {
         protected override ValueTask OnLetter(Letter letter)
         {
@@ -22,8 +22,8 @@ public sealed class ActorTests(ITestOutputHelper output)
         }
     }
 
-    private sealed class TestActorWithShutdown(Guid uid, string name, IActorSystem system)
-        : Actor(uid, name, system)
+    private sealed class TestActorWithShutdown(IActorSystem system, Guid uid, string name)
+        : Actor(system, uid, name)
     {
         public bool ShutdownCalled { get; private set; }
 
@@ -36,8 +36,8 @@ public sealed class ActorTests(ITestOutputHelper output)
         }
     }
 
-    private sealed class ThrowingActor(Guid uid, string name, IActorSystem system)
-        : Actor(uid, name, system)
+    private sealed class ThrowingActor(IActorSystem system, Guid uid, string name)
+        : Actor(system, uid, name)
     {
         protected override ValueTask OnLetter(Letter letter)
             => throw new InvalidOperationException("test error");
@@ -49,7 +49,7 @@ public sealed class ActorTests(ITestOutputHelper output)
         var uid = Guid.NewGuid();
         var system = SystemFactory.CreateSystem(_output);
 
-        var actor = new FakeActor(uid, "test-actor", system);
+        var actor = new FakeActor(system, uid, "test-actor");
 
         Assert.Equal(uid, actor.Uid);
         Assert.Equal("test-actor", actor.Name);
@@ -60,7 +60,7 @@ public sealed class ActorTests(ITestOutputHelper output)
     public void ActorTests_002()
     {
         var system = SystemFactory.CreateSystem(_output);
-        var actor = new FakeActor(Guid.NewGuid(), "test", system);
+        var actor = new FakeActor(system, Guid.NewGuid(), "test");
         var letter = new TestLetter(Guid.NewGuid(), actor.Uid);
 
         var result = actor.TryEnqueue(letter);
@@ -73,7 +73,7 @@ public sealed class ActorTests(ITestOutputHelper output)
     {
         var system = SystemFactory.CreateSystem(_output);
         var received = new List<Letter>();
-        var actor = new TestActor(Guid.NewGuid(), "test", system, received);
+        var actor = new TestActor(system, Guid.NewGuid(), "test", received);
         var letter = new TestLetter(Guid.NewGuid(), actor.Uid);
 
         actor.TryEnqueue(letter);
@@ -92,7 +92,7 @@ public sealed class ActorTests(ITestOutputHelper output)
     public async Task ActorTests_004()
     {
         var system = SystemFactory.CreateSystem(_output);
-        var actor = new FakeActor(Guid.NewGuid(), "test", system);
+        var actor = new FakeActor(system, Guid.NewGuid(), "test");
         var cts = new CancellationTokenSource();
 
         cts.Cancel();
@@ -103,7 +103,7 @@ public sealed class ActorTests(ITestOutputHelper output)
     public async Task ActorTests_005()
     {
         var system = SystemFactory.CreateSystem(_output);
-        var actor = new TestActorWithShutdown(Guid.NewGuid(), "test", system);
+        var actor = new TestActorWithShutdown(system, Guid.NewGuid(), "test");
         system.RegisterActor(actor);
 
         var cts = new CancellationTokenSource();
@@ -119,7 +119,7 @@ public sealed class ActorTests(ITestOutputHelper output)
     {
         var system = SystemFactory.CreateSystem(_output);
         var received = new List<Letter>();
-        var actor = new TestActor(Guid.NewGuid(), "test", system, received);
+        var actor = new TestActor(system, Guid.NewGuid(), "test", received);
         var letter = new TestLetter(Guid.NewGuid(), actor.Uid);
 
         actor.HandleSynchronously(letter);

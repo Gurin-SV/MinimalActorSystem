@@ -4,20 +4,20 @@ public sealed class ActorSystemTests(ITestOutputHelper output)
 {
     private readonly ITestOutputHelper _output = output;
 
-    private sealed class FakeActor(Guid uid, string name, IActorSystem system)
-        : Actor(uid, name, system)
+    private sealed class FakeActor(IActorSystem system, Guid uid, string name)
+        : Actor(system, uid, name)
     {
         protected override ValueTask OnLetter(Letter letter) => default;
     }
 
-    private sealed class TestLetter(Guid sender, Guid receiver) : Letter(sender, receiver) { }
+    private sealed class TestLetter(Guid sender, Guid receiver)
+        : Letter(sender, receiver)
+    {
+    }
 
-    private sealed class TestActor(
-        Guid uid,
-        string name,
-        IActorSystem system,
-        List<Letter> received,
-        TaskCompletionSource<bool>? tcs = null) : Actor(uid, name, system)
+    private sealed class TestActor(IActorSystem system, Guid uid, string name,  List<Letter> received,
+        TaskCompletionSource<bool>? tcs = null)
+        : Actor(system, uid, name)
     {
         private readonly List<Letter> _received = received;
         private readonly TaskCompletionSource<bool>? _tcs = tcs;
@@ -30,9 +30,9 @@ public sealed class ActorSystemTests(ITestOutputHelper output)
         }
     }
 
-    private sealed class TestActorWithShutdown(Guid uid, string name, IActorSystem system,
+    private sealed class TestActorWithShutdown(IActorSystem system, Guid uid, string name, 
         TaskCompletionSource<bool> shutdownTcs)
-        : Actor(uid, name, system)
+        : Actor(system, uid, name)
     {
         protected override ValueTask OnLetter(Letter letter) => default;
 
@@ -43,23 +43,15 @@ public sealed class ActorSystemTests(ITestOutputHelper output)
         }
     }
 
-    private sealed class TestModelActor(Guid uid, string name, IActorSystem system, bool callBuildModel = true)
-    : ModelActor(uid, name, system)
+    private sealed class TestModelActor(IActorSystem system, TaskCompletionSource<bool> modelReady)
+        : ModelActor(system)
     {
-        public bool BuildModelCalled { get; private set; }
-
-        protected override void BuildModel()
+        protected override void OnBuildModel()
         {
-            BuildModelCalled = true;
-            if (callBuildModel)
-            {
-                var child = new FakeActor(Guid.NewGuid(), "child", System);
-                Create(child);
-                ReleaseAll();
-            }
+            Create(new FakeActor(System, Guid.NewGuid(), "child1"));
+            Create(new FakeActor(System, Guid.NewGuid(), "child2"));
+            modelReady.TrySetResult(true);
         }
-
-        protected override ValueTask OnModelLetter(Letter letter) => default;
     }
 
     [Fact]
@@ -69,16 +61,13 @@ public sealed class ActorSystemTests(ITestOutputHelper output)
         var system = SystemFactory.CreateSystem(_output, settings);
 
         Assert.Same(settings, system.Settings);
-        Assert.NotNull(system.Uids);
     }
 
     [Fact]
     public void ActorSystemTests_002()
     {
         var system = SystemFactory.CreateSystem(_output);
-        var actor = new FakeActor(Guid.NewGuid(), "test", system);
-
-        system.RegisterActor(actor);
+        system.RegisterActor(new FakeActor(system, Guid.NewGuid(), "test"));
 
         Assert.Equal(1, system.ActorCount);
     }
@@ -87,12 +76,12 @@ public sealed class ActorSystemTests(ITestOutputHelper output)
     public async Task ActorSystemTests_003()
     {
         var system = SystemFactory.CreateSystem(_output);
-        var actor = new FakeActor(Guid.NewGuid(), "test", system);
-        system.RegisterActor(actor);
-
-        system.UnregisterActor(actor.Uid);
-
+        Guid uid = Guid.NewGuid();
+        system.RegisterActor(new FakeActor(system, uid, "test"));
+        system.UnregisterActor(uid);
         await system.WaitForShutdownAsync();
+
+        Assert.Equal(0, system.ActorCount);
     }
 
     [Fact]
@@ -101,10 +90,9 @@ public sealed class ActorSystemTests(ITestOutputHelper output)
         var system = SystemFactory.CreateSystem(_output);
         var received = new List<Letter>();
         var tcs = new TaskCompletionSource<bool>();
-        var actor = new TestActor(Guid.NewGuid(), "test", system, received, tcs);
+        var actor = new TestActor(system, Guid.NewGuid(), "test", received, tcs);
         system.RegisterActor(actor);
-        system.Start();
-        var letter = new TestLetter(system.Uids.System, actor.Uid);
+        var letter = new TestLetter(SystemUids.System, actor.Uid);
 
         system.Send(letter);
 
@@ -121,7 +109,7 @@ public sealed class ActorSystemTests(ITestOutputHelper output)
     {
         var system = SystemFactory.CreateSystem(_output);
 
-        system.Send(new TestLetter(system.Uids.System, Guid.NewGuid()));
+        system.Send(new TestLetter(SystemUids.System, Guid.NewGuid()));
     }
 
     [Fact]
@@ -130,10 +118,9 @@ public sealed class ActorSystemTests(ITestOutputHelper output)
         var settings = new Settings { SynchronousProcessing = true };
         var system = SystemFactory.CreateSystem(_output, settings);
         var received = new List<Letter>();
-        var actor = new TestActor(Guid.NewGuid(), "test", system, received);
+        var actor = new TestActor(system, Guid.NewGuid(), "test", received);
         system.RegisterActor(actor);
-        system.Start();
-        var letter = new TestLetter(system.Uids.System, actor.Uid);
+        var letter = new TestLetter(SystemUids.System, actor.Uid);
 
         system.Send(letter);
 
@@ -142,15 +129,16 @@ public sealed class ActorSystemTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public void ActorSystemTests_007()
+    public async Task ActorSystemTests_007()
     {
         var system = SystemFactory.CreateSystem(_output);
-        var modelActor = new TestModelActor(system.Uids.Model, "model", system);
+        var modelReady = new TaskCompletionSource<bool>();
+        var modelActor = new TestModelActor(system, modelReady);
+        system.RegisterActor(modelActor);
+        system.Send(new InitializeLetter(SystemUids.System, SystemUids.Model));
+        await modelReady.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
-        system.Start();
-
-        Assert.True(modelActor.BuildModelCalled);
-        Assert.Equal(2, system.ActorCount);
+        Assert.Equal(3, system.ActorCount);
     }
 
     [Fact]
@@ -158,9 +146,8 @@ public sealed class ActorSystemTests(ITestOutputHelper output)
     {
         var system = SystemFactory.CreateSystem(_output);
         var shutdownTcs = new TaskCompletionSource<bool>();
-        var actor = new TestActorWithShutdown(Guid.NewGuid(), "test", system, shutdownTcs);
+        var actor = new TestActorWithShutdown(system, Guid.NewGuid(), "test", shutdownTcs);
         system.RegisterActor(actor);
-        system.Start();
 
         system.Shutdown();
 
@@ -173,9 +160,8 @@ public sealed class ActorSystemTests(ITestOutputHelper output)
     {
         var system = SystemFactory.CreateSystem(_output);
         var shutdownTcs = new TaskCompletionSource<bool>();
-        var actor = new TestActorWithShutdown(Guid.NewGuid(), "test", system, shutdownTcs);
+        var actor = new TestActorWithShutdown(system, Guid.NewGuid(), "test", shutdownTcs);
         system.RegisterActor(actor);
-        system.Start();
 
         system.Panic();
 

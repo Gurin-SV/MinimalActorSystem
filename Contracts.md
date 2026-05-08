@@ -6,7 +6,6 @@
 
 ## 1. Письмо (Letter)
 
-```csharp
 public abstract class Letter
 {
     public Guid Sender { get; set; }
@@ -14,51 +13,49 @@ public abstract class Letter
 
     protected Letter(Guid sender, Guid receiver);
 }
-```
 
-Комментарий: поля мутабельны для случая, когда то же письмо служит ответом —
-отправитель меняет Sender/Receiver местами и отправляет обратно (п. 6 Манифеста: аккумулятор).
-Все наследники — sealed (п. 12).
+Комментарий: поля мутабельны для случая, когда то же письмо служит ответом — отправитель меняет Sender/Receiver местами и отправляет обратно (п. 6 Манифеста: аккумулятор). Все наследники — sealed (п. 12).
 
 ---
 
 ## 2. Системные письма
 
-```csharp
 public sealed class TimeServiceLetter : Letter
 {
     public TimeoutCallback Callback { get; }
 
     public TimeServiceLetter(Guid sender, Guid receiver, TimeoutCallback callback);
 }
-```
 
-Комментарий: TimeServiceLetter — уведомление о сработавшем таймауте (п. 23).
-Отправитель — SystemUids.TimeService.
+public sealed class ShutdownLetter : Letter
+{
+    public ShutdownLetter(Guid sender, Guid receiver);
+}
+
+public sealed class InitializeLetter : Letter
+{
+    public InitializeLetter(Guid sender, Guid receiver);
+}
+
+Комментарий: TimeServiceLetter — уведомление о сработавшем таймауте (п. 23). Отправитель — SystemUids.TimeService. ShutdownLetter — запрос на завершение конкретного актора. InitializeLetter — сигнал ModelActor на начало построения модели.
 
 ---
 
 ## 3. Идентификаторы системных акторов
 
-```csharp
-public sealed class SystemUids
+public static class SystemUids
 {
-    public Guid System { get; }
-    public Guid TimeService { get; }
-    public Guid Model { get; }
+    public static readonly Guid System;
+    public static readonly Guid TimeService;
+    public static readonly Guid Model;
 }
-```
 
-Комментарий: константные идентификаторы, доступные через экземпляр ActorSystem (п. 15).
-System — системный идентификатор.
-TimeService — отправитель TimeServiceLetter.
-Model — идентификатор ModelActor.
+Комментарий: статические константные идентификаторы с фиксированными значениями. Доступны напрямую через SystemUids.System и т.д. System — системный идентификатор. TimeService — отправитель TimeServiceLetter. Model — идентификатор ModelActor.
 
 ---
 
 ## 4. Таймаут и сервис времени
 
-```csharp
 public readonly struct TimeoutCallback : IEquatable<TimeoutCallback>
 {
     public Guid ActorUid { get; }
@@ -81,94 +78,63 @@ public interface ITimeService
     // Удаляет регистрацию коллбека. Если коллбек не найден — ничего не делает.
     void Unregister(TimeoutCallback callback);
 }
-```
 
-Комментарий: TimeoutCallback создаётся актором один раз в конструкторе.
-Один и тот же экземпляр может регистрироваться многократно с разными дедлайнами.
-CallbackId уникален в рамках одного актора, назначается актором.
-Ключ в таблице таймаутов — (ActorUid, CallbackId).
-Unregister удаляет запись полностью — и из таблицы, и из очереди ожидания.
-TimeServiceLetter доставляет коллбек актору-получателю; обработка состоит в вызове
-callback.Action().
+Комментарий: TimeoutCallback создаётся актором один раз в конструкторе. Один и тот же экземпляр может регистрироваться многократно с разными дедлайнами. CallbackId уникален в рамках одного актора, назначается актором. Ключ в таблице таймаутов — (ActorUid, CallbackId). Unregister удаляет запись полностью — и из таблицы, и из очереди ожидания. TimeServiceLetter доставляет коллбек актору-получателю; обработка состоит в вызове callback.Action().
 
 ---
 
 ## 5. Актор
 
-```csharp
 public abstract class Actor
 {
     public Guid Uid { get; }
     public string Name { get; }
     public IActorSystem System { get; }
+    public int QueueCapacity { get; }
 
-    protected Actor(Guid uid, string name, IActorSystem system, int queueCapacity);
-    protected Actor(Guid uid, string name, IActorSystem system);
+    protected Actor(IActorSystem system, Guid uid, string name, int queueCapacity = DefaultQueueCapacity);
 }
 
-// Внутренние члены (доступны только ActorSystem):
-internal bool TryEnqueue(Letter letter);
-internal async Task RunAsync(CancellationToken ct);
-internal void HandleSynchronously(Letter letter);
+Внутренние члены (доступны только ActorSystem):
+    internal bool TryEnqueue(Letter letter);
+    internal async Task RunAsync(CancellationToken ct);
+    internal void HandleSynchronously(Letter letter);
 
-// Защищённые члены (переопределяются наследниками):
-protected abstract Task OnLetter(Letter letter);
-protected virtual Task OnShutdown() => Task.CompletedTask;
-```
+Защищённые члены (переопределяются наследниками):
+    protected abstract ValueTask OnLetter(Letter letter);
+    protected virtual ValueTask OnShutdown();
 
-Комментарий: Uid — универсально уникальный идентификатор. Name — имя актора для
-диагностики. System — единственная ссылка на внешний мир, через неё доступны Logger,
-TimeService, Settings. Очередь писем встроена в актор (bounded, размер задаётся
-в конструкторе). При переполнении очереди письма молча отбрасываются.
+Комментарий: Uid — универсально уникальный идентификатор. Name — имя актора для диагностики. System — единственная ссылка на внешний мир, через неё доступны Logger, TimeService, Settings. Очередь писем встроена в актор (bounded, размер задаётся в конструкторе). При переполнении очереди письма молча отбрасываются.
 
-Цикл обработки (RunAsync) последовательно читает письма из очереди и вызывает OnLetter.
-При отмене CancellationToken вызывается OnShutdown, затем актор удаляет себя из реестра.
+Цикл обработки (RunAsync) последовательно читает письма из очереди и вызывает OnLetter. При отмене CancellationToken вызывается OnShutdown, затем актор удаляет себя из реестра.
 
-HandleSynchronously используется в отладочном режиме (Settings.SynchronousProcessing) —
-вызывает OnLetter непосредственно в потоке отправителя.
+HandleSynchronously используется в отладочном режиме (Settings.SynchronousProcessing) — вызывает OnLetter непосредственно в потоке отправителя.
 
 ---
 
-## 6. Системный актор
+## 6. Модельный актор (родитель прикладных акторов)
 
-```csharp
-public abstract class SystemActor : Actor
+public abstract class ModelActor : Actor
 {
-    protected SystemActor(Guid uid, string name, IActorSystem system);
-}
-```
+    protected ModelActor(IActorSystem system, int queueCapacity = 256);
 
-Комментарий: системные акторы имеют константные идентификаторы из SystemUids.
-Независимы от прикладной задачи. Регистрируют себя в конструкторе через
-system.RegisterActor(this). Могут отправлять письма только как ответ на входящее
-письмо.
-
----
-
-## 7. Модельный актор (родитель прикладных акторов)
-
-```csharp
-public abstract class ModelActor : SystemActor
-{
-    protected ModelActor(Guid uid, string name, IActorSystem system);
-    protected abstract void BuildModel();
-    protected abstract Task OnModelLetter(Letter letter);
+    // Запечатанный OnLetter — обрабатывает InitializeLetter, остальное делегирует
+    protected sealed override ValueTask OnLetter(Letter letter);
+    protected abstract void OnBuildModel();
+    protected virtual ValueTask OnModelLetter(Letter letter);
     protected Guid Create(Actor actor);
-    protected void ReleaseAll();
 }
-```
 
-Комментарий: ModelActor — промежуточное звено между системными и прикладными акторами
-(п. 15). Имеет константный Uid. В конструкторе отправляет себе InitializeModelLetter.
-При получении этого письма вызывает BuildModel, где создаёт все прикладные акторы
-через Create, затем активирует их через ReleaseAll. Порядок гарантирует: на момент
-отправки первого рабочего письма все акторы уже зарегистрированы в реестре.
+Комментарий: ModelActor — промежуточное звено между системными и прикладными акторами (п. 15). Имеет константный Uid (SystemUids.Model). OnLetter запечатан (sealed override): при получении InitializeLetter вызывает OnBuildModel, при ошибке логирует и вызывает System.Panic(). Все остальные письма делегируются в OnModelLetter.
+
+Create регистрирует дочернего актора в системе и немедленно запускает его RunAsync. Актор начинает обрабатывать сообщения сразу после регистрации.
+
+OnModelLetter по умолчанию игнорирует письмо (возвращает default). Наследник может переопределить для обработки пользовательских сообщений.
 
 ---
 
-## 8. Реестр акторов
+## 7. Реестр акторов
 
-```csharp
 internal sealed class ActorRegistry
 {
     public void Add(Actor actor);
@@ -179,112 +145,101 @@ internal sealed class ActorRegistry
     public List<Actor> GetAll();
     public Task WaitForEmptyAsync();
 }
-```
 
-Комментарий: внутренний класс, недоступный внешнему коду (п. 10). Единственное место
-в системе с прямыми ссылками на экземпляры Actor. Потокобезопасен.
-GetAll() возвращает снапшот. WaitForEmptyAsync завершается при опустошении реестра.
+Комментарий: внутренний класс, недоступный внешнему коду (п. 10). Единственное место в системе с прямыми ссылками на экземпляры Actor. Потокобезопасен. GetAll() возвращает снапшот. WaitForEmptyAsync завершается при опустошении реестра.
 
 ---
 
-## 9. Акторная система (интерфейс и реализация)
+## 8. Акторная система (интерфейс и реализация)
 
-```csharp
 public interface IActorSystem
 {
-    void Send(Letter letter);
     void RegisterActor(Actor actor);
     void UnregisterActor(Guid uid);
+    bool Send(Letter letter);
+    void Shutdown();
+    void Panic();
     Task WaitForShutdownAsync();
     CancellationToken CancellationToken { get; }
     bool IsPanic { get; }
-    SystemUids Uids { get; }
-    ILogger Logger { get; }
-    ITimeService TimeService { get; }
+    int ActorCount { get; }
+    ILogger Logger { get; set; }
+    ITimeService TimeService { get; set; }
     Settings Settings { get; }
+    string GetActorName(Guid uid);
+    List<Actor> GetAllActors();
+    Actor? FindActor(Guid uid);
+    void Trace(string message);
 }
 
 public sealed class ActorSystem : IActorSystem
 {
     public ActorSystem(Settings settings);
 
-    public SystemUids Uids { get; }
-    public ILogger Logger { get; private set; }
-    public ITimeService TimeService { get; private set; }
+    public ILogger Logger { get; set; }
+    public ITimeService TimeService { get; set; }
     public Settings Settings { get; }
     public CancellationToken CancellationToken { get; }
     public bool IsPanic { get; }
-
-    public void SetLogger(ILogger logger);
-    public void SetTimeService(ITimeService timeService);
+    public int ActorCount { get; }
 
     public void RegisterActor(Actor actor);
     public void UnregisterActor(Guid uid);
-    public void Send(Letter letter);
-    public void Start();
+    public bool Send(Letter letter);
     public void Shutdown();
     public void Panic();
     public Task WaitForShutdownAsync();
+    public string GetActorName(Guid uid);
+    public List<Actor> GetAllActors();
+    public Actor? FindActor(Guid uid);
 }
-```
 
-Комментарий: создаётся с Settings. Logger и TimeService по умолчанию — Null-реализации,
-заменяются через SetLogger/SetTimeService на этапе сборки. Send() при
-Settings.SynchronousProcessing == true обрабатывает письмо синхронно в потоке отправителя.
+Комментарий: создаётся с Settings. Logger и TimeService по умолчанию — Null-реализации, заменяются через публичные сеттеры на этапе сборки. Send() при Settings.SynchronousProcessing == true обрабатывает письмо синхронно в потоке отправителя.
 
-Start() запускает циклы RunAsync для всех зарегистрированных акторов.
+RegisterActor добавляет актор в реестр и немедленно запускает его цикл RunAsync. Отдельный метод Start() отсутствует — акторы начинают работу сразу после регистрации.
 
-Shutdown() отменяет CancellationToken. Panic() устанавливает IsPanic = true и отменяет
-CancellationToken. Акторы обнаруживают отмену токена, вызывают OnShutdown и удаляются
-из реестра.
+Shutdown() отменяет CancellationToken. Panic() устанавливает IsPanic = true и отменяет CancellationToken. Акторы обнаруживают отмену токена, вызывают OnShutdown и удаляются из реестра.
 
-WaitForShutdownAsync() ожидает опустошения реестра. Должен вызываться после Start().
+WaitForShutdownAsync() ожидает опустошения реестра.
 
-IsPanic позволяет внешнему коду определить причину завершения: false — Shutdown,
-true — Panic.
+IsPanic позволяет внешнему коду определить причину завершения: false — Shutdown, true — Panic.
+
+Trace — внутренний метод для диагностического логирования (активируется при определении символа TRACE_ACTORS).
 
 ---
 
-## 10. Настройки
+## 9. Настройки
 
-```csharp
 public sealed class Settings
 {
-    public int DefaultQueueCapacity { get; init; } = 200;
     public bool IsProduction { get; init; } = true;
     public bool SynchronousProcessing { get; init; } = false;
 }
-```
 
-Комментарий: иммутабелен после создания. DefaultQueueCapacity — размер очереди
-по умолчанию. SynchronousProcessing — режим синхронной обработки писем для отладки.
-В продакшене должен быть false.
+Комментарий: иммутабелен после создания. SynchronousProcessing — режим синхронной обработки писем для отладки. В продакшене должен быть false.
 
 ---
 
-## 11. Логгер
+## 10. Логгер
 
-Используется стандартный Microsoft.Extensions.Logging.ILogger.
-Акторы получают его через System.Logger.
+Используется стандартный Microsoft.Extensions.Logging.ILogger. Акторы получают его через System.Logger.
 
 ---
 
-## 12. Жизненный цикл
+## 11. Жизненный цикл
 
 Сборка (синхронная фаза):
   ActorSystem(settings)
-  system.SetLogger(logger)
-  system.SetTimeService(timeService)
-  new SystemActor(Uid, system)     // регистрируется в конструкторе
-  new ModelActor(Uid, system)      // регистрируется, отправляет себе InitializeModelLetter
+  system.Logger = logger
+  system.TimeService = timeService
+  new ModelActor(system)              // регистрируется в конструкторе
+  model.Initialize()                  // отправляет InitializeLetter самому себе
 
-Запуск (синхронный):
-  ActorSystem.Start()
-    -> запуск циклов (RunAsync) всем зарегистрированным акторам
-    -> ModelActor читает InitializeModelLetter
-      -> BuildModel()
-        -> Create(актор1), Create(актор2), ...
-        -> ReleaseAll()
+Запуск:
+  Акторы запускаются немедленно при регистрации через RegisterActor.
+  ModelActor получает InitializeLetter:
+    -> OnBuildModel()
+      -> Create(актор1), Create(актор2), ...
     -> система готова к работе
 
 Штатная работа (асинхронная):
@@ -307,7 +262,7 @@ public sealed class Settings
     -> внешний код проверяет system.IsPanic
 
 Аварийное завершение (Panic):
-  Актор логирует CriticalError, вызывает system.Panic()
+  Актор логирует ошибку, вызывает system.Panic()
   -> IsPanic = true
   -> _cts.Cancel()
   -> дальнейшее как при Shutdown

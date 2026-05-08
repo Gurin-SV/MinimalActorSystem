@@ -4,19 +4,53 @@ using System.Runtime.CompilerServices;
 
 namespace MinimalActorSystem;
 
+/// <summary>
+/// Базовый класс актора. Инкапсулирует очередь сообщений, цикл обработки и жизненный цикл.
+/// Наследники переопределяют <see cref="OnLetter"/> для обработки входящих писем
+/// и опционально <see cref="OnShutdown"/> для освобождения ресурсов при завершении.
+/// </summary>
 public abstract class Actor
 {
     private readonly Channel<Letter> _channel;
 
-    public Guid Uid { get; }
-    public string Name { get; }
+    /// <summary>
+    /// Размер очереди сообщений по умолчанию.
+    /// </summary>
+    public const int DefaultQueueCapacity = 256;
+
+    /// <summary>
+    /// Ссылка на акторную систему. Единственный способ взаимодействия актора с внешним миром.
+    /// </summary>
     public IActorSystem System { get; }
 
-    protected Actor(Guid uid, string name, IActorSystem system, int queueCapacity)
+    /// <summary>
+    /// Уникальный идентификатор актора. Назначается при создании и не изменяется.
+    /// </summary>
+    public Guid Uid { get; }
+
+    /// <summary>
+    /// Имя актора для диагностики и логирования.
+    /// </summary>
+    public string Name { get; }
+
+    /// <summary>
+    /// Максимальное количество сообщений в очереди. При превышении новые сообщения отбрасываются.
+    /// </summary>
+    public int QueueCapacity { get; }
+
+    /// <summary>
+    /// Создаёт актор с указанными параметрами и инициализирует очередь сообщений.
+    /// </summary>
+    /// <param name="system">Акторная система, которой принадлежит актор.</param>
+    /// <param name="uid">Уникальный идентификатор актора.</param>
+    /// <param name="name">Имя актора для диагностики.</param>
+    /// <param name="queueCapacity">Максимальный размер очереди сообщений.</param>
+    protected Actor(IActorSystem system, Guid uid, string name, int queueCapacity = DefaultQueueCapacity)
     {
+        System = system;
         Uid = uid;
         Name = name;
-        System = system;
+        QueueCapacity = queueCapacity;
 
         var options = new BoundedChannelOptions(queueCapacity)
         {
@@ -27,9 +61,13 @@ public abstract class Actor
         _channel = Channel.CreateBounded<Letter>(options);
     }
 
-    protected Actor(Guid uid, string name, IActorSystem system)
-        : this(uid, name, system, system.Settings.DefaultQueueCapacity) { }
-
+    /// <summary>
+    /// Выводит диагностическое сообщение. Активен только при определении символа <c>TRACE_ACTORS</c>.
+    /// </summary>
+    /// <param name="message">Текст сообщения.</param>
+    /// <param name="caller">Имя вызывающего метода (подставляется автоматически).</param>
+    /// <param name="file">Путь к файлу исходного кода (подставляется автоматически).</param>
+    /// <param name="line">Номер строки в исходном коде (подставляется автоматически).</param>
     [Conditional("TRACE_ACTORS")]
     protected void Trace(string message,
         [CallerMemberName] string? caller = null,
@@ -40,15 +78,23 @@ public abstract class Actor
         System.Trace(formatted);
     }
 
+    /// <summary>
+    /// Пытается поместить письмо в очередь актора. Вызывается акторной системой.
+    /// </summary>
+    /// <param name="letter">Письмо для доставки.</param>
+    /// <returns><c>true</c>, если письмо помещено в очередь; <c>false</c>, если очередь заполнена.</returns>
     internal bool TryEnqueue(Letter letter)
     {
-        bool success = _channel.Writer.TryWrite(letter);
-        Trace(success
-            ? $"Enqueued {letter.GetType().Name} from {System.GetActorName(letter.Sender)}"
-            : $"Dropped {letter.GetType().Name} from {System.GetActorName(letter.Sender)} (queue full)");
-        return success;
+        if (_channel.Reader.Count >= QueueCapacity)
+            return false;
+        return _channel.Writer.TryWrite(letter);
     }
 
+    /// <summary>
+    /// Запускает цикл обработки сообщений. Выполняется до отмены токена.
+    /// При завершении вызывает <see cref="OnShutdown"/> и удаляет актор из реестра.
+    /// </summary>
+    /// <param name="ct">Токен отмены, связанный с жизненным циклом акторной системы.</param>
     internal async Task RunAsync(CancellationToken ct)
     {
         try
@@ -62,10 +108,18 @@ public abstract class Actor
                     Trace($"Received ShutdownLetter from {System.GetActorName(letter.Sender)}");
                     break;
                 }
-                Trace($"Processing {letter.GetType().Name} from {System.GetActorName(letter.Sender)}");
-                var task = OnLetter(letter);
-                if (!task.IsCompletedSuccessfully)
-                    await task;
+
+                try
+                {
+                    Trace($"Processing {letter.GetType().Name} from {System.GetActorName(letter.Sender)}");
+                    var task = OnLetter(letter);
+                    if (!task.IsCompletedSuccessfully)
+                        await task;
+                }
+                catch (Exception ex)
+                {
+                    System.Logger.LogError(ex, "Error in actor {Name}", Name);
+                }
             }
         }
         catch (OperationCanceledException)
@@ -73,10 +127,22 @@ public abstract class Actor
         }
 
         Trace("finished");
-        await OnShutdown();
+        try
+        {
+            await OnShutdown();
+        }
+        catch (Exception ex)
+        {
+            System.Logger.LogError(ex, "Error in OnShutdown for actor {Name}", Name);
+        }
         System.UnregisterActor(Uid);
     }
 
+    /// <summary>
+    /// Синхронно обрабатывает письмо в потоке отправителя.
+    /// Используется только в отладочном режиме при <c>Settings.SynchronousProcessing == true</c>.
+    /// </summary>
+    /// <param name="letter">Письмо для обработки.</param>
     internal void HandleSynchronously(Letter letter)
     {
         Trace($"HandleSynchronously: {letter.GetType().Name}");
@@ -92,6 +158,18 @@ public abstract class Actor
         }
     }
 
+    /// <summary>
+    /// Обрабатывает входящее письмо. Вызывается акторной системой для каждого письма из очереди.
+    /// Наследники обязаны переопределить этот метод.
+    /// </summary>
+    /// <param name="letter">Входящее письмо.</param>
+    /// <returns><see cref="ValueTask"/>, представляющий асинхронную операцию обработки.</returns>
     protected abstract ValueTask OnLetter(Letter letter);
+
+    /// <summary>
+    /// Вызывается при завершении актора перед удалением из реестра.
+    /// Наследники могут переопределить для освобождения ресурсов.
+    /// </summary>
+    /// <returns><see cref="ValueTask"/>, представляющий асинхронную операцию завершения.</returns>
     protected virtual ValueTask OnShutdown() => default;
 }

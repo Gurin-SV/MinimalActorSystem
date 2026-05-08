@@ -10,12 +10,16 @@ public class Program
     private sealed class PingMessage(Guid sender, Guid receiver) : Letter(sender, receiver);
     private sealed class PongMessage(Guid sender, Guid receiver) : Letter(sender, receiver);
 
-    private sealed class PingActor(Guid uid, string name, IActorSystem system, Guid pongUid, Counter counter, TaskCompletionSource<bool> done, int messagesPerPair)
-        : Actor(uid, name, system)
+    private sealed class PingActor(IActorSystem system, Guid uid, string name, Guid pongUid, Counter counter,
+        TaskCompletionSource<bool> done, int messagesPerPair)
+        : Actor(system, uid, name)
     {
         private int _received;
         private PingMessage? _pingMessage;
         private PongMessage? _pongMessage;
+        private int _sendFailed;
+
+        public int SendFailed => _sendFailed;
 
         public void Init(PingMessage pingMessage, PongMessage pongMessage)
         {
@@ -50,20 +54,26 @@ public class Program
         private void SendPing()
         {
             _pingMessage!.Receiver = pongUid;
-            System.Send(_pingMessage);
+            if (!System.Send(_pingMessage))
+                Interlocked.Increment(ref _sendFailed);
         }
     }
 
-    private sealed class PongActor(Guid uid, string name, IActorSystem system, PongMessage pongMessage) : Actor(uid, name, system)
+    private sealed class PongActor(IActorSystem system, Guid uid, string name, PongMessage pongMessage)
+        : Actor(system, uid, name)
     {
         private readonly PongMessage _pongMessage = pongMessage;
+        private int _sendFailed;
+
+        public int SendFailed => _sendFailed;
 
         protected override ValueTask OnLetter(Letter letter)
         {
             if (letter is PingMessage ping)
             {
                 _pongMessage.Receiver = ping.Sender;
-                System.Send(_pongMessage);
+                if (!System.Send(_pongMessage))
+                    Interlocked.Increment(ref _sendFailed);
             }
             return default;
         }
@@ -140,30 +150,33 @@ public class Program
         var allDone = new TaskCompletionSource<bool>();
         var counter = new Counter { Value = pairs };
 
-        // Фаза 1: Создание
         Console.WriteLine($"\nСоздаю {pairs * 2} акторов...");
         var swCreation = Stopwatch.StartNew();
 
-        // Преаллокация писем — по одному на каждую пару
         var startMessages = new StartMessage[pairs];
         var pingMessages = new PingMessage[pairs];
         var pongMessages = new PongMessage[pairs];
+        var pingActors = new List<PingActor>(pairs);
+        var pongActors = new List<PongActor>(pairs);
 
         for (int i = 0; i < pairs; i++)
         {
             var pongUid = Guid.NewGuid();
             var pingUid = Guid.NewGuid();
 
-            startMessages[i] = new StartMessage(Guid.NewGuid(), pingUid);
+            startMessages[i] = new StartMessage(SystemUids.System, pingUid);
             pingMessages[i] = new PingMessage(pingUid, pongUid);
             pongMessages[i] = new PongMessage(pongUid, pingUid);
 
-            var pong = new PongActor(pongUid, $"pong-{i}", system, pongMessages[i]);
-            var ping = new PingActor(pingUid, $"ping-{i}", system, pongUid, counter, allDone, messagesPerPair);
+            var pong = new PongActor(system, pongUid, $"pong-{i}", pongMessages[i]);
+            var ping = new PingActor(system, pingUid, $"ping-{i}", pongUid, counter, allDone, messagesPerPair);
             ping.Init(pingMessages[i], pongMessages[i]);
 
             system.RegisterActor(pong);
             system.RegisterActor(ping);
+
+            pingActors.Add(ping);
+            pongActors.Add(pong);
         }
 
         swCreation.Stop();
@@ -171,17 +184,14 @@ public class Program
         monitor.PrintStats("После создания", memAfterCreate, peakAfterCreate, threadsAfterCreate, pendingAfterCreate, allocAfterCreate);
         Console.WriteLine($"  Время создания: {swCreation.ElapsedMilliseconds} мс");
 
-        // Фаза 2: Запуск
         Console.WriteLine("\nЗапуск системы...");
         var swStart = Stopwatch.StartNew();
-        system.Start();
         swStart.Stop();
 
         monitor.Snapshot(out var memAfterStart, out var peakAfterStart, out var threadsAfterStart, out var pendingAfterStart, out var allocAfterStart);
         monitor.PrintStats("После запуска", memAfterStart, peakAfterStart, threadsAfterStart, pendingAfterStart, allocAfterStart);
         Console.WriteLine($"  Время запуска: {swStart.ElapsedMilliseconds} мс");
 
-        // Фаза 3: Нагрузка
         Console.WriteLine($"\nОтправляю стартовые сообщения {pairs} акторам...");
         var swWork = Stopwatch.StartNew();
 
@@ -198,18 +208,20 @@ public class Program
         monitor.Snapshot(out var memAfterWork, out var peakAfterWork, out var threadsAfterWork, out var pendingAfterWork, out var allocAfterWork);
         monitor.PrintStats("После нагрузки", memAfterWork, peakAfterWork, threadsAfterWork, pendingAfterWork, allocAfterWork);
 
-        // Результаты производительности
         long totalMessages = (long)pairs * messagesPerPair * 2;
         double totalUs = swWork.Elapsed.TotalMicroseconds;
+        int totalPingFailed = pingActors.Sum(p => p.SendFailed);
+        int totalPongFailed = pongActors.Sum(p => p.SendFailed);
 
         Console.WriteLine();
         Console.WriteLine("=== Результаты производительности ===");
         Console.WriteLine($"  Сообщений всего:      {totalMessages:N0}");
+        Console.WriteLine($"  Недоставлено ping:    {totalPingFailed}");
+        Console.WriteLine($"  Недоставлено pong:    {totalPongFailed}");
         Console.WriteLine($"  Время работы:         {swWork.ElapsedMilliseconds:N0} мс");
         Console.WriteLine($"  На сообщение:         {totalUs / totalMessages:F2} мкс");
         Console.WriteLine($"  Сообщений в секунду:  {totalMessages / (swWork.ElapsedMilliseconds / 1000.0):N0}");
 
-        // Фаза 4: Завершение
         Console.WriteLine("\nЗавершение системы...");
         var swShutdown = Stopwatch.StartNew();
         system.Shutdown();
@@ -220,14 +232,12 @@ public class Program
         monitor.PrintStats("После завершения", memAfterShutdown, peakFinal, threadsAfterShutdown, pendingAfterShutdown, allocAfterShutdown);
         Console.WriteLine($"  Время завершения: {swShutdown.ElapsedMilliseconds} мс");
 
-        // GC
         Console.WriteLine();
         Console.WriteLine("Принудительная сборка мусора...");
         GC.Collect(2, GCCollectionMode.Forced, true);
         GC.WaitForPendingFinalizers();
         GC.Collect(2, GCCollectionMode.Forced, true);
 
-        var d = GC.GetTotalAllocatedBytes(true);
         ResourceMonitor.PrintGcStats();
 
         Console.WriteLine();

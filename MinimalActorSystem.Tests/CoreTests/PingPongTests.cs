@@ -14,8 +14,9 @@ public sealed class PingPongTests(ITestOutputHelper output)
 
     private sealed class PongLetter(Guid sender, Guid receiver) : Letter(sender, receiver);
 
-    private sealed class PingActor(Guid uid, string name, IActorSystem system,
-        TaskCompletionSource<bool> done) : Actor(uid, name, system)
+    private sealed class PingActor(IActorSystem system, Guid uid, string name, 
+        TaskCompletionSource<bool> done)
+        : Actor(system, uid, name)
     {
         protected override ValueTask OnLetter(Letter letter)
         {
@@ -32,8 +33,8 @@ public sealed class PingPongTests(ITestOutputHelper output)
         }
     }
 
-    private sealed class PongActor(Guid uid, string name, IActorSystem system)
-        : Actor(uid, name, system)
+    private sealed class PongActor(IActorSystem system, Guid uid, string name)
+        : Actor(system, uid, name)
     {
         protected override ValueTask OnLetter(Letter letter)
         {
@@ -43,33 +44,30 @@ public sealed class PingPongTests(ITestOutputHelper output)
         }
     }
 
-    private sealed class PingPongModelActor(Guid uid, string name, IActorSystem system,
-        TaskCompletionSource<bool> done, TaskCompletionSource<bool> modelReady)
-        : ModelActor(uid, name, system)
+    private sealed class PingPongModelActor(IActorSystem system, TaskCompletionSource<bool> done,
+        TaskCompletionSource<bool> modelReady)
+        : ModelActor(system)
     {
         private PingActor? _ping;
         private Guid _pongUid;
 
-        protected override void BuildModel()
+        protected override void OnBuildModel()
         {
-            var pong = new PongActor(Guid.NewGuid(), "pong", System);
+            var pong = new PongActor(System, Guid.NewGuid(), "pong");
             _pongUid = pong.Uid;
-            var ping = new PingActor(Guid.NewGuid(), "ping", System, done);
+            var ping = new PingActor(System, Guid.NewGuid(), "ping", done);
 
             Create(pong);
             Create(ping);
             _ping = ping;
-            ReleaseAll();
 
             modelReady.TrySetResult(true);
         }
 
-        protected override ValueTask OnModelLetter(Letter letter) => default;
-
         public void StartPing()
         {
             if (_ping != null)
-                System.Send(new StartPingLetter(System.Uids.System, _ping.Uid, _pongUid));
+                System.Send(new StartPingLetter(SystemUids.System, _ping.Uid, _pongUid));
         }
     }
 
@@ -80,9 +78,9 @@ public sealed class PingPongTests(ITestOutputHelper output)
 
         var done = new TaskCompletionSource<bool>();
         var modelReady = new TaskCompletionSource<bool>();
-        var model = new PingPongModelActor(system.Uids.Model, "pingpong-model", system, done, modelReady);
-
-        system.Start();
+        var model = new PingPongModelActor(system, done, modelReady);
+        system.RegisterActor(model);
+        system.Send(new InitializeLetter(SystemUids.System, SystemUids.Model));
 
         await modelReady.Task.WaitAsync(TimeSpan.FromSeconds(1));
         model.StartPing();
@@ -110,10 +108,9 @@ public sealed class PingPongTests(ITestOutputHelper output)
 
         var done = new TaskCompletionSource<bool>();
         var modelReady = new TaskCompletionSource<bool>();
-
-        var model = new PingPongModelActor(system.Uids.Model, "pingpong-model", system, done, modelReady);
-
-        system.Start();
+        var model = new PingPongModelActor(system, done, modelReady);
+        system.RegisterActor(model);
+        system.Send(new InitializeLetter(SystemUids.System, SystemUids.Model));
 
         Assert.True(modelReady.Task.IsCompleted, "Model should be ready");
 

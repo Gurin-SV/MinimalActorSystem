@@ -8,7 +8,6 @@ public sealed class SettingsTests
     {
         var settings = new Settings();
 
-        Assert.Equal(200, settings.DefaultQueueCapacity);
         Assert.True(settings.IsProduction);
         Assert.False(settings.SynchronousProcessing);
     }
@@ -19,12 +18,10 @@ public sealed class SettingsTests
     {
         var settings = new Settings
         {
-            DefaultQueueCapacity = 500,
             IsProduction = false,
             SynchronousProcessing = true
         };
 
-        Assert.Equal(500, settings.DefaultQueueCapacity);
         Assert.False(settings.IsProduction);
         Assert.True(settings.SynchronousProcessing);
     }

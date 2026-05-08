@@ -4,8 +4,8 @@ public sealed class ActorRegistryTests(ITestOutputHelper output)
 {
     private readonly ITestOutputHelper _output = output;
 
-    private sealed class FakeActor(Guid uid, string name, IActorSystem system)
-        : Actor(uid, name, system)
+    private sealed class FakeActor(IActorSystem system, Guid uid, string name)
+        : Actor(system, uid, name)
     {
         protected override ValueTask OnLetter(Letter letter) => default;
     }
@@ -15,7 +15,7 @@ public sealed class ActorRegistryTests(ITestOutputHelper output)
     {
         var system = SystemFactory.CreateSystem(_output);
 
-        var actor = new FakeActor(Guid.NewGuid(), "test", system);
+        var actor = new FakeActor(system, Guid.NewGuid(), "test");
         system.RegisterActor(actor);
 
         Assert.Single(system.GetAllActors());
@@ -26,7 +26,7 @@ public sealed class ActorRegistryTests(ITestOutputHelper output)
     {
         var system = SystemFactory.CreateSystem(_output);
 
-        var actor = new FakeActor(Guid.NewGuid(), "test", system);
+        var actor = new FakeActor(system, Guid.NewGuid(), "test");
         system.RegisterActor(actor);
         system.UnregisterActor(actor.Uid);
 
@@ -38,7 +38,7 @@ public sealed class ActorRegistryTests(ITestOutputHelper output)
     {
         var system = SystemFactory.CreateSystem(_output);
 
-        var actor = new FakeActor(Guid.NewGuid(), "test", system);
+        var actor = new FakeActor(system, Guid.NewGuid(), "test");
         system.RegisterActor(actor);
         var found = system.FindActor(actor.Uid);
 
@@ -60,7 +60,7 @@ public sealed class ActorRegistryTests(ITestOutputHelper output)
     {
         var system = SystemFactory.CreateSystem(_output);
 
-        var actor = new FakeActor(Guid.NewGuid(), "test-actor", system);
+        var actor = new FakeActor(system, Guid.NewGuid(), "test-actor");
         system.RegisterActor(actor);
         var name = system.GetActorName(actor.Uid);
 
@@ -83,8 +83,8 @@ public sealed class ActorRegistryTests(ITestOutputHelper output)
     {
         var system = SystemFactory.CreateSystem(_output);
 
-        var actor1 = new FakeActor(Guid.NewGuid(), "a1", system);
-        var actor2 = new FakeActor(Guid.NewGuid(), "a2", system);
+        var actor1 = new FakeActor(system, Guid.NewGuid(), "a1");
+        var actor2 = new FakeActor(system, Guid.NewGuid(), "a2");
         system.RegisterActor(actor1);
         system.RegisterActor(actor2);
         var all = system.GetAllActors();

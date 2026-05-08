@@ -26,9 +26,5 @@
 			<_Parameter1>MinimalActorSystem.Tests</_Parameter1>
 		</AssemblyAttribute>
 	</ItemGroup>
-
-	<ItemGroup>
-	  <Folder Include="SystemActors\" />
-	</ItemGroup>
 	
 </Project>
