@@ -36,6 +36,36 @@ public sealed class ActorSystem : IActorSystem
     private readonly ActorRegistry _registry;
     private volatile bool _isPanic;
 
+#if DEBUG_ACTORS
+    private int _activeCount;
+    private TaskCompletionSource<bool>? _idleTcs;
+
+    public void IncrementActivity()
+    {
+        if (Settings.SynchronousProcessing)
+            return;
+        Interlocked.Increment(ref _activeCount);
+    }
+
+    public void DecrementActivity()
+    {
+        if (Settings.SynchronousProcessing)
+            return;
+        if (Interlocked.Decrement(ref _activeCount) == 0)
+        {
+            _idleTcs?.TrySetResult(true);
+        }
+    }
+
+    public Task WaitAllIdleAsync()
+    {
+        if (_activeCount == 0)
+            return Task.CompletedTask;
+        _idleTcs = new TaskCompletionSource<bool>();
+        return _idleTcs.Task;
+    }
+#endif
+
     /// <inheritdoc/>
     public Settings Settings { get; }
 
@@ -72,7 +102,6 @@ public sealed class ActorSystem : IActorSystem
     /// <inheritdoc/>
     public void RegisterActor(Actor actor)
     {
-        Trace(actor.Name);
         _registry.Add(actor);
         _ = actor.RunAsync(CancellationToken);
     }
@@ -80,7 +109,6 @@ public sealed class ActorSystem : IActorSystem
     /// <inheritdoc/>
     public void UnregisterActor(Guid uid)
     {
-        Trace(GetActorName(uid));
         _registry.Remove(uid);
     }
 
@@ -111,21 +139,21 @@ public sealed class ActorSystem : IActorSystem
                 GetActorName(letter.Receiver), letter.GetType().Name, GetActorName(letter.Sender));
         }
 
-        Trace($"Send {letter.GetType().Name} from {GetActorName(letter.Sender)} to {GetActorName(letter.Receiver)}: {(delivered ? "delivered" : "DROPPED")}");
+        Trace($"System> Send {letter.GetType().Name} from {GetActorName(letter.Sender)} to {GetActorName(letter.Receiver)}: {(delivered ? "delivered" : "DROPPED")}");
         return delivered;
     }
 
     /// <inheritdoc/>
     public void Shutdown()
     {
-        Trace("Shutdown");
+        Trace("System> Shutdown");
         _cts.Cancel();
     }
 
     /// <inheritdoc/>
     public void Panic()
     {
-        Trace("Panic");
+        Trace("System> Panic");
         _isPanic = true;
         _cts.Cancel();
     }
@@ -133,7 +161,7 @@ public sealed class ActorSystem : IActorSystem
     /// <inheritdoc/>
     public Task WaitForShutdownAsync()
     {
-        Trace("WaitForShutdownAsync");
+        Trace("System> WaitForShutdownAsync");
         return _registry.WaitForEmptyAsync();
     }
 

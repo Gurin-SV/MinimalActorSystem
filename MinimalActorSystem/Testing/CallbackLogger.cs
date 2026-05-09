@@ -1,4 +1,6 @@
-﻿namespace MinimalActorSystem.Testing;
+﻿using System.Diagnostics;
+
+namespace MinimalActorSystem.Testing;
 
 /// <summary>
 /// Тестовая реализация <see cref="ILogger"/>, передающая каждое сообщение в пользовательский делегат.
@@ -16,6 +18,7 @@ public sealed class CallbackLogger(IActorSystem system, Action<string> writeLine
     private readonly LogLevel _minLevel = minLevel;
     private readonly IActorSystem _system = system;
     private readonly object _lock = new();
+    private readonly Stopwatch sw = Stopwatch.StartNew();
 
     /// <inheritdoc/>
     public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
@@ -32,7 +35,7 @@ public sealed class CallbackLogger(IActorSystem system, Action<string> writeLine
 
         var message = formatter(state, exception);
         var timestamp = _system.TimeService.UtcNow.ToLocalTime();
-        var line = $"{timestamp:dd.MM.yyyy HH:mm:ss.fff} [{logLevel}] [{Thread.CurrentThread.ManagedThreadId}] {message}";
+        var line = $"{timestamp:dd.MM.yyyy HH:mm:ss} {sw.ElapsedMilliseconds:D4} [{logLevel}] [{Thread.CurrentThread.ManagedThreadId}] {message}";
 
         if (exception != null)
         {

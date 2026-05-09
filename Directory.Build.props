@@ -1,5 +1,5 @@
 <Project>
   <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
-    <DefineConstants>$(DefineConstants);NTRACE_ACTORS</DefineConstants>
+    <DefineConstants>$(DefineConstants);NTRACE_ACTORS;DEBUG_ACTORS</DefineConstants>
   </PropertyGroup>
 </Project>

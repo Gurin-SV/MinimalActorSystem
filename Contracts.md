@@ -6,6 +6,7 @@
 
 ## 1. Письмо (Letter)
 
+```cs
 public abstract class Letter
 {
     public Guid Sender { get; set; }
@@ -13,6 +14,7 @@ public abstract class Letter
 
     protected Letter(Guid sender, Guid receiver);
 }
+```
 
 Комментарий: поля мутабельны для случая, когда то же письмо служит ответом — отправитель меняет Sender/Receiver местами и отправляет обратно (п. 6 Манифеста: аккумулятор). Все наследники — sealed (п. 12).
 

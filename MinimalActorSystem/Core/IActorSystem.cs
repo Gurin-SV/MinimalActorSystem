@@ -107,4 +107,16 @@ public interface IActorSystem
     /// </summary>
     /// <param name="message">Диагностическое сообщение.</param>
     void Trace(string message);
+
+#if DEBUG_ACTORS
+    void IncrementActivity();
+    void DecrementActivity();
+
+    /// <summary>
+    /// Ожидает, пока все акторы завершат обработку сообщений и их очереди опустеют.
+    /// Доступно только при определении символа DEBUG_ACTORS.
+    /// Используется VirtualTimeService для синхронизации шагов виртуального времени.
+    /// </summary>
+    Task WaitAllIdleAsync();
+#endif
 }

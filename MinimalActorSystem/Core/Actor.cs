@@ -1,6 +1,4 @@
 ﻿using System.Diagnostics;
-using System.IO;
-using System.Runtime.CompilerServices;
 
 namespace MinimalActorSystem;
 
@@ -65,17 +63,10 @@ public abstract class Actor
     /// Выводит диагностическое сообщение. Активен только при определении символа <c>TRACE_ACTORS</c>.
     /// </summary>
     /// <param name="message">Текст сообщения.</param>
-    /// <param name="caller">Имя вызывающего метода (подставляется автоматически).</param>
-    /// <param name="file">Путь к файлу исходного кода (подставляется автоматически).</param>
-    /// <param name="line">Номер строки в исходном коде (подставляется автоматически).</param>
     [Conditional("TRACE_ACTORS")]
-    protected void Trace(string message,
-        [CallerMemberName] string? caller = null,
-        [CallerFilePath] string? file = null,
-        [CallerLineNumber] int line = 0)
+    protected void Trace(string message)
     {
-        var formatted = $"[{Thread.CurrentThread.ManagedThreadId}] {Path.GetFileName(file ?? "")}:{line} ({caller}) {Name}: {message}";
-        System.Trace(formatted);
+        System.Trace($"{Name}> {message}");
     }
 
     /// <summary>
@@ -85,9 +76,12 @@ public abstract class Actor
     /// <returns><c>true</c>, если письмо помещено в очередь; <c>false</c>, если очередь заполнена.</returns>
     internal bool TryEnqueue(Letter letter)
     {
-        if (_channel.Reader.Count >= QueueCapacity)
+        if (!_channel.Writer.TryWrite(letter))
             return false;
-        return _channel.Writer.TryWrite(letter);
+#if DEBUG_ACTORS
+        System.IncrementActivity();
+#endif
+        return true;
     }
 
     /// <summary>
@@ -99,7 +93,7 @@ public abstract class Actor
     {
         try
         {
-            Trace("started");
+            Trace("Started");
             while (!ct.IsCancellationRequested)
             {
                 var letter = await _channel.Reader.ReadAsync(ct);
@@ -120,13 +114,19 @@ public abstract class Actor
                 {
                     System.Logger.LogError(ex, "Error in actor {Name}", Name);
                 }
+                #if DEBUG_ACTORS
+                finally
+                {
+                    System.DecrementActivity();
+                } 
+                #endif
             }
         }
         catch (OperationCanceledException)
         {
         }
 
-        Trace("finished");
+        Trace("Finished");
         try
         {
             await OnShutdown();
@@ -145,7 +145,7 @@ public abstract class Actor
     /// <param name="letter">Письмо для обработки.</param>
     internal void HandleSynchronously(Letter letter)
     {
-        Trace($"HandleSynchronously: {letter.GetType().Name}");
+        Trace($"Processing {letter.GetType().Name} from {System.GetActorName(letter.Sender)}");
         try
         {
             var task = OnLetter(letter);

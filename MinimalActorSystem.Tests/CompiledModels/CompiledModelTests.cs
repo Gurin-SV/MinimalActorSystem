@@ -417,4 +417,157 @@ public class CompiledModelTests(ITestOutputHelper output)
         var storage = modelActor.GetObject<TestStorage>(Guid.Parse("00000000-0000-0000-0000-000000000012"));
         storage.Path.Should().Be("/data");
     }
+
+    /// <summary>
+    /// Проверяет, что ElementRule.WithProperty ограничивает набор свойств:
+    /// только явно указанные атрибуты попадают в ElementConfig.
+    /// </summary>
+    [Fact]
+    public void CompiledModelTest012()
+    {
+        const string xml = @"
+    <Root>
+        <Config Uid=""00000000-0000-0000-0000-000000000001"" 
+                Host=""localhost"" 
+                Port=""8080"" 
+                Timeout=""30"" />
+    </Root>";
+
+        var compiler = new XmlModelCompiler()
+            .AddRule("Config", new ElementRule().WithProperties("Host", "Port"));
+
+        var model = compiler.Compile(xml);
+
+        model.Count.Should().Be(1);
+        var config = model.FindElement(Guid.Parse("00000000-0000-0000-0000-000000000001"));
+        config.Should().NotBeNull();
+
+        // Явно указанные свойства — присутствуют
+        config!.HasProperty("Host").Should().BeTrue();
+        config.HasProperty("Port").Should().BeTrue();
+
+        // Не указанное в WithProperties — игнорируется
+        config.HasProperty("Timeout").Should().BeFalse();
+    }
+
+    /// <summary>
+    /// Проверяет, что WithRequired в комбинации с WithProperties
+    /// пропускает элемент, если обязательное свойство отсутствует.
+    /// </summary>
+    [Fact]
+    public void CompiledModelTest013()
+    {
+        const string xml = @"
+    <Root>
+        <Database Uid=""00000000-0000-0000-0000-000000000001"" 
+                  Name=""MainDB"" />
+        <Database Uid=""00000000-0000-0000-0000-000000000002"" 
+                  Name=""BackupDB"" 
+                  ConnectionString=""Server=backup"" />
+    </Root>";
+
+        var compiler = new XmlModelCompiler()
+            .AddRule("Database", new ElementRule()
+                .WithProperties("Name")
+                .WithRequired("ConnectionString"));
+
+        var model = compiler.Compile(xml);
+
+        // Первый Database пропущен (нет ConnectionString), второй добавлен
+        model.Count.Should().Be(1);
+        model.FindElement(Guid.Parse("00000000-0000-0000-0000-000000000001")).Should().BeNull();
+        model.FindElement(Guid.Parse("00000000-0000-0000-0000-000000000002")).Should().NotBeNull();
+
+        compiler.Warnings.Should().HaveCount(1);
+        compiler.Warnings[0].Should().Contain("missing required properties");
+        compiler.Warnings[0].Should().Contain("ConnectionString");
+    }
+
+    /// <summary>
+    /// Проверяет, что WithRequired без WithProperties автоматически
+    /// добавляет обязательное свойство в список разрешённых.
+    /// </summary>
+    [Fact]
+    public void CompiledModelTest014()
+    {
+        const string xml = @"
+    <Root>
+        <Service Uid=""00000000-0000-0000-0000-000000000001"" 
+                 Endpoint=""https://api.example.com"" 
+                 Version=""v2"" />
+    </Root>";
+
+        var compiler = new XmlModelCompiler()
+            .AddRule("Service", new ElementRule()
+                .WithRequired("Endpoint"));
+
+        var model = compiler.Compile(xml);
+
+        model.Count.Should().Be(1);
+        var service = model.FindElement(Guid.Parse("00000000-0000-0000-0000-000000000001"));
+        service.Should().NotBeNull();
+
+        service!.HasProperty("Endpoint").Should().BeTrue();
+        service.HasProperty("Version").Should().BeFalse();
+    }
+
+    /// <summary>
+    /// Проверяет, что WithRequired + WithProperties вместе
+    /// фильтруют атрибуты и требуют обязательные.
+    /// </summary>
+    [Fact]
+    public void CompiledModelTest015()
+    {
+        const string xml = @"
+    <Root>
+        <Worker Uid=""00000000-0000-0000-0000-000000000001"" 
+                Name=""worker1"" 
+                Threads=""4"" 
+                Debug=""true"" />
+    </Root>";
+
+        var compiler = new XmlModelCompiler()
+            .AddRule("Worker", new ElementRule()
+                .WithProperties("Name", "Threads")
+                .WithRequired("Name"));
+
+        var model = compiler.Compile(xml);
+
+        model.Count.Should().Be(1);
+        var worker = model.FindElement(Guid.Parse("00000000-0000-0000-0000-000000000001"));
+        worker.Should().NotBeNull();
+
+        worker!.HasProperty("Name").Should().BeTrue();
+        worker.HasProperty("Threads").Should().BeTrue();
+
+        // Debug не в списке WithProperties — игнорируется
+        worker.HasProperty("Debug").Should().BeFalse();
+    }
+
+    /// <summary>
+    /// Проверяет, что множественные группирующие элементы обрабатываются независимо.
+    /// </summary>
+    [Fact]
+    public void CompiledModelTest016()
+    {
+        const string xml = @"
+    <Root>
+        <Inputs>
+            <Sensor Uid=""00000000-0000-0000-0000-000000000001"" Name=""Sensor1"" />
+        </Inputs>
+        <Outputs>
+            <Actuator Uid=""00000000-0000-0000-0000-000000000002"" Name=""Actuator1"" />
+        </Outputs>
+    </Root>";
+
+        var compiler = new XmlModelCompiler()
+            .AddRule("Inputs", new ElementRule().WithGroupElement("Inputs"))
+            .AddRule("Outputs", new ElementRule().WithGroupElement("Outputs"));
+
+        var model = compiler.Compile(xml);
+
+        model.Count.Should().Be(2);
+        model.FindElement(Guid.Parse("00000000-0000-0000-0000-000000000001")).Should().NotBeNull();
+        model.FindElement(Guid.Parse("00000000-0000-0000-0000-000000000002")).Should().NotBeNull();
+    }
 }

@@ -83,6 +83,13 @@ public class XmlModelCompiler(string uidAttributeName = "Uid")
         var elementName = reader.Name;
         var rule = _rules.TryGetValue(elementName, out var r) ? r : ElementRule.Default;
 
+        // Если это группирующий элемент — обрабатываем его детей
+        if (rule.IsGroupElement(elementName))
+        {
+            CompileGroupElement(reader, model);
+            return;
+        }
+
         var uid = ReadUid(reader);
         if (uid == null)
         {

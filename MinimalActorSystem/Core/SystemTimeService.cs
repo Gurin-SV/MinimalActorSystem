@@ -7,7 +7,7 @@ namespace MinimalActorSystem;
 /// Поддерживает регистрацию, замену и отмену таймаутов. При срабатывании таймаута отправляет
 /// актору-получателю <see cref="TimeServiceLetter"/> с зарегистрированным коллбеком.
 /// </summary>
-public sealed class SystemTimeService : ITimeService
+public class SystemTimeService : ITimeService
 {
     private readonly IActorSystem _system;
     private readonly ConcurrentQueue<PendingOp> _pending = [];
@@ -24,14 +24,13 @@ public sealed class SystemTimeService : ITimeService
     public SystemTimeService(IActorSystem system)
     {
         _system = system;
-        _system.Trace("SystemTimeService created");
+        _system.Trace("TimeService> Created");
         _ = RunAsync(_system.CancellationToken);
     }
 
     /// <inheritdoc/>
     public void Register(DateTime deadline, TimeoutCallback callback)
     {
-        _system.Trace($"Register timeout: actor={_system.GetActorName(callback.ActorUid)} callbackId={callback.CallbackId} deadline={deadline:HH:mm:ss.fff}");
         _pending.Enqueue(new RegisterOp(deadline, callback));
     }
 
@@ -44,7 +43,6 @@ public sealed class SystemTimeService : ITimeService
     /// <inheritdoc/>
     public void Unregister(TimeoutCallback callback)
     {
-        _system.Trace($"Unregister timeout: actor={_system.GetActorName(callback.ActorUid)} callbackId={callback.CallbackId}");
         _pending.Enqueue(new UnregisterOp(callback));
     }
 
@@ -57,7 +55,7 @@ public sealed class SystemTimeService : ITimeService
     /// <param name="ct">Токен отмены от акторной системы.</param>
     private async Task RunAsync(CancellationToken ct)
     {
-        _system.Trace("loop started");
+        _system.Trace("TimeService> Loop started");
         while (!ct.IsCancellationRequested)
         {
             ApplyPendingOps();
@@ -71,7 +69,6 @@ public sealed class SystemTimeService : ITimeService
                 if (_timers.TryGetValue(entry.Key, out var timer) && timer.Deadline <= now)
                 {
                     _timers.Remove(entry.Key);
-                    _system.Trace($"Timeout fired: actor={_system.GetActorName(timer.Callback.ActorUid)} callbackId={timer.Callback.CallbackId}");
                     var letter = new TimeServiceLetter(SystemUids.TimeService, timer.Callback.ActorUid, timer.Callback);
                     _system.Send(letter);
                 }
@@ -91,11 +88,11 @@ public sealed class SystemTimeService : ITimeService
             }
             catch (OperationCanceledException)
             {
-                _system.Trace("loop cancelled");
+                _system.Trace("TimeService> Loop cancelled");
                 return;
             }
         }
-        _system.Trace("loop finished");
+        _system.Trace("TimeService> Loop finished");
     }
 
     /// <summary>
@@ -114,7 +111,6 @@ public sealed class SystemTimeService : ITimeService
 
                         if (_timers.TryGetValue(key, out var old))
                         {
-                            _system.Trace($"Replacing timer: actor={_system.GetActorName(reg.Callback.ActorUid)} callbackId={reg.Callback.CallbackId}");
                             _expiryIndex.Remove(new ExpiryEntry(old.Deadline, key));
                         }
 

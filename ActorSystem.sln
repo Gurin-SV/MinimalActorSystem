@@ -9,6 +9,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Элементы решен
 		Directory.Build.props = Directory.Build.props
 		Manifest.md = Manifest.md
 		run_benchmark.bat = run_benchmark.bat
+		Tutorials.md = Tutorials.md
 	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MinimalActorSystem", "MinimalActorSystem\MinimalActorSystem.csproj", "{BCBD2C4D-A24D-41CE-9FA6-429EB1E81150}"
