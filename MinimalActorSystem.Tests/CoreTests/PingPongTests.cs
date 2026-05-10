@@ -101,8 +101,7 @@ public sealed class PingPongTests(ITestOutputHelper output)
     {
         var settings = new Settings
         {
-            IsProduction = false,
-            SynchronousProcessing = true
+            TimeServiceModes = TimeServiceModes.Sync
         };
         var system = SystemFactory.CreateSystem(_output, settings);
 

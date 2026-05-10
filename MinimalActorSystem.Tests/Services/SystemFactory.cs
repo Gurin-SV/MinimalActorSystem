@@ -7,13 +7,13 @@ public static class SystemFactory
     public static ActorSystem CreateSystem(ITestOutputHelper output, Settings? settings = null,
         LogLevel minLevel = LogLevel.Trace)
     {
-        var system = new ActorSystem(settings ?? new Settings { IsProduction = false });
-        system.CreateTestLogger(line => output.WriteLine(line), minLevel);
+        var system = new ActorSystem(settings ?? new Settings());
+        system.CreateTestLogger(output.WriteLine, minLevel);
         return system;
     }
 
     public static ActorSystem CreateSystem(Settings? settings = null)
     {
-        return new ActorSystem(settings ?? new Settings { IsProduction = false });
+        return new ActorSystem(settings ?? new Settings());
     }
 }

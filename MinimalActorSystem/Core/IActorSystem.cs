@@ -101,22 +101,4 @@ public interface IActorSystem
     /// <param name="uid">Идентификатор актора.</param>
     /// <returns>Найденный актор или <c>null</c>, если актор не зарегистрирован.</returns>
     Actor? FindActor(Guid uid);
-
-    /// <summary>
-    /// Выводит диагностическое сообщение в лог с уровнем <see cref="LogLevel.Trace"/>.
-    /// </summary>
-    /// <param name="message">Диагностическое сообщение.</param>
-    void Trace(string message);
-
-#if DEBUG_ACTORS
-    void IncrementActivity();
-    void DecrementActivity();
-
-    /// <summary>
-    /// Ожидает, пока все акторы завершат обработку сообщений и их очереди опустеют.
-    /// Доступно только при определении символа DEBUG_ACTORS.
-    /// Используется VirtualTimeService для синхронизации шагов виртуального времени.
-    /// </summary>
-    Task WaitAllIdleAsync();
-#endif
 }

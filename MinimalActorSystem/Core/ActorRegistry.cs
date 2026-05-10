@@ -37,7 +37,6 @@ internal sealed class ActorRegistry(IActorSystem actorSystem)
         _actors.TryRemove(uid, out _);
         if (_actors.Count == 0)
         {
-            _actorSystem.Trace("Registry empty");
             _emptyTcs?.TrySetResult(true);
         }
     }

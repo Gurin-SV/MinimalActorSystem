@@ -1,61 +1,28 @@
-﻿# MinimalActorSystem Cookbook
+﻿# MinimalActorSystem: Туториал и Быстрый Старт
 
-Практическое руководство по использованию минималистичной акторной системы. От быстрого старта до продвинутых паттернов.
+MinimalActorSystem — это минималистичная акторная система на C#, спроектированная для приложений, которым нужна лёгкая конкурентность без тяжёлых фреймворков. Акторы изолированы, общаются только через сообщения, не разделяют изменяемое состояние и не блокируют потоки в ожидании. Система не требует внешних зависимостей, кроме стандартной библиотеки .NET и Microsoft.Extensions.Logging.
 
----
+Этот туториал проведёт вас от установки до написания первого актора и теста с виртуальным временем. Предполагается, что вы уже знакомы с C# и async/await.
 
-## Содержание
+## Быстрый старт
 
-1. [Быстрый старт: минимальное приложение](#1-быстрый-старт-минимальное-приложение)
-2. [Описание модели в XML](#2-описание-модели-в-xml)
-   - [Простейшая модель](#21-простейшая-модель)
-   - [Текстовые свойства](#22-текстовые-свойства)
-   - [Группирующие элементы](#23-группирующие-элементы)
-   - [Обязательные свойства](#24-обязательные-свойства)
-   - [Префиксы чисел](#25-префиксы-чисел)
-3. [Создание прикладных акторов](#3-создание-прикладных-акторов)
-   - [Базовый актор](#31-базовый-актор)
-   - [Пользовательские письма](#32-пользовательские-письма)
-   - [Аккумулятор](#33-аккумулятор)
-4. [Отправка и обработка сообщений](#4-отправка-и-обработка-сообщений)
-5. [Работа с таймаутами](#5-работа-с-таймаутами)
-   - [Регистрация и отмена](#51-регистрация-и-отмена)
-   - [Таймаут ожидания ответа](#52-таймаут-ожидания-ответа)
-6. [Логирование](#6-логирование)
-   - [Файловый логгер](#61-файловый-логгер)
-   - [Callback-логгер для тестов](#62-callback-логгер-для-тестов)
-7. [Тестирование](#7-тестирование)
-   - [Синхронный режим](#71-синхронный-режим)
-   - [Виртуальное время](#72-виртуальное-время)
-   - [Тестовые расширения](#73-тестовые-расширения)
-   - [Модульные тесты ElementConfig](#74-модульные-тесты-elementconfig)
-   - [Интеграционные тесты XML-компиляции](#75-интеграционные-тесты-xml-компиляции)
-8. [Обработка ошибок и Panic](#8-обработка-ошибок-и-panic)
-9. [Типовые паттерны](#9-типовые-паттерны)
-   - [Request-Response](#91-request-response)
-   - [Scatter-Gather](#92-scatter-gather)
-   - [Circuit Breaker](#93-circuit-breaker)
-   - [Актор-агрегатор](#94-актор-агрегатор)
-10. [Структура проекта](#10-структура-проекта)
+Создайте консольное приложение .NET и добавьте ссылку на сборку MinimalActorSystem. Если вы клонировали репозиторий, просто добавьте проект в решение.
 
----
+Минимальная программа, которая запускает акторную систему с одним актором, выглядит так:
 
-## 1. Быстрый старт: минимальное приложение
-
-### Program.cs
-
-    using Microsoft.Extensions.Logging;
     using MinimalActorSystem;
-    using MinimalActorSystem.CompiledModels;
+    using Microsoft.Extensions.Logging;
 
+    // 1. Создаём настройки
     var settings = new Settings
     {
-        IsProduction = false,
-        SynchronousProcessing = false
+        TimeServiceModes = TimeServiceModes.System
     };
 
+    // 2. Создаём акторную систему
     var system = new ActorSystem(settings);
 
+    // 3. Подключаем логгер
     using var loggerFactory = LoggerFactory.Create(builder =>
     {
         builder.AddConsole();
@@ -63,562 +30,391 @@
     });
     system.Logger = loggerFactory.CreateLogger("ActorSystem");
 
+    // 4. Подключаем сервис времени
     system.TimeService = new SystemTimeService(system);
 
-    var xml = File.ReadAllText("model.xml");
-    var compiler = new XmlModelCompiler();
-    compiler.AddRule("PingActor", new ElementRule().WithProperties("IntervalMs"));
-    compiler.AddRule("PongActor");
+    // 5. Создаём модельный актор
+    var model = new MyModelActor(system);
+    system.RegisterActor(model);
 
-    var compiledModel = compiler.Compile(xml);
-    var modelActor = new MyAppModelActor(system, compiledModel);
+    // 6. Запускаем построение модели
+    model.SendInitialize();
 
-    system.RegisterActor(modelActor);
-    modelActor.TryEnqueue(new InitializeLetter(SystemUids.System, SystemUids.Model));
+    // 7. Ждём завершения (по Ctrl+C или другому сигналу)
+    Console.WriteLine("Нажмите Enter для завершения...");
+    Console.ReadLine();
 
-    Console.CancelKeyPress += (_, e) =>
-    {
-        e.Cancel = true;
-        system.Shutdown();
-    };
-
+    // 8. Штатное завершение
+    system.Shutdown();
     await system.WaitForShutdownAsync();
-    return system.IsPanic ? 1 : 0;
 
-### MyAppModelActor.cs
+Метод `SendInitialize` — это метод расширения, который отправляет `InitializeLetter` модельному актору. Вы можете написать его сами:
 
-    using MinimalActorSystem;
-    using MinimalActorSystem.CompiledModels;
-
-    public class MyAppModelActor : CompiledModelActor
+    public static void SendInitialize(this Actor actor)
     {
-        private readonly CompiledModel _model;
+        var letter = new InitializeLetter(actor.Uid, actor.Uid);
+        actor.System.Send(letter);
+    }
 
-        public MyAppModelActor(IActorSystem system, CompiledModel model) : base(system)
+После вызова `SendInitialize` модельный актор построит прикладных акторов, и система готова к работе.
+
+## Основные понятия
+
+**Актор** — это объект, который владеет своим состоянием и ни с кем его не разделяет. У актора есть уникальный идентификатор (`Guid Uid`), имя для диагностики и очередь входящих сообщений. Актор обрабатывает сообщения строго по одному за раз. Когда сообщений нет, актор не потребляет процессорное время.
+
+**Письмо (Letter)** — это сообщение, которым обмениваются акторы. Все письма наследуются от абстрактного класса `Letter` и обязаны быть `sealed`. Письмо содержит `Sender` и `Receiver` — идентификаторы отправителя и получателя.
+
+**Акторная система** — экземпляр класса `ActorSystem`, который управляет реестром акторов, доставляет письма, предоставляет логгер, сервис времени и настройки. В одном приложении может быть несколько независимых акторных систем.
+
+**Модельный актор** — корневой родитель всех прикладных акторов. Он получает `InitializeLetter` и в ответ создаёт прикладных акторов. В системе может быть только один модельный актор, его идентификатор — `SystemUids.Model`.
+
+## Пишем первый актор: Пинг-Понг
+
+Классический пример — два актора, которые перебрасываются сообщениями заданное число раз.
+
+Сначала определим письма. Письмо `Ping` идёт от одного актора к другому, `Pong` — обратно. Оба содержат счётчик оставшихся обменов:
+
+    public sealed class Ping : Letter
+    {
+        public int Remaining { get; }
+        public Ping(Guid sender, Guid receiver, int remaining)
+            : base(sender, receiver)
         {
-            _model = model;
+            Remaining = remaining;
+        }
+    }
+
+    public sealed class Pong : Letter
+    {
+        public int Remaining { get; }
+        public Pong(Guid sender, Guid receiver, int remaining)
+            : base(sender, receiver)
+        {
+            Remaining = remaining;
+        }
+    }
+
+Теперь актор, который умеет принимать `Ping` и отвечать `Pong`:
+
+    public class PingActor : Actor
+    {
+        public PingActor(IActorSystem system, Guid uid, string name)
+            : base(system, uid, name) { }
+
+        protected override ValueTask OnLetter(Letter letter)
+        {
+            switch (letter)
+            {
+                case Ping ping:
+                    System.Logger.LogInformation("{Name}: получил Ping, осталось {Remaining}",
+                        Name, ping.Remaining);
+
+                    if (ping.Remaining > 0)
+                    {
+                        var pong = new Pong(Uid, ping.Sender, ping.Remaining - 1);
+                        System.Send(pong);
+                    }
+                    else
+                    {
+                        System.Logger.LogInformation("{Name}: игра окончена", Name);
+                    }
+                    break;
+
+                case Pong pong:
+                    System.Logger.LogInformation("{Name}: получил Pong, осталось {Remaining}",
+                        Name, pong.Remaining);
+
+                    if (pong.Remaining > 0)
+                    {
+                        var ping = new Ping(Uid, pong.Sender, pong.Remaining - 1);
+                        System.Send(ping);
+                    }
+                    else
+                    {
+                        System.Logger.LogInformation("{Name}: игра окончена", Name);
+                    }
+                    break;
+            }
+            return default;
+        }
+    }
+
+Модельный актор создаёт двух игроков и отправляет первый `Ping`:
+
+    public class PingPongModel : ModelActor
+    {
+        public PingPongModel(IActorSystem system) : base(system) { }
+
+        protected override void OnBuildModel()
+        {
+            var alice = new PingActor(System, Guid.NewGuid(), "Alice");
+            var bob = new PingActor(System, Guid.NewGuid(), "Bob");
+
+            Create(alice);
+            Create(bob);
+
+            // Отправляем первый Ping: Alice -> Bob, 5 обменов
+            var firstPing = new Ping(alice.Uid, bob.Uid, 5);
+            System.Send(firstPing);
+        }
+    }
+
+Обратите внимание: первый `Ping` отправляется после того, как оба актора созданы через `Create`. Метод `Create` немедленно регистрирует актора в системе и запускает его цикл обработки, поэтому к моменту отправки оба уже активны и готовы принимать письма.
+
+## Таймауты
+
+Акторы могут регистрировать таймауты через сервис времени. Таймаут — это коллбек, который срабатывает в заданный момент времени и доставляется актору в виде `TimeServiceLetter`.
+
+Для работы с таймаутами актор создаёт `TimeoutCallback` в конструкторе и регистрирует его через `System.TimeService.Register`. Когда таймаут сработает, актор получит `TimeServiceLetter` и вызовет `callback.Action()`.
+
+Пример актора с таймаутом переподключения:
+
+    public class ReconnectingActor : Actor
+    {
+        private readonly TimeoutCallback _reconnectTimeout;
+        private bool _connected;
+
+        public ReconnectingActor(IActorSystem system, Guid uid, string name)
+            : base(system, uid, name)
+        {
+            _reconnectTimeout = new TimeoutCallback(Uid, callbackId: 1, OnReconnectTimeout);
         }
 
-        protected override CompiledModel CompileModel() => _model;
+        private void OnReconnectTimeout()
+        {
+            System.Logger.LogWarning("{Name}: таймаут подключения, пробуем снова", Name);
+            TryConnect();
+        }
+
+        private void TryConnect()
+        {
+            // Пытаемся подключиться...
+            _connected = true;
+
+            // Если не получилось — регистрируем таймаут на повторную попытку
+            if (!_connected)
+            {
+                System.TimeService.Register(TimeSpan.FromSeconds(5), _reconnectTimeout);
+            }
+        }
+
+        protected override ValueTask OnLetter(Letter letter)
+        {
+            switch (letter)
+            {
+                case TimeServiceLetter timeout:
+                    timeout.Callback.Action();
+                    break;
+            }
+            return default;
+        }
+    }
+
+Важно: коллбек таймаута не должен взаимодействовать с другими акторами. Его единственная задача — выполнить небольшое действие внутри актора-владельца.
+
+## Тестирование с виртуальным временем
+
+Главное преимущество MinimalActorSystem — возможность тестировать сценарии с длительными временными интервалами мгновенно, без реальных задержек.
+
+Для тестов используется `VirtualTimeService` и настройка `TimeServiceModes.Sync` (синхронная обработка писем) или `TimeServiceModes.Async` (асинхронная с ожиданием).
+
+### Синхронный режим тестирования
+
+Синхронный режим — самый простой. Письма обрабатываются немедленно в потоке вызывающего кода, таймауты срабатывают при продвижении виртуального времени.
+
+    using MinimalActorSystem;
+    using MinimalActorSystem.Testing;
+
+    [Test]
+    public void PingPong_CompletesInFiveExchanges()
+    {
+        // 1. Настройка
+        var settings = new Settings { TimeServiceModes = TimeServiceModes.Sync };
+        var system = new ActorSystem(settings);
+
+        // Логгер для отладки
+        system.CreateTestLogger(TestContext.WriteLine);
+
+        // Виртуальное время
+        var timeService = new VirtualTimeService(system);
+        timeService.SetTime("01.01.2024 12:00:00".AsUtc());
+        system.TimeService = timeService;
+
+        // 2. Модель
+        var model = new PingPongModel(system);
+        system.RegisterActor(model);
+        model.SendInitialize();
+
+        // 3. Запуск виртуальных часов (если нужно гонять время)
+        timeService.StartVirtualClock(
+            startTime: "01.01.2024 12:00:00".AsUtc(),
+            endTime: "01.01.2024 12:01:00".AsUtc(),
+            step: TimeSpan.FromSeconds(1)
+        );
+
+        // 4. Проверки...
+    }
+
+`StartVirtualClock` проходит от `startTime` до `endTime` с шагом `step`. На каждом шаге применяются отложенные операции регистрации/отмены таймаутов, срабатывают истёкшие таймауты, и вызываются подписчики виртуального времени (о них ниже). В синхронном режиме все письма обрабатываются сразу же.
+
+### Асинхронный режим тестирования
+
+Асинхронный режим использует `StartVirtualClockAsync` и `TimeServiceModes.Async`. После каждого шага виртуального времени система ждёт, пока все акторы обработают свои очереди (`WaitAllIdleAsync`). Это позволяет тестировать сценарии, где порядок обработки писем важен.
+
+    [Test]
+    public async Task PingPongAsync_Completes()
+    {
+        var settings = new Settings { TimeServiceModes = TimeServiceModes.Async };
+        var system = new ActorSystem(settings);
+        system.CreateTestLogger(TestContext.WriteLine);
+
+        var timeService = new VirtualTimeService(system);
+        timeService.SetTime("01.01.2024 12:00:00".AsUtc());
+        system.TimeService = timeService;
+
+        var model = new PingPongModel(system);
+        system.RegisterActor(model);
+        model.SendInitialize();
+
+        await timeService.StartVirtualClockAsync(
+            startTime: "01.01.2024 12:00:00".AsUtc(),
+            endTime: "01.01.2024 12:01:00".AsUtc(),
+            step: TimeSpan.FromSeconds(1)
+        );
+    }
+
+### Имитаторы внешней среды
+
+Часто в тестах нужно имитировать внешнюю среду: источники данных, сбои соединений, изменение конфигурации. Для этого используется интерфейс `IVirtualTimeSubscriber`.
+
+Подписчик получает управление на каждом шаге виртуального времени и может отправить письмо актору, имитируя внешнее событие:
+
+    public class TelemetrySimulator : IVirtualTimeSubscriber
+    {
+        private readonly IActorSystem _system;
+        private readonly Guid _targetActor;
+
+        public string Name => "TelemetrySimulator";
+
+        public TelemetrySimulator(IActorSystem system, Guid targetActor)
+        {
+            _system = system;
+            _targetActor = targetActor;
+        }
+
+        public ValueTask OnTimeStep(DateTime currentTime)
+        {
+            // Имитируем поступление телеметрии каждые 10 секунд
+            if (currentTime.Second % 10 == 0)
+            {
+                var data = new TelemetryData(/* ... */);
+                _system.Send(new TelemetryLetter(
+                    sender: SystemUids.System,
+                    receiver: _targetActor,
+                    data: data
+                ));
+            }
+            return default;
+        }
+    }
+
+Подписчик регистрируется в `VirtualTimeService`:
+
+    var simulator = new TelemetrySimulator(system, someActor.Uid);
+    timeService.Subscribe(simulator);
+
+Теперь при каждом вызове `StartVirtualClock` или `StartVirtualClockAsync` имитатор будет получать управление на каждом шаге и отправлять письма в соответствии с модельным временем.
+
+## Декларативное построение модели из XML
+
+Если прикладная система содержит много акторов со сложными связями, вместо императивного создания в `ModelActor.OnBuildModel` можно использовать `CompiledModelActor` и XML-описание.
+
+XML-описание модели:
+
+    <Model>
+      <Sensor Uid="a1b2c3d4-...">
+        <Name>TemperatureSensor</Name>
+        <Interval>0x3E8</Interval>
+      </Sensor>
+      <Controller Uid="e5f6a7b8-...">
+        <SetPoint>22.5</SetPoint>
+        <Deadband>0.5</Deadband>
+      </Controller>
+    </Model>
+
+Компиляция и использование:
+
+    public class MyCompiledModelActor : CompiledModelActor
+    {
+        public MyCompiledModelActor(IActorSystem system) : base(system) { }
+
+        protected override CompiledModel CompileModel()
+        {
+            var compiler = new XmlModelCompiler("Uid")
+                .AddRule("Sensor", new ElementRule()
+                    .WithRequired("Uid")
+                    .WithProperties("Name", "Interval"))
+                .AddRule("Controller", new ElementRule()
+                    .WithRequired("Uid")
+                    .WithProperties("SetPoint", "Deadband"));
+
+            var xml = File.ReadAllText("model.xml");
+            return compiler.Compile(xml);
+        }
 
         protected override object CreateObject(ElementConfig element)
         {
             return element.ElementType switch
             {
-                "PingActor" => new PingActor(System, element),
-                "PongActor" => new PongActor(System, element),
-                _ => throw new InvalidOperationException()
+                "Sensor" => CreateSensor(element),
+                "Controller" => CreateController(element),
+                _ => throw new InvalidOperationException($"Unknown element type: {element.ElementType}")
             };
+        }
+
+        private SensorActor CreateSensor(ElementConfig element)
+        {
+            element.TryGetString("Name", out var name);
+            element.TryGetInt32("Interval", out var interval);
+            return new SensorActor(System, element.Uid, name, interval);
+        }
+
+        private ControllerActor CreateController(ElementConfig element)
+        {
+            element.TryGetDouble("SetPoint", out var setPoint);
+            element.TryGetDouble("Deadband", out var deadband);
+            return new ControllerActor(System, element.Uid, setPoint, deadband);
         }
 
         protected override void OnAfterCreate(CompiledModel model)
         {
-            var pingElements = model.FindByType("PingActor");
-            var pongElements = model.FindByType("PongActor");
-            if (pingElements.Count > 0 && pongElements.Count > 0)
-            {
-                var ping = GetObject<PingActor>(pingElements[0].Uid);
-                var pong = GetObject<PongActor>(pongElements[0].Uid);
-                ping.PongUid = pong.Uid;
-            }
+            // Устанавливаем связи между акторами
+            var sensor = GetObject<SensorActor>(/* uid датчика */);
+            var controller = GetObject<ControllerActor>(/* uid контроллера */);
+            sensor.SetController(controller);
         }
     }
 
----
+Метод `OnAfterCreate` вызывается после создания всех объектов, но до их регистрации в системе. Здесь нельзя отправлять письма — получатели ещё не зарегистрированы. Но можно устанавливать прямые ссылки между акторами, если это нужно для конфигурации.
 
-## 2. Описание модели в XML
+## Обработка ошибок и завершение
 
-### 2.1. Простейшая модель
+Актор должен перехватывать исключения внутри `OnLetter`. Необработанное исключение логируется, и актор продолжает работу со следующим письмом.
 
-    <Model>
-      <PingActor Uid="a0000000-0000-0000-0000-000000000001" Name="ping" IntervalMs="1000" />
-      <PongActor Uid="a0000000-0000-0000-0000-000000000002" Name="pong" />
-    </Model>
+Если ошибка делает дальнейшую работу актора невозможной, он вызывает `System.Panic()`. Это устанавливает флаг `IsPanic` и отменяет токен отмены, что приводит к завершению всех акторов. Внешний код, ожидающий через `WaitForShutdownAsync`, может проверить `system.IsPanic` и завершить процесс с ненулевым кодом возврата.
 
-- Каждый элемент обязан иметь Uid (или uid, Id, id)
-- Атрибуты становятся свойствами ElementConfig
+Штатное завершение запускается вызовом `System.Shutdown()`. Акторы вызывают `OnShutdown`, освобождают ресурсы и удаляются из реестра.
 
-### 2.2. Текстовые свойства
+## Резюме
 
-    <ConfigActor Uid="c0000000-0000-0000-0000-000000000001">
-      <Endpoint>https://api.example.com/v2</Endpoint>
-      <ApiKey>sk-abc123xyz</ApiKey>
-    </ConfigActor>
+MinimalActorSystem даёт вам:
 
-Результат: свойства Endpoint и ApiKey добавляются в ElementConfig родителя.
+- Изолированных акторов с последовательной обработкой сообщений
+- Асинхронную доставку писем без блокировок
+- Сервис времени с поддержкой таймаутов
+- Виртуальное время для быстрых детерминированных тестов
+- Имитаторы внешней среды через `IVirtualTimeSubscriber`
+- Декларативное построение модели из XML для сложных конфигураций
+- Встроенное файловое и консольное логирование
 
-### 2.3. Группирующие элементы
-
-    <Model>
-      <Actors>
-        <Worker Uid="w-0001" Name="worker1" />
-        <Worker Uid="w-0002" Name="worker2" />
-      </Actors>
-      <Connections>
-        <Connection Uid="c-0001" From="w-0001" To="w-0002" />
-      </Connections>
-    </Model>
-
-Правила:
-
-    compiler.AddRule("Actors", new ElementRule().WithGroupElement("Actors"));
-    compiler.AddRule("Connections", new ElementRule().WithGroupElement("Connections"));
-    compiler.AddRule("Worker", new ElementRule().WithRequired("Name"));
-    compiler.AddRule("Connection", new ElementRule().WithRequired("From", "To"));
-
-### 2.4. Обязательные свойства
-
-    compiler.AddRule("Database", new ElementRule()
-        .WithRequired("ConnectionString", "MaxPoolSize"));
-
-Если обязательное свойство отсутствует — элемент пропускается с предупреждением.
-
-### 2.5. Префиксы чисел
-
-    <Config Uid="cfg-01" MaxRetries="0b101" BaseAddress="0x1A3F" Mask="0o755" />
-
-Поддерживаются: 0x (hex), 0b (binary), 0o (octal) для int, long, double.
-
----
-
-## 3. Создание прикладных акторов
-
-### 3.1. Базовый актор
-
-    public class PingActor : Actor
-    {
-        private readonly int _intervalMs;
-        private readonly TimeoutCallback _timerCallback;
-        private int _counter;
-        public Guid PongUid { get; set; }
-
-        public PingActor(IActorSystem system, ElementConfig config)
-            : base(system, config.Uid, config.TryGetString("Name", out var n) ? n : "ping")
-        {
-            config.TryGetInt32("IntervalMs", out _intervalMs);
-            _timerCallback = new TimeoutCallback(Uid, callbackId: 1, OnTimerTick);
-        }
-
-        protected override async ValueTask OnLetter(Letter letter)
-        {
-            if (letter is PongLetter pong)
-            {
-                System.Logger.LogInformation("Received Pong #{Counter}", pong.Counter);
-                ScheduleNextPing();
-            }
-            await ValueTask.CompletedTask;
-        }
-
-        private void ScheduleNextPing()
-        {
-            System.TimeService.Register(
-                TimeSpan.FromMilliseconds(_intervalMs), _timerCallback);
-        }
-
-        private void OnTimerTick()
-        {
-            _counter++;
-            System.Send(new PingLetter(Uid, PongUid, _counter));
-        }
-    }
-
-### 3.2. Пользовательские письма
-
-    public sealed class PingLetter : Letter
-    {
-        public int Counter { get; }
-        public PingLetter(Guid sender, Guid receiver, int counter) 
-            : base(sender, receiver) { Counter = counter; }
-    }
-
-    public sealed class PongLetter : Letter
-    {
-        public int Counter { get; }
-        public PongLetter(Guid sender, Guid receiver, int counter) 
-            : base(sender, receiver) { Counter = counter; }
-    }
-
-### 3.3. Аккумулятор
-
-    public sealed class GatherLetter : Letter
-    {
-        public List<string> Results { get; } = [];
-        public int ExpectedCount { get; init; }
-        public GatherLetter(Guid sender, Guid receiver, int expectedCount) 
-            : base(sender, receiver) { ExpectedCount = expectedCount; }
-    }
-
-    // Использование:
-    var gather = new GatherLetter(Uid, worker1Uid, expectedCount: 3);
-    System.Send(gather);
-    gather.Results.Add("worker1 done");
-    gather.Sender = Uid;
-    gather.Receiver = worker2Uid;
-    System.Send(gather);
-
----
-
-## 4. Отправка и обработка сообщений
-
-    // Прямая отправка
-    var letter = new MyLetter(Uid, receiverUid, data);
-    system.Send(letter);
-
-    // Отправка самому себе
-    system.Send(new MyLetter(Uid, Uid, data));
-
-    // Обработка в акторе
-    protected override async ValueTask OnLetter(Letter letter)
-    {
-        switch (letter)
-        {
-            case MyLetter msg:
-                await ProcessMyLetter(msg);
-                break;
-        }
-    }
-
----
-
-## 5. Работа с таймаутами
-
-### 5.1. Регистрация и отмена
-
-    public class RetryActor : Actor
-    {
-        private readonly TimeoutCallback _retryCallback;
-        private int _retryCount;
-
-        public RetryActor(IActorSystem system, Guid uid, string name) 
-            : base(system, uid, name)
-        {
-            _retryCallback = new TimeoutCallback(uid, callbackId: 1, OnRetry);
-        }
-
-        private void StartRetryLoop()
-        {
-            _retryCount = 0;
-            System.TimeService.Register(
-                TimeSpan.FromSeconds(1), _retryCallback);
-        }
-
-        private void OnRetry()
-        {
-            _retryCount++;
-            if (_retryCount < 5)
-            {
-                var delay = TimeSpan.FromSeconds(Math.Pow(2, _retryCount));
-                System.TimeService.Register(delay, _retryCallback);
-            }
-            else
-            {
-                System.Logger.LogError("Max retries exceeded");
-                System.Panic();
-            }
-        }
-
-        protected override async ValueTask OnShutdown()
-        {
-            System.TimeService.Unregister(_retryCallback);
-            await base.OnShutdown();
-        }
-    }
-
-### 5.2. Таймаут ожидания ответа
-
-    private TaskCompletionSource<ResponseLetter>? _pendingRequest;
-    private readonly TimeoutCallback _timeoutCallback;
-
-    _pendingRequest = new TaskCompletionSource<ResponseLetter>();
-    System.TimeService.Register(TimeSpan.FromSeconds(5), _timeoutCallback);
-
-    // При получении ответа:
-    System.TimeService.Unregister(_timeoutCallback);
-    _pendingRequest?.TrySetResult(response);
-
-    // При срабатывании таймаута:
-    private void OnTimeout()
-    {
-        _pendingRequest?.TrySetException(
-            new TimeoutException("Request timed out"));
-    }
-
----
-
-## 6. Логирование
-
-### 6.1. Файловый логгер
-
-    using MinimalActorSystem;
-
-    var system = new ActorSystem(settings);
-    
-    // Создать файловый логгер одной строкой
-    system.CreateFileLogger("myapp", minLevel: LogLevel.Information);
-    
-    // Файл создаётся в директории Logs/myapp.log
-    // Директория создаётся автоматически
-
-Настройка директории логов:
-
-    ActorSystemExtensions.FileLoggerDirectory = "/var/log/myapp";
-
-Особенности:
-- Сообщения буферизуются в памяти и сбрасываются на диск пачками с задержкой до 100 мс
-- Потокобезопасен
-- При завершении приложения вызовите Dispose у логгера для сброса оставшихся сообщений
-
-Формат строки лога:
-
-    01.02.2024 12:34:56.789 [Information] [7] Actor ping: message text
-
-### 6.2. Callback-логгер для тестов
-
-    system.CreateTestLogger(line =>
-    {
-        _testOutputHelper.WriteLine(line);
-    });
-
-Сообщения передаются в делегат. Удобен для проверки логов в тестах через Assert.
-
----
-
-## 7. Тестирование
-
-### 7.1. Синхронный режим
-
-    [Test]
-    public void PingActor_SendsPing_OnStartup()
-    {
-        var settings = new Settings
-        {
-            SynchronousProcessing = true,
-            IsProduction = false
-        };
-        var system = new ActorSystem(settings);
-        var ping = new PingActor(system, testUid, "test-ping");
-        system.RegisterActor(ping);
-        system.Send(new InitializeLetter(SystemUids.System, testUid));
-        Assert.That(ping.Counter, Is.EqualTo(1));
-    }
-
-### 7.2. Виртуальное время
-
-    public class VirtualTimeService : ITimeService
-    {
-        private DateTime _currentTime = new(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-        private readonly SortedList<DateTime, List<TimeoutCallback>> _timers = [];
-
-        public DateTime UtcNow => _currentTime;
-
-        public void Register(DateTime deadline, TimeoutCallback callback)
-        {
-            if (!_timers.ContainsKey(deadline))
-                _timers[deadline] = [];
-            _timers[deadline].Add(callback);
-        }
-
-        public void Register(TimeSpan timeout, TimeoutCallback callback)
-            => Register(_currentTime + timeout, callback);
-
-        public void Unregister(TimeoutCallback callback)
-        {
-            foreach (var list in _timers.Values)
-                list.RemoveAll(c => c.Equals(callback));
-        }
-
-        public void Advance(TimeSpan time)
-        {
-            var targetTime = _currentTime + time;
-            while (_timers.Count > 0 && _timers.Keys[0] <= targetTime)
-            {
-                _currentTime = _timers.Keys[0];
-                var callbacks = _timers[_currentTime];
-                _timers.RemoveAt(0);
-                foreach (var cb in callbacks)
-                    cb.Action();
-            }
-            _currentTime = targetTime;
-        }
-    }
-
-### 7.3. Тестовые расширения
-
-    // Файловый логгер для теста (имя файла = имя тестового метода)
-    system.CreateTestFileLogger();
-    // Создаст Logs/MyTestMethod.log
-
-    // Callback-логгер для проверки в Assert
-    var logLines = new List<string>();
-    system.CreateTestLogger(line => logLines.Add(line));
-    // ... выполнение теста ...
-    Assert.That(logLines, Has.Some.Contain("expected message"));
-
-    // Настройка директории для тестовых логов
-    ActorSystemTestExtensions.TestFileLoggerDirectory = @"C:\TestLogs";
-
-### 7.4. Модульные тесты ElementConfig
-
-    [Test]
-    public void TryGetInt32_ParsesHexPrefix()
-    {
-        var config = new ElementConfig();
-        config.AddProperty("Value", "0xFF");
-        Assert.That(config.TryGetInt32("Value", out var value), Is.True);
-        Assert.That(value, Is.EqualTo(255));
-    }
-
-    [Test]
-    public void TryGetInt32_ParsesBinaryPrefix()
-    {
-        var config = new ElementConfig();
-        config.AddProperty("Mask", "0b1010");
-        Assert.That(config.TryGetInt32("Mask", out var value), Is.True);
-        Assert.That(value, Is.EqualTo(10));
-    }
-
-### 7.5. Интеграционные тесты XML-компиляции
-
-    [Test]
-    public void Compile_ValidXml_ReturnsCorrectModel()
-    {
-        var xml = """
-            <Model>
-              <Worker Uid="00000000-0000-0000-0000-000000000001" Name="w1" />
-              <Worker Uid="00000000-0000-0000-0000-000000000002" Name="w2" />
-            </Model>
-            """;
-
-        var compiler = new XmlModelCompiler();
-        var model = compiler.Compile(xml);
-
-        Assert.That(model.Count, Is.EqualTo(2));
-        Assert.That(compiler.Warnings, Is.Empty);
-    }
-
-    [Test]
-    public void Compile_MissingRequiredProperty_AddsWarning()
-    {
-        var xml = """
-            <Model>
-              <Database Uid="00000000-0000-0000-0000-000000000001" />
-            </Model>
-            """;
-
-        var compiler = new XmlModelCompiler();
-        compiler.AddRule("Database", 
-            new ElementRule().WithRequired("ConnectionString"));
-        var model = compiler.Compile(xml);
-
-        Assert.That(model.Count, Is.EqualTo(0));
-        Assert.That(compiler.Warnings, Has.Count.EqualTo(1));
-    }
-
----
-
-## 8. Обработка ошибок и Panic
-
-### Аварийное завершение
-
-    try
-    {
-        var result = await _externalService.DoWork(data);
-        if (!result.Success)
-            throw new InvalidOperationException("Service failure");
-    }
-    catch (Exception ex) when (ex is not OperationCanceledException)
-    {
-        System.Logger.LogCritical(ex, "Critical failure");
-        System.Panic();
-    }
-
-### Проверка причины завершения
-
-    await system.WaitForShutdownAsync();
-    Environment.Exit(system.IsPanic ? 1 : 0);
-
----
-
-## 9. Типовые паттерны
-
-### 9.1. Request-Response
-
-    public sealed class QueryLetter : Letter
-    {
-        public string Sql { get; init; }
-        public QueryLetter(Guid s, Guid r, string sql) : base(s, r) { Sql = sql; }
-    }
-
-    public sealed class QueryResultLetter : Letter
-    {
-        public object? Result { get; init; }
-        public QueryResultLetter(Guid s, Guid r, object? result) 
-            : base(s, r) { Result = result; }
-    }
-
-### 9.2. Scatter-Gather
-
-    public sealed class ScatterGatherLetter : Letter
-    {
-        public List<string> Results { get; } = [];
-        public int ExpectedCount { get; init; }
-        public TaskCompletionSource<List<string>> Completion { get; init; }
-
-        public ScatterGatherLetter(Guid sender, Guid receiver, int expectedCount) 
-            : base(sender, receiver)
-        {
-            ExpectedCount = expectedCount;
-            Completion = new TaskCompletionSource<List<string>>();
-        }
-    }
-
-### 9.3. Circuit Breaker
-
-    private enum State { Closed, Open, HalfOpen }
-
-    if (_failureCount >= FailureThreshold)
-    {
-        _state = State.Open;
-        System.TimeService.Register(ResetTimeout, _resetCallback);
-    }
-
-### 9.4. Актор-агрегатор
-
-    public class StateAggregatorActor : Actor
-    {
-        private readonly Dictionary<string, double> _metrics = [];
-
-        protected override async ValueTask OnLetter(Letter letter)
-        {
-            switch (letter)
-            {
-                case MetricUpdateLetter update:
-                    _metrics[update.Key] = update.Value;
-                    break;
-                case GetMetricsLetter get:
-                    var snapshot = new Dictionary<string, double>(_metrics);
-                    System.Send(
-                        new MetricsSnapshotLetter(Uid, get.Sender, snapshot));
-                    break;
-            }
-        }
-    }
-
----
-
-## 10. Структура проекта
-
-    MyApp/
-    ├── Actors/
-    │   ├── MyAppModelActor.cs
-    │   ├── PingActor.cs
-    │   └── ...
-    ├── Letters/
-    │   ├── PingLetter.cs
-    │   └── ...
-    ├── model.xml
-    ├── Program.cs
-    └── MyApp.csproj
-
----
-
+Система остается минималистичной: никаких супервизоров, иерархий наследования сообщений, горячей замены кода или распределённых транзакций. Только акторы, письма, очереди и время.

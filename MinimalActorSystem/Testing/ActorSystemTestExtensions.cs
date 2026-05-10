@@ -34,7 +34,6 @@ public static class ActorSystemTestExtensions
         }
 
         var filePath = Path.Combine(TestFileLoggerDirectory, $"{testMethodName}.log");
-        system.Trace($"CreateTestFileLogger: {filePath} (minLevel={minLevel})");
         var provider = new FileLoggerProvider(filePath, system, minLevel);
         var logger = provider.CreateLogger(string.Empty);
         system.Logger = logger;
@@ -50,7 +49,6 @@ public static class ActorSystemTestExtensions
     public static void CreateTestLogger(this IActorSystem system, Action<string> writeLine,
         LogLevel minLevel = LogLevel.Trace)
     {
-        system.Trace($"CreateTestLogger: CallbackLogger (minLevel={minLevel})");
         var logger = new CallbackLogger(system, writeLine, minLevel);
         system.Logger = logger;
     }

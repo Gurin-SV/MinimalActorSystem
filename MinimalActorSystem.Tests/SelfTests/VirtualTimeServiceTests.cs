@@ -47,8 +47,8 @@ public sealed class VirtualTimeServiceTests(ITestOutputHelper output)
     [InlineData(false)]
     public async Task VirtualTimeServiceTest001(bool synchronousProcessing)
     {
-        var system = SystemFactory.CreateSystem(_output,
-            new Settings { IsProduction = false, SynchronousProcessing = synchronousProcessing });
+        TimeServiceModes modes = synchronousProcessing ? TimeServiceModes.Sync : TimeServiceModes.Async;
+        var system = SystemFactory.CreateSystem(_output, new Settings { TimeServiceModes = modes });
         var timeService = new VirtualTimeService(system);
         system.TimeService = timeService;
 

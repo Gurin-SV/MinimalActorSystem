@@ -144,8 +144,7 @@ public class Program
         Console.WriteLine($"Тест: {pairs} пар, {messagesPerPair} сообщений на пару");
         Console.WriteLine($"Всего акторов: {pairs * 2}, всего сообщений: {(long)pairs * messagesPerPair * 2:N0}");
 
-        var settings = new Settings { IsProduction = true };
-        var system = new ActorSystem(settings);
+        var system = new ActorSystem(new Settings());
 
         var allDone = new TaskCompletionSource<bool>();
         var counter = new Counter { Value = pairs };

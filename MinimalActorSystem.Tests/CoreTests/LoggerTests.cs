@@ -10,7 +10,7 @@ public sealed class LoggerTests(ITestOutputHelper output)
     public void LoggerTests_001_FileLogger()
     {
         ActorSystemExtensions.FileLoggerDirectory = Path.GetTempPath();
-        var system = new ActorSystem(new Settings { IsProduction = true });
+        var system = new ActorSystem(new Settings());
         system.CreateTestFileLogger();
 
         system.Logger.LogInformation("Test message 1");
@@ -51,14 +51,5 @@ public sealed class LoggerTests(ITestOutputHelper output)
         system.Logger.LogInformation("Should not throw");
         system.Logger.LogWarning("Should not throw");
         system.Logger.LogError("Should not throw");
-    }
-
-    [Fact]
-    public void LoggerTests_004_TraceToLogger()
-    {
-        var system = SystemFactory.CreateSystem(_output);
-
-        ((IActorSystem)system).Trace("Trace message 1");
-        ((IActorSystem)system).Trace("Trace message 2");
     }
 }

@@ -399,7 +399,7 @@ public class CompiledModelTests(ITestOutputHelper output)
             <Storage Uid=""00000000-0000-0000-0000-000000000012"" Path=""/data"" />
         </Root>";
 
-        var settings = new Settings { IsProduction = false, SynchronousProcessing = true };
+        var settings = new Settings { TimeServiceModes = TimeServiceModes.Sync };
         var system = new ActorSystem(settings);
         var modelActor = new TestCompiledModelActor(system, xml);
         system.RegisterActor(modelActor);

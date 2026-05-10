@@ -24,7 +24,6 @@ public class SystemTimeService : ITimeService
     public SystemTimeService(IActorSystem system)
     {
         _system = system;
-        _system.Trace("TimeService> Created");
         _ = RunAsync(_system.CancellationToken);
     }
 
@@ -55,7 +54,6 @@ public class SystemTimeService : ITimeService
     /// <param name="ct">Токен отмены от акторной системы.</param>
     private async Task RunAsync(CancellationToken ct)
     {
-        _system.Trace("TimeService> Loop started");
         while (!ct.IsCancellationRequested)
         {
             ApplyPendingOps();
@@ -88,11 +86,9 @@ public class SystemTimeService : ITimeService
             }
             catch (OperationCanceledException)
             {
-                _system.Trace("TimeService> Loop cancelled");
                 return;
             }
         }
-        _system.Trace("TimeService> Loop finished");
     }
 
     /// <summary>

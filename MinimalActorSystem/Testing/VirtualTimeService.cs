@@ -13,7 +13,7 @@ namespace MinimalActorSystem.Testing;
 /// <param name="system">Акторная система.</param>
 public class VirtualTimeService(IActorSystem system) : ITimeService
 {
-    private readonly IActorSystem _system = system;
+    private readonly ActorSystem _system = (ActorSystem)system;
     private readonly ConcurrentQueue<PendingOp> _pending = new();
     private readonly Dictionary<CallbackKey, TimerEntry> _timers = [];
     private readonly SortedSet<ExpiryEntry> _expiryIndex = [];
@@ -71,18 +71,15 @@ public class VirtualTimeService(IActorSystem system) : ITimeService
     /// </summary>
     public void StartVirtualClock(DateTime startTime, DateTime endTime, TimeSpan step)
     {
-        _system.Trace("TimeService> Start virtual clock sync");
         _currentTime = startTime;
 
         while (_currentTime <= endTime)
         {
-            _system.Trace("Step time");
             ApplyPendingOps();
             FireSubscribers();
             FireTimeouts();
             _currentTime += step;
         }
-        _system.Trace("TimeService> Virtual clock finished");
     }
 
     /// <summary>
@@ -91,26 +88,21 @@ public class VirtualTimeService(IActorSystem system) : ITimeService
     /// </summary>
     public async Task StartVirtualClockAsync(DateTime startTime, DateTime endTime, TimeSpan step)
     {
-        _system.Trace("TimeService> Start virtual clock async");
         _currentTime = startTime;
 
         while (_currentTime <= endTime)
         {
-            _system.Trace("TimeService> Step time");
             ApplyPendingOps();
             await FireSubscribersAsync();
             FireTimeouts();
 
-            if (!_system.Settings.SynchronousProcessing)
+            if (_system.Settings.TimeServiceModes == TimeServiceModes.Async)
             {
-#if DEBUG_ACTORS
-                await _system.WaitAllIdleAsync();
-#endif
+                await ((IActorSystemInternal)_system).WaitAllIdleAsync();
             }
 
             _currentTime += step;
         }
-        _system.Trace("TimeService> Virtual clock finished");
     }
 
     private void ApplyPendingOps()
@@ -175,10 +167,14 @@ public class VirtualTimeService(IActorSystem system) : ITimeService
 
     private async Task FireSubscribersAsync()
     {
+        bool async = _system.Settings.TimeServiceModes == TimeServiceModes.Async;
+
         foreach (var sub in _subscribers)
         {
-#if DEBUG_ACTORS
-            _system.IncrementActivity();
+            if (async)
+            {
+                ((IActorSystemInternal)_system).IncrementActivity();
+            }
             try
             {
                 await sub.OnTimeStep(_currentTime);
@@ -187,20 +183,10 @@ public class VirtualTimeService(IActorSystem system) : ITimeService
             {
                 _system.Logger.LogError(ex, "Subscriber failed: {Name}", sub.Name);
             }
-            finally
+            if (async)
             {
-                _system.DecrementActivity();
+                ((IActorSystemInternal)_system).DecrementActivity();
             }
-#else
-            try
-            {
-                await sub.OnTimeStep(_currentTime);
-            }
-            catch (Exception ex)
-            {
-                _system.Logger.LogError(ex, "Subscriber failed: {Name}", sub.Name);
-            }
-#endif
         }
     }
 

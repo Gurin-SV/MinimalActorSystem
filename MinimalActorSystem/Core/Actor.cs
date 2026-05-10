@@ -60,16 +60,6 @@ public abstract class Actor
     }
 
     /// <summary>
-    /// Выводит диагностическое сообщение. Активен только при определении символа <c>TRACE_ACTORS</c>.
-    /// </summary>
-    /// <param name="message">Текст сообщения.</param>
-    [Conditional("TRACE_ACTORS")]
-    protected void Trace(string message)
-    {
-        System.Trace($"{Name}> {message}");
-    }
-
-    /// <summary>
     /// Пытается поместить письмо в очередь актора. Вызывается акторной системой.
     /// </summary>
     /// <param name="letter">Письмо для доставки.</param>
@@ -78,9 +68,10 @@ public abstract class Actor
     {
         if (!_channel.Writer.TryWrite(letter))
             return false;
-#if DEBUG_ACTORS
-        System.IncrementActivity();
-#endif
+        if (System.Settings.TimeServiceModes == TimeServiceModes.Async)
+        {
+            ((IActorSystemInternal)System).IncrementActivity();
+        }
         return true;
     }
 
@@ -93,19 +84,16 @@ public abstract class Actor
     {
         try
         {
-            Trace("Started");
             while (!ct.IsCancellationRequested)
             {
                 var letter = await _channel.Reader.ReadAsync(ct);
                 if (letter is ShutdownLetter)
                 {
-                    Trace($"Received ShutdownLetter from {System.GetActorName(letter.Sender)}");
                     break;
                 }
 
                 try
                 {
-                    Trace($"Processing {letter.GetType().Name} from {System.GetActorName(letter.Sender)}");
                     var task = OnLetter(letter);
                     if (!task.IsCompletedSuccessfully)
                         await task;
@@ -114,19 +102,17 @@ public abstract class Actor
                 {
                     System.Logger.LogError(ex, "Error in actor {Name}", Name);
                 }
-                #if DEBUG_ACTORS
                 finally
                 {
-                    System.DecrementActivity();
+                    if (System.Settings.TimeServiceModes == TimeServiceModes.Async)
+                        ((IActorSystemInternal)System).DecrementActivity();
                 } 
-                #endif
             }
         }
         catch (OperationCanceledException)
         {
         }
 
-        Trace("Finished");
         try
         {
             await OnShutdown();
@@ -145,7 +131,6 @@ public abstract class Actor
     /// <param name="letter">Письмо для обработки.</param>
     internal void HandleSynchronously(Letter letter)
     {
-        Trace($"Processing {letter.GetType().Name} from {System.GetActorName(letter.Sender)}");
         try
         {
             var task = OnLetter(letter);
@@ -154,7 +139,7 @@ public abstract class Actor
         }
         catch (Exception ex)
         {
-            System.Logger.LogError(ex, "Error in actor {Name}", System.GetActorName(Uid));
+            System.Logger.LogError(ex, "Error in actor {Name}", Name);
         }
     }
 

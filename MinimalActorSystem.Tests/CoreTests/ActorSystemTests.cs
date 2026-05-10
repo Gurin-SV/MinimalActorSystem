@@ -115,7 +115,7 @@ public sealed class ActorSystemTests(ITestOutputHelper output)
     [Fact]
     public void ActorSystemTests_006()
     {
-        var settings = new Settings { SynchronousProcessing = true };
+        var settings = new Settings { TimeServiceModes = TimeServiceModes.Sync };
         var system = SystemFactory.CreateSystem(_output, settings);
         var received = new List<Letter>();
         var actor = new TestActor(system, Guid.NewGuid(), "test", received);

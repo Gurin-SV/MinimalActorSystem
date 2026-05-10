@@ -8,8 +8,7 @@ public sealed class SettingsTests
     {
         var settings = new Settings();
 
-        Assert.True(settings.IsProduction);
-        Assert.False(settings.SynchronousProcessing);
+        Assert.Equal(TimeServiceModes.System, settings.TimeServiceModes);
     }
 
     // Проверка: установка значений через init
@@ -18,11 +17,9 @@ public sealed class SettingsTests
     {
         var settings = new Settings
         {
-            IsProduction = false,
-            SynchronousProcessing = true
+            TimeServiceModes = TimeServiceModes.Sync
         };
 
-        Assert.False(settings.IsProduction);
-        Assert.True(settings.SynchronousProcessing);
+        Assert.Equal(TimeServiceModes.Sync, settings.TimeServiceModes);
     }
 }

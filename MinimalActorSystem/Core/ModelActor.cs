@@ -67,7 +67,6 @@ public abstract class ModelActor(IActorSystem system, int queueCapacity = 256)
     /// <returns>Идентификатор зарегистрированного актора.</returns>
     protected Guid Create(Actor actor)
     {
-        Trace($"Creating: {actor.Name}");
         System.RegisterActor(actor);
         return actor.Uid;
     }

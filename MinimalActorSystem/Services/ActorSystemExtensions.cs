@@ -30,7 +30,6 @@ public static class ActorSystemExtensions
         }
 
         var filePath = Path.Combine(FileLoggerDirectory, $"{fileNameWithoutExtension}.log");
-        system.Trace($"CreateFileLogger: {filePath} (minLevel={minLevel})");
         var provider = new FileLoggerProvider(filePath, system, minLevel);
         var logger = provider.CreateLogger(string.Empty);
         system.Logger = logger;

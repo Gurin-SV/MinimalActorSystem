@@ -1,5 +1,4 @@
 ﻿using Microsoft.Extensions.Logging;
-using System;
 using System.Diagnostics;
 
 namespace MinimalActorSystem.Tests.Stress;
@@ -256,110 +255,6 @@ public sealed class StressTests(ITestOutputHelper output)
         }
     }
 
-    private sealed class RetryTestModelActor(IActorSystem system, TaskCompletionSource<bool> allDone,
-        TaskCompletionSource<bool> modelReady, int totalMessages, int queueCapacity)
-        : ModelActor(system)
-    {
-        private FlooderActor? _flooder;
-
-        public int RetryCount => _flooder?.RetryCount ?? 0;
-
-        protected override void OnBuildModel()
-        {
-            var slow = new SlowActor(System, Guid.NewGuid(), "slow", allDone, totalMessages, queueCapacity);
-            _flooder = new FlooderActor(System, Guid.NewGuid(), "flooder", queueCapacity);
-            _flooder.Init(slow.Uid, totalMessages);
-
-            Create(slow);
-            Create(_flooder);
-
-            modelReady.TrySetResult(true);
-        }
-
-        public void StartSending()
-        {
-            _flooder!.Start();
-        }
-    }
-
-    private sealed class FlooderActor : Actor
-    {
-        private Guid _target;
-        private int _total;
-        private int _currentIndex;
-        private static readonly TimeSpan _retryDelay = TimeSpan.FromMilliseconds(50);
-        private readonly TimeoutCallback _retryCallback;
-
-        public int RetryCount { get; private set; }
-
-        public FlooderActor(IActorSystem system, Guid uid, string name, int queueCapacity)
-            : base(system, uid, name, queueCapacity)
-        {
-            _retryCallback = new TimeoutCallback(uid, 0, RetrySend);
-        }
-
-        public void Init(Guid target, int total)
-        {
-            _target = target;
-            _total = total;
-        }
-
-        public void Start()
-        {
-            _currentIndex = 0;
-            TrySendCurrent();
-        }
-
-        protected override ValueTask OnLetter(Letter letter)
-        {
-            if (letter is TimeServiceLetter timeLetter)
-            {
-                timeLetter.Callback.Action();
-            }
-            return default;
-        }
-
-        private void TrySendCurrent()
-        {
-            while (_currentIndex < _total)
-            {
-                if (!System.Send(new TestFloodLetter(Uid, _target, _currentIndex)))
-                {
-                    RetryCount++;
-                    System.Logger.LogInformation("Flooder: queue full for index {Index}, retry #{RetryCount}", _currentIndex, RetryCount);
-                    System.TimeService.Register(_retryDelay, _retryCallback);
-                    return;
-                }
-                _currentIndex++;
-            }
-        }
-
-        private void RetrySend()
-        {
-            TrySendCurrent();
-        }
-    }
-
-    private sealed class SlowActor(IActorSystem system, Guid uid, string name, TaskCompletionSource<bool> done,
-        int expectedCount, int queueCapacity)
-        : Actor(system, uid, name, queueCapacity)
-    {
-        private readonly TaskCompletionSource<bool> _done = done;
-        private readonly int _expectedCount = expectedCount;
-        private int _received;
-
-        protected override async ValueTask OnLetter(Letter letter)
-        {
-            if (letter is TestFloodLetter)
-            {
-                await Task.Delay(10);
-                var received = Interlocked.Increment(ref _received);
-                if (received >= _expectedCount)
-                    _done.TrySetResult(true);
-            }
-        }
-    }
-
     #endregion Actors
 
     #region Letters
@@ -399,7 +294,7 @@ public sealed class StressTests(ITestOutputHelper output)
     {
         const int pairs = 1;
         const int count = 100_000;
-        var system = new ActorSystem(new Settings { IsProduction = true });
+        var system = new ActorSystem(new Settings());
 
         var allDone = new TaskCompletionSource<bool>();
         var modelReady = new TaskCompletionSource<bool>();
@@ -436,7 +331,7 @@ public sealed class StressTests(ITestOutputHelper output)
     {
         const int pairs = 300;
         const int count = 1_000;
-        var system = new ActorSystem(new Settings { IsProduction = true });
+        var system = new ActorSystem(new Settings());
 
         var allDone = new TaskCompletionSource<bool>();
         var modelReady = new TaskCompletionSource<bool>();
@@ -470,7 +365,7 @@ public sealed class StressTests(ITestOutputHelper output)
     public async Task StressTests_003()
     {
         const int actorCount = 10000;
-        var system = new ActorSystem(new Settings { IsProduction = true });
+        var system = new ActorSystem(new Settings());
 
         for (int i = 0; i < actorCount; i++)
         {
@@ -495,7 +390,7 @@ public sealed class StressTests(ITestOutputHelper output)
     {
         const int actorCount = 2_000;
         const int messagesPerActor = 100;
-        var system = new ActorSystem(new Settings { IsProduction = true });
+        var system = new ActorSystem(new Settings());
 
         var allDone = new TaskCompletionSource<bool>();
         var modelReady = new TaskCompletionSource<bool>();
@@ -522,41 +417,6 @@ public sealed class StressTests(ITestOutputHelper output)
         _output.WriteLine($"Per message: {usPerMessage:F2} us");
         _output.WriteLine($"Messages/sec: {totalMessages / (sw.ElapsedMilliseconds / 1000.0):F0}");
         _output.WriteLine($"Latency: {avgLatencyUs:F2} us");
-
-        system.Shutdown();
-        await system.WaitForShutdownAsync();
-        Assert.False(system.IsPanic);
-    }
-
-    [Fact]
-    public async Task StressTests_005()
-    {
-        const int queueCapacity = 10;
-        const int totalMessages = 20;
-        var system = new ActorSystem(new Settings
-        {
-            IsProduction = true
-        });
-        system.CreateFileLogger("stress_005_retry");
-        system.TimeService = new SystemTimeService(system);
-
-        var allDone = new TaskCompletionSource<bool>();
-        var modelReady = new TaskCompletionSource<bool>();
-
-        var model = new RetryTestModelActor(system, allDone, modelReady, totalMessages, queueCapacity);
-        system.RegisterActor(model);
-        system.Send(new InitializeLetter(SystemUids.System, SystemUids.Model));
-
-        await modelReady.Task.WaitAsync(TimeSpan.FromSeconds(5));
-
-        var sw = Stopwatch.StartNew();
-        model.StartSending();
-        await allDone.Task.WaitAsync(TimeSpan.FromSeconds(30));
-        sw.Stop();
-
-        _output.WriteLine($"Time: {sw.ElapsedMilliseconds} ms");
-        _output.WriteLine($"Total retries: {model.RetryCount}");
-        Assert.True(model.RetryCount > 0, "Expected some retries due to small queue");
 
         system.Shutdown();
         await system.WaitForShutdownAsync();

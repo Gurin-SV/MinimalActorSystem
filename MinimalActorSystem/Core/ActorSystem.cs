@@ -1,12 +1,17 @@
-﻿using System.Diagnostics;
+﻿namespace MinimalActorSystem;
 
-namespace MinimalActorSystem;
+internal interface IActorSystemInternal
+{
+    void IncrementActivity();
+    void DecrementActivity();
+    Task WaitAllIdleAsync();
+}
 
 /// <summary>
 /// Реализация акторной системы. Управляет реестром акторов, маршрутизацией писем,
 /// жизненным циклом и предоставляет доступ к инфраструктурным сервисам (логгер, время, настройки).
 /// </summary>
-public sealed class ActorSystem : IActorSystem
+public sealed class ActorSystem : IActorSystem, IActorSystemInternal
 {
     /// <summary>
     /// Пустая реализация <see cref="ILogger"/>, используемая по умолчанию. Все вызовы игнорируются.
@@ -35,36 +40,8 @@ public sealed class ActorSystem : IActorSystem
     private readonly CancellationTokenSource _cts;
     private readonly ActorRegistry _registry;
     private volatile bool _isPanic;
-
-#if DEBUG_ACTORS
     private int _activeCount;
     private TaskCompletionSource<bool>? _idleTcs;
-
-    public void IncrementActivity()
-    {
-        if (Settings.SynchronousProcessing)
-            return;
-        Interlocked.Increment(ref _activeCount);
-    }
-
-    public void DecrementActivity()
-    {
-        if (Settings.SynchronousProcessing)
-            return;
-        if (Interlocked.Decrement(ref _activeCount) == 0)
-        {
-            _idleTcs?.TrySetResult(true);
-        }
-    }
-
-    public Task WaitAllIdleAsync()
-    {
-        if (_activeCount == 0)
-            return Task.CompletedTask;
-        _idleTcs = new TaskCompletionSource<bool>();
-        return _idleTcs.Task;
-    }
-#endif
 
     /// <inheritdoc/>
     public Settings Settings { get; }
@@ -123,7 +100,7 @@ public sealed class ActorSystem : IActorSystem
         }
 
         bool delivered;
-        if (Settings.SynchronousProcessing)
+        if (Settings.TimeServiceModes == TimeServiceModes.Sync)
         {
             actor.HandleSynchronously(letter);
             delivered = true;
@@ -139,21 +116,18 @@ public sealed class ActorSystem : IActorSystem
                 GetActorName(letter.Receiver), letter.GetType().Name, GetActorName(letter.Sender));
         }
 
-        Trace($"System> Send {letter.GetType().Name} from {GetActorName(letter.Sender)} to {GetActorName(letter.Receiver)}: {(delivered ? "delivered" : "DROPPED")}");
         return delivered;
     }
 
     /// <inheritdoc/>
     public void Shutdown()
     {
-        Trace("System> Shutdown");
         _cts.Cancel();
     }
 
     /// <inheritdoc/>
     public void Panic()
     {
-        Trace("System> Panic");
         _isPanic = true;
         _cts.Cancel();
     }
@@ -161,7 +135,6 @@ public sealed class ActorSystem : IActorSystem
     /// <inheritdoc/>
     public Task WaitForShutdownAsync()
     {
-        Trace("System> WaitForShutdownAsync");
         return _registry.WaitForEmptyAsync();
     }
 
@@ -185,22 +158,32 @@ public sealed class ActorSystem : IActorSystem
         return null;
     }
 
-    /// <summary>
-    /// Явная реализация <see cref="IActorSystem.Trace"/> для диагностического логирования.
-    /// </summary>
-    /// <param name="message">Диагностическое сообщение.</param>
-    void IActorSystem.Trace(string message)
+    void IActorSystemInternal.IncrementActivity()
     {
-        Logger.Log(LogLevel.Trace, "{Message}", message);
+        if (Settings.TimeServiceModes == TimeServiceModes.Async)
+            Interlocked.Increment(ref _activeCount);
     }
 
-    /// <summary>
-    /// Внутренний метод диагностического логирования. Активен только при определении символа <c>TRACE_ACTORS</c>.
-    /// </summary>
-    /// <param name="message">Диагностическое сообщение.</param>
-    [Conditional("TRACE_ACTORS")]
-    private void Trace(string message)
+    void IActorSystemInternal.DecrementActivity()
     {
-        Logger.Log(LogLevel.Trace, "{Message}", message);
+        if (Settings.TimeServiceModes == TimeServiceModes.Async)
+        {
+            if (Interlocked.Decrement(ref _activeCount) == 0)
+            {
+                _idleTcs?.TrySetResult(true);
+            }
+        }
+    }
+
+    Task IActorSystemInternal.WaitAllIdleAsync()
+    {
+        if (Settings.TimeServiceModes == TimeServiceModes.Async)
+        {
+            if (_activeCount == 0)
+                return Task.CompletedTask;
+            _idleTcs = new TaskCompletionSource<bool>();
+            return _idleTcs.Task;
+        }
+        return Task.CompletedTask;
     }
 }
