@@ -1,5 +1,8 @@
 ﻿namespace MinimalActorSystem;
 
+/// <summary>
+/// Режимы работы сервиса времени
+/// </summary>
 public enum TimeServiceModes
 {
     /// <summary>

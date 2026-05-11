@@ -279,6 +279,7 @@ Create регистрирует дочернего актора в систем�
         int ActorCount { get; }
         ILogger Logger { get; set; }
         ITimeService TimeService { get; set; }
+        IActorSystemMetrics Metrics { get; set; }
         Settings Settings { get; }
         string GetActorName(Guid uid);
         List<Actor> GetAllActors();
@@ -299,6 +300,7 @@ Create регистрирует дочернего актора в систем�
 
         public ILogger Logger { get; set; }
         public ITimeService TimeService { get; set; }
+        public IActorSystemMetrics Metrics { get; set; }
         public Settings Settings { get; }
         public CancellationToken CancellationToken { get; }
         public bool IsPanic { get; }
@@ -353,7 +355,37 @@ Shutdown() отменяет CancellationToken. Panic() устанавливае�
 
 ---
 
-## 13. Подписчик виртуального времени
+## 13. Метрики
+
+    public interface IActorSystemMetrics
+    {
+        void MessageSent();
+        void MessageDropped();
+        void ActorCreated();
+        void ActorDestroyed();
+        void ActorCountChanged(int count);
+        Meter? Meter { get; }
+    }
+
+Комментарий: метрики — заменяемый объект, аналогично логгеру и сервису времени (п. 24 Манифеста). По умолчанию используется NullMetrics — все вызовы игнорируются, Meter возвращает null.
+
+Методы вызываются акторной системой:
+
+- `MessageSent()` — при успешной постановке письма в очередь получателя;
+- `MessageDropped()` — при отбрасывании письма из-за переполнения очереди;
+- `ActorCreated()` — при регистрации нового актора в реестре;
+- `ActorDestroyed()` — при удалении актора из реестра;
+- `ActorCountChanged(int count)` — при изменении количества акторов в реестре.
+
+Свойство `Meter` предоставляет стандартный Meter из System.Diagnostics.Metrics. Акторы используют его для создания собственных инструментов (счётчиков, гистограмм). Если метрики не настроены — Meter возвращает null, прикладные метрики не создаются.
+
+Реализации:
+
+- `NullMetrics` — null-реализация по умолчанию. Все вызовы игнорируются, Meter = null. Потокобезопасна, singleton (NullMetrics.Instance);
+- `SystemMetrics` — продакшен-реализация. Создаёт Meter с именем "MinimalActorSystem" (или принимает существующий), регистрирует счётчики `messages.sent`, `messages.dropped`, `actors.created`, `actors.destroyed` и наблюдаемый датчик `actors.active`;
+- `LoggerMetrics` (в MinimalActorSystem.Testing) — тестовая реализация, выводит метрики в ILogger.
+
+## 14. Подписчик виртуального времени
 
     public interface IVirtualTimeSubscriber
     {
@@ -365,13 +397,14 @@ Shutdown() отменяет CancellationToken. Panic() устанавливае�
 
 ---
 
-## 14. Жизненный цикл
+## 15. Жизненный цикл
 
 Сборка (синхронная фаза):
 
     ActorSystem(settings)
     system.Logger = logger
     system.TimeService = timeService
+    system.Metrics = new SystemMetrics()
     new ModelActor(system)              // или CompiledModelActor
     system.RegisterActor(modelActor)    // регистрирует и запускает RunAsync
     system.Send(new InitializeLetter(SystemUids.System, SystemUids.Model))

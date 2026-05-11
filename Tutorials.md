@@ -212,6 +212,92 @@ MinimalActorSystem — это минималистичная акторная с
 
 Важно: коллбек таймаута не должен взаимодействовать с другими акторами. Его единственная задача — выполнить небольшое действие внутри актора-владельца.
 
+## Метрики
+
+Акторная система предоставляет встроенные метрики для мониторинга. Включение и настройка аналогичны логгеру и сервису времени — через заменяемый объект.
+
+### Включение метрик
+
+    using MinimalActorSystem;
+
+    var system = new ActorSystem(settings);
+    system.Logger = loggerFactory.CreateLogger("ActorSystem");
+    system.TimeService = new SystemTimeService(system);
+    system.Metrics = new SystemMetrics("MyApp");  // включает метрики
+
+По умолчанию используется `NullMetrics` — все вызовы игнорируются, оверхед нулевой. При установке `SystemMetrics` система начинает собирать:
+
+- `messages.sent` — всего отправлено сообщений
+- `messages.dropped` — отброшено из-за переполнения очереди
+- `actors.created` — всего создано акторов
+- `actors.destroyed` — всего удалено акторов
+- `actors.active` — текущее количество акторов в реестре
+
+### Прикладные метрики
+
+Акторы могут создавать собственные метрики через стандартный `Meter` из `System.Diagnostics.Metrics`:
+
+    public class PaymentActor : Actor
+    {
+        private readonly Counter<long>? _paymentsProcessed;
+
+        public PaymentActor(IActorSystem system, Guid uid, string name)
+            : base(system, uid, name)
+        {
+            var meter = system.Metrics.Meter;
+            if (meter != null)
+            {
+                _paymentsProcessed = meter.CreateCounter<long>(
+                    "payments.processed",
+                    description: "Total payments processed");
+            }
+        }
+
+        protected override ValueTask OnLetter(Letter letter)
+        {
+            if (letter is PaymentReceived payment)
+            {
+                // Обработка платежа...
+                _paymentsProcessed?.Add(1);
+            }
+            return default;
+        }
+    }
+
+Свойство `System.Metrics.Meter` возвращает `null`, если метрики не настроены — актор просто не создаёт инструменты. При включённых метриках все счётчики попадают в тот же `Meter`, что и системные, и экспортируются единообразно.
+
+### Интеграция с OpenTelemetry
+
+Метрики используют стандартный `System.Diagnostics.Metrics`, поэтому интегрируются с любым сборщиком без дополнительных зависимостей в ядре:
+
+    using OpenTelemetry;
+    using OpenTelemetry.Metrics;
+
+    using var meterProvider = Sdk.CreateMeterProviderBuilder()
+        .AddMeter("MyApp")
+        .AddOtlpExporter()
+        .Build();
+
+    // ... работа системы ...
+
+    meterProvider.ForceFlush();
+
+Метрики будут доставлены в OpenTelemetry Collector, Prometheus, Grafana или другой совместимый сборщик.
+
+### Тестовая реализация
+
+Для проверки метрик в тестах используйте `LoggerMetrics` из пространства имён `MinimalActorSystem.Testing`:
+
+    using MinimalActorSystem.Testing;
+
+    var logger = new CallbackLogger(msg => TestContext.WriteLine(msg));
+    system.Metrics = new LoggerMetrics(logger);
+
+    // После теста в логах будут видны все вызовы метрик:
+    // Metric: message.sent
+    // Metric: actor.created
+    // Metric: actors.active = 42
+
 ## Тестирование с виртуальным временем
 
 Главное преимущество MinimalActorSystem — возможность тестировать сценарии с длительными временными интервалами мгновенно, без реальных задержек.

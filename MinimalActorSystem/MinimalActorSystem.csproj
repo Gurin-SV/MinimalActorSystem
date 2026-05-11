@@ -4,8 +4,27 @@
 		<TargetFramework>netstandard2.1</TargetFramework>
 		<LangVersion>12.0</LangVersion>
 		<Nullable>enable</Nullable>
-		<NoWarn>$(NoWarn);CS1591;IDE0130</NoWarn>
+		<NoWarn>$(NoWarn);IDE0130</NoWarn>
+
+		<!-- Метаданные пакета -->
+		<PackageId>MinimalActorSystem</PackageId>
+		<Version>1.0.0</Version>
+		<Authors>ВашеИмя</Authors>
+		<Description>Минималистичная акторная система на C#. Изолированные акторы, обмен сообщениями, виртуальное время для тестов.</Description>
+		<PackageTags>actors;actor-model;concurrency;messaging;testing</PackageTags>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<GenerateDocumentationFile>true</GenerateDocumentationFile>
 	</PropertyGroup>
+
+	<!-- Подключение README.md в пакет -->
+	<PropertyGroup>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<None Include="README.md" Pack="true" PackagePath="\"/>
+	</ItemGroup>
 
 	<ItemGroup>
 	  <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.7" />

@@ -84,7 +84,7 @@ public class VirtualTimeService(IActorSystem system) : ITimeService
 
     /// <summary>
     /// Асинхронный режим. После каждого шага ожидает завершения обработки всех сообщений,
-    /// если <see cref="Settings.SynchronousProcessing"/> равен false.
+    /// если Settings.TimeServiceModes.Async.
     /// </summary>
     public async Task StartVirtualClockAsync(DateTime startTime, DateTime endTime, TimeSpan step)
     {

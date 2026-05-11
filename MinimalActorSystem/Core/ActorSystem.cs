@@ -1,4 +1,6 @@
-﻿namespace MinimalActorSystem;
+﻿using System.Diagnostics.Metrics;
+
+namespace MinimalActorSystem;
 
 internal interface IActorSystemInternal
 {
@@ -37,6 +39,21 @@ public sealed class ActorSystem : IActorSystem, IActorSystemInternal
         public void Unregister(TimeoutCallback callback) { }
     }
 
+    /// <summary>
+    /// Null-реализация метрик. Все вызовы игнорируются.
+    /// Используется по умолчанию, если потребитель не установил свою реализацию.
+    /// </summary>
+    private sealed class NullMetrics : IActorSystemMetrics
+    {
+        public void MessageSent() { }
+        public void MessageDropped() { }
+        public void ActorCreated() { }
+        public void ActorDestroyed() { }
+        public void ActorCountChanged(int count) { }
+
+        public Meter? Meter => null;
+    }
+
     private readonly CancellationTokenSource _cts;
     private readonly ActorRegistry _registry;
     private volatile bool _isPanic;
@@ -51,6 +68,9 @@ public sealed class ActorSystem : IActorSystem, IActorSystemInternal
 
     /// <inheritdoc/>
     public ITimeService TimeService { get; set; }
+
+    /// <inheritdoc/>
+    public IActorSystemMetrics Metrics { get; set; }
 
     /// <inheritdoc/>
     public CancellationToken CancellationToken { get; }
@@ -74,12 +94,15 @@ public sealed class ActorSystem : IActorSystem, IActorSystemInternal
         _registry = new(this);
         Logger = new NullLogger();
         TimeService = new NullTimeService();
+        Metrics = new NullMetrics();
     }
 
     /// <inheritdoc/>
     public void RegisterActor(Actor actor)
     {
         _registry.Add(actor);
+        Metrics.ActorCreated();
+        Metrics.ActorCountChanged(_registry.Count);
         _ = actor.RunAsync(CancellationToken);
     }
 
@@ -87,6 +110,8 @@ public sealed class ActorSystem : IActorSystem, IActorSystemInternal
     public void UnregisterActor(Guid uid)
     {
         _registry.Remove(uid);
+        Metrics.ActorDestroyed();
+        Metrics.ActorCountChanged(_registry.Count);
     }
 
     /// <inheritdoc/>
@@ -110,8 +135,13 @@ public sealed class ActorSystem : IActorSystem, IActorSystemInternal
             delivered = actor.TryEnqueue(letter);
         }
 
-        if (!delivered)
+        if (delivered)
         {
+            Metrics.MessageSent();
+        }
+        else
+        {
+            Metrics.MessageDropped();
             Logger.LogWarning("Send failed: queue full for actor {ActorName}, letter {LetterType} from {SenderName}",
                 GetActorName(letter.Receiver), letter.GetType().Name, GetActorName(letter.Sender));
         }
@@ -123,13 +153,15 @@ public sealed class ActorSystem : IActorSystem, IActorSystemInternal
     public void Shutdown()
     {
         _cts.Cancel();
+        if (Metrics is IDisposable disposable)
+            disposable.Dispose();
     }
 
     /// <inheritdoc/>
     public void Panic()
     {
         _isPanic = true;
-        _cts.Cancel();
+        Shutdown();
     }
 
     /// <inheritdoc/>

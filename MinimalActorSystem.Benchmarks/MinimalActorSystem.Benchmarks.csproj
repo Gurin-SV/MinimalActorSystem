@@ -7,8 +7,9 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\MinimalActorSystem\MinimalActorSystem.csproj" />
-  </ItemGroup>
-
+	<ItemGroup>
+		<PackageReference Include="MinimalActorSystem" Version="1.0.0" />
+		<PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.15.3" />
+	</ItemGroup>
+	
 </Project>

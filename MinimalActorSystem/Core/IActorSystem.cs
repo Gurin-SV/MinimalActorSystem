@@ -24,6 +24,12 @@ public interface IActorSystem
     ITimeService TimeService { get; set; }
 
     /// <summary>
+    /// Метрики акторной системы. Может быть заменён на этапе сборки системы.
+    /// По умолчанию — пустая реализация, игнорирующая все вызовы.
+    /// </summary>
+    IActorSystemMetrics Metrics { get; set; }
+
+    /// <summary>
     /// Токен отмены. Переходит в состояние <see cref="CancellationToken.IsCancellationRequested"/>
     /// при вызове <see cref="Shutdown"/> (штатное завершение) или <see cref="Panic"/> (аварийное завершение).
     /// Акторы используют его для кооперативного прерывания асинхронных операций.
