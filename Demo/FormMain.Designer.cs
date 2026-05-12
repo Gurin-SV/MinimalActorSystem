@@ -41,6 +41,7 @@
             _tabControl.Multiline = true;
             _tabControl.Name = "_tabControl";
             _tabControl.SelectedIndex = 0;
+            _tabControl.ShowToolTips = true;
             _tabControl.Size = new Size(800, 450);
             _tabControl.TabIndex = 0;
             _tabControl.SelectedIndexChanged += TabControl_SelectedIndexChanged;

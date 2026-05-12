@@ -18,12 +18,17 @@ namespace Demo
                  .GetTypes()
                  .Where(t => !t.IsAbstract && typeof(IDemoAlgorithm).IsAssignableFrom(t));
 
+            List<IDemoAlgorithm> list = [];
             foreach (var type in algorithmTypes)
             {
-                var algorithm = (IDemoAlgorithm)Activator.CreateInstance(type)!;
-                _algorithms.Add(algorithm);
+                list.Add((IDemoAlgorithm)Activator.CreateInstance(type)!);
+            }
+            _algorithms.AddRange(list.OrderBy(t => t.Index));
 
+            foreach (var algorithm in _algorithms)
+            {
                 var tabPage = new TabPage(algorithm.Name);
+                tabPage.ToolTipText = algorithm.Description;
                 _tabControl.TabPages.Add(tabPage);
             }
 
