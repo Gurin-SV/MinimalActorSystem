@@ -77,8 +77,8 @@ public partial class PaintControl : UserControl
         var x = cx + forkR * (float)Math.Cos(rad);
         var y = cy + forkR * (float)Math.Sin(rad);
 
-        var forkLength = 24f;  // было 16
-        var forkWidth = 6f;    // было 4
+        var forkLength = 24f;
+        var forkWidth = 6f;
 
         var forkAngle = angle + 90;
         var forkRad = forkAngle * Math.PI / 180.0;

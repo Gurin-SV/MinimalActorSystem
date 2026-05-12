@@ -27,8 +27,10 @@ namespace Demo
 
             foreach (var algorithm in _algorithms)
             {
-                var tabPage = new TabPage(algorithm.Name);
-                tabPage.ToolTipText = algorithm.Description;
+                var tabPage = new TabPage(algorithm.Name)
+                {
+                    ToolTipText = algorithm.Description
+                };
                 _tabControl.TabPages.Add(tabPage);
             }
 

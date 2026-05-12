@@ -165,6 +165,7 @@
             // cmbSpeedFactor
             // 
             cmbSpeedFactor.Dock = DockStyle.Fill;
+            cmbSpeedFactor.DropDownStyle = ComboBoxStyle.DropDownList;
             cmbSpeedFactor.FormattingEnabled = true;
             cmbSpeedFactor.Items.AddRange(new object[] { "1 - наиболее медленно", "2", "3", "4", "5", "6", "7", "8", "9 - наиболее быстро" });
             cmbSpeedFactor.Location = new Point(238, 73);
@@ -188,7 +189,7 @@
             // 
             lblPhilosopher1State.Anchor = AnchorStyles.Right;
             lblPhilosopher1State.AutoSize = true;
-            lblPhilosopher1State.Location = new Point(150, 132);
+            lblPhilosopher1State.Location = new Point(150, 128);
             lblPhilosopher1State.Margin = new Padding(0, 0, 20, 0);
             lblPhilosopher1State.Name = "lblPhilosopher1State";
             lblPhilosopher1State.Size = new Size(68, 15);
@@ -197,20 +198,20 @@
             // 
             // tbPhilosopher1State
             // 
-            tbPhilosopher1State.BorderStyle = BorderStyle.FixedSingle;
+            tbPhilosopher1State.BorderStyle = BorderStyle.None;
             tbPhilosopher1State.Dock = DockStyle.Fill;
             tbPhilosopher1State.Location = new Point(238, 128);
             tbPhilosopher1State.Margin = new Padding(0, 3, 3, 3);
             tbPhilosopher1State.Name = "tbPhilosopher1State";
             tbPhilosopher1State.ReadOnly = true;
-            tbPhilosopher1State.Size = new Size(235, 23);
+            tbPhilosopher1State.Size = new Size(235, 16);
             tbPhilosopher1State.TabIndex = 7;
             // 
             // lblPhilosopher2State
             // 
             lblPhilosopher2State.Anchor = AnchorStyles.Right;
             lblPhilosopher2State.AutoSize = true;
-            lblPhilosopher2State.Location = new Point(150, 161);
+            lblPhilosopher2State.Location = new Point(150, 150);
             lblPhilosopher2State.Margin = new Padding(0, 0, 20, 0);
             lblPhilosopher2State.Name = "lblPhilosopher2State";
             lblPhilosopher2State.Size = new Size(68, 15);
@@ -221,7 +222,7 @@
             // 
             lblPhilosopher3State.Anchor = AnchorStyles.Right;
             lblPhilosopher3State.AutoSize = true;
-            lblPhilosopher3State.Location = new Point(150, 190);
+            lblPhilosopher3State.Location = new Point(150, 172);
             lblPhilosopher3State.Margin = new Padding(0, 0, 20, 0);
             lblPhilosopher3State.Name = "lblPhilosopher3State";
             lblPhilosopher3State.Size = new Size(68, 15);
@@ -232,7 +233,7 @@
             // 
             lblPhilosopher4State.Anchor = AnchorStyles.Right;
             lblPhilosopher4State.AutoSize = true;
-            lblPhilosopher4State.Location = new Point(150, 219);
+            lblPhilosopher4State.Location = new Point(150, 194);
             lblPhilosopher4State.Margin = new Padding(0, 0, 20, 0);
             lblPhilosopher4State.Name = "lblPhilosopher4State";
             lblPhilosopher4State.Size = new Size(68, 15);
@@ -243,7 +244,7 @@
             // 
             lblPhilosopher5State.Anchor = AnchorStyles.Right;
             lblPhilosopher5State.AutoSize = true;
-            lblPhilosopher5State.Location = new Point(150, 248);
+            lblPhilosopher5State.Location = new Point(150, 216);
             lblPhilosopher5State.Margin = new Padding(0, 0, 20, 0);
             lblPhilosopher5State.Name = "lblPhilosopher5State";
             lblPhilosopher5State.Size = new Size(68, 15);
@@ -252,46 +253,46 @@
             // 
             // tbPhilosopher2State
             // 
-            tbPhilosopher2State.BorderStyle = BorderStyle.FixedSingle;
+            tbPhilosopher2State.BorderStyle = BorderStyle.None;
             tbPhilosopher2State.Dock = DockStyle.Fill;
-            tbPhilosopher2State.Location = new Point(238, 157);
+            tbPhilosopher2State.Location = new Point(238, 150);
             tbPhilosopher2State.Margin = new Padding(0, 3, 3, 3);
             tbPhilosopher2State.Name = "tbPhilosopher2State";
             tbPhilosopher2State.ReadOnly = true;
-            tbPhilosopher2State.Size = new Size(235, 23);
+            tbPhilosopher2State.Size = new Size(235, 16);
             tbPhilosopher2State.TabIndex = 12;
             // 
             // tbPhilosopher3State
             // 
-            tbPhilosopher3State.BorderStyle = BorderStyle.FixedSingle;
+            tbPhilosopher3State.BorderStyle = BorderStyle.None;
             tbPhilosopher3State.Dock = DockStyle.Fill;
-            tbPhilosopher3State.Location = new Point(238, 186);
+            tbPhilosopher3State.Location = new Point(238, 172);
             tbPhilosopher3State.Margin = new Padding(0, 3, 3, 3);
             tbPhilosopher3State.Name = "tbPhilosopher3State";
             tbPhilosopher3State.ReadOnly = true;
-            tbPhilosopher3State.Size = new Size(235, 23);
+            tbPhilosopher3State.Size = new Size(235, 16);
             tbPhilosopher3State.TabIndex = 13;
             // 
             // tbPhilosopher4State
             // 
-            tbPhilosopher4State.BorderStyle = BorderStyle.FixedSingle;
+            tbPhilosopher4State.BorderStyle = BorderStyle.None;
             tbPhilosopher4State.Dock = DockStyle.Fill;
-            tbPhilosopher4State.Location = new Point(238, 215);
+            tbPhilosopher4State.Location = new Point(238, 194);
             tbPhilosopher4State.Margin = new Padding(0, 3, 3, 3);
             tbPhilosopher4State.Name = "tbPhilosopher4State";
             tbPhilosopher4State.ReadOnly = true;
-            tbPhilosopher4State.Size = new Size(235, 23);
+            tbPhilosopher4State.Size = new Size(235, 16);
             tbPhilosopher4State.TabIndex = 14;
             // 
             // tbPhilosopher5State
             // 
-            tbPhilosopher5State.BorderStyle = BorderStyle.FixedSingle;
+            tbPhilosopher5State.BorderStyle = BorderStyle.None;
             tbPhilosopher5State.Dock = DockStyle.Fill;
-            tbPhilosopher5State.Location = new Point(238, 244);
+            tbPhilosopher5State.Location = new Point(238, 216);
             tbPhilosopher5State.Margin = new Padding(0, 3, 3, 3);
             tbPhilosopher5State.Name = "tbPhilosopher5State";
             tbPhilosopher5State.ReadOnly = true;
-            tbPhilosopher5State.Size = new Size(235, 23);
+            tbPhilosopher5State.Size = new Size(235, 16);
             tbPhilosopher5State.TabIndex = 15;
             // 
             // lblLog
@@ -299,7 +300,7 @@
             lblLog.AutoSize = true;
             tableLayoutPanel.SetColumnSpan(lblLog, 2);
             lblLog.Dock = DockStyle.Fill;
-            lblLog.Location = new Point(3, 270);
+            lblLog.Location = new Point(3, 235);
             lblLog.Name = "lblLog";
             lblLog.Size = new Size(470, 15);
             lblLog.TabIndex = 16;
@@ -312,11 +313,11 @@
             lbLog.FormattingEnabled = true;
             lbLog.IntegralHeight = false;
             lbLog.ItemHeight = 15;
-            lbLog.Location = new Point(3, 288);
+            lbLog.Location = new Point(3, 253);
             lbLog.Name = "lbLog";
             lbLog.ScrollAlwaysVisible = true;
             lbLog.SelectionMode = SelectionMode.None;
-            lbLog.Size = new Size(470, 184);
+            lbLog.Size = new Size(470, 219);
             lbLog.TabIndex = 17;
             // 
             // SettingsControl
