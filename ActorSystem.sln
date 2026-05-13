@@ -5,16 +5,22 @@ VisualStudioVersion = 17.14.37111.16
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Элементы решения", "Элементы решения", "{754FC069-D67B-A9D7-50A1-8D1CA196D8F1}"
 	ProjectSection(SolutionItems) = preProject
+		benchmark_results.eng.md = benchmark_results.eng.md
+		benchmark_results.txt = benchmark_results.txt
 		collector-config.yaml = collector-config.yaml
+		Contracts.eng.md = Contracts.eng.md
 		Contracts.md = Contracts.md
 		Directory.Build.props = Directory.Build.props
 		docker-compose.yml = docker-compose.yml
 		Dockerfile = Dockerfile
 		Dockerfile.txt = Dockerfile.txt
+		Manifest.eng.md = Manifest.eng.md
 		Manifest.md = Manifest.md
 		pack.bat = pack.bat
+		README.md = README.md
 		run_benchmark.bat = run_benchmark.bat
 		TipsAndTricks.md = TipsAndTricks.md
+		Tutorials.eng.md = Tutorials.eng.md
 		Tutorials.md = Tutorials.md
 	EndProjectSection
 EndProject
