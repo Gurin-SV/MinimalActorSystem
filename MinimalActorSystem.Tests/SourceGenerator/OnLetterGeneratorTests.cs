@@ -1,0 +1,75 @@
+﻿namespace MinimalActorSystem.Tests;
+
+public sealed class PingGeneratedLetter(Guid sender, Guid receiver, int count) : Letter(sender, receiver)
+{
+    public int Count { get; set; } = count;
+}
+
+public sealed class PongGeneratedLetter(Guid sender, Guid receiver, int count) : Letter(sender, receiver)
+{
+    public int Count { get; set; } = count;
+}
+
+[ActorLetterHandler]
+public partial class TestGeneratedActor(IActorSystem system, Guid uid, string name) : Actor(system, uid, name)
+{
+    public int PingReceived { get; private set; }
+    public int PongReceived { get; private set; }
+
+    private ValueTask OnPingGeneratedLetter(PingGeneratedLetter ping)
+    {
+        PingReceived = ping.Count;
+        return default;
+    }
+
+    private ValueTask OnPongGeneratedLetter(PongGeneratedLetter pong)
+    {
+        PongReceived = pong.Count;
+        return default;
+    }
+}
+
+public sealed class ActorLetterHandlerGeneratorTests
+{
+    [Fact]
+    public void Generated_OnLetter_Routes_Ping_To_OnPing()
+    {
+        var settings = new Settings { TimeServiceModes = TimeServiceModes.Sync };
+        var system = new ActorSystem(settings);
+        var actor = new TestGeneratedActor(system, Guid.NewGuid(), "test");
+        system.RegisterActor(actor);
+
+        system.Send(new PingGeneratedLetter(SystemUids.System, actor.Uid, 42));
+
+        Assert.Equal(42, actor.PingReceived);
+        Assert.Equal(0, actor.PongReceived);
+    }
+
+    [Fact]
+    public void Generated_OnLetter_Routes_Pong_To_OnPong()
+    {
+        var settings = new Settings { TimeServiceModes = TimeServiceModes.Sync };
+        var system = new ActorSystem(settings);
+        var actor = new TestGeneratedActor(system, Guid.NewGuid(), "test");
+        system.RegisterActor(actor);
+
+        system.Send(new PongGeneratedLetter(SystemUids.System, actor.Uid, 7));
+
+        Assert.Equal(0, actor.PingReceived);
+        Assert.Equal(7, actor.PongReceived);
+    }
+
+    [Fact]
+    public void Generated_OnLetter_Ignores_Unknown_Message()
+    {
+        var settings = new Settings { TimeServiceModes = TimeServiceModes.Sync };
+        var system = new ActorSystem(settings);
+        var actor = new TestGeneratedActor(system, Guid.NewGuid(), "test");
+        system.RegisterActor(actor);
+
+        system.Send(new ShutdownLetter(SystemUids.System, actor.Uid));
+
+        Assert.Equal(0, actor.PingReceived);
+        Assert.Equal(0, actor.PongReceived);
+    }
+}

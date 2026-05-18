@@ -1,6 +1,4 @@
-﻿using System.Diagnostics;
-
-namespace MinimalActorSystem;
+﻿namespace MinimalActorSystem;
 
 /// <summary>
 /// Базовый класс актора. Инкапсулирует очередь сообщений, цикл обработки и жизненный цикл.
