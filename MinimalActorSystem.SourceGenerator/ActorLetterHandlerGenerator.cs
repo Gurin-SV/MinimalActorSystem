@@ -10,7 +10,7 @@ namespace MinimalActorSystem.SourceGenerator;
 [Generator]
 public class ActorLetterHandlerGenerator : ISourceGenerator
 {
-    private readonly HashSet<string> _generated = new();
+    private readonly HashSet<string> _generated = [];
 
     public void Initialize(GeneratorInitializationContext context)
     {
@@ -25,8 +25,7 @@ public class ActorLetterHandlerGenerator : ISourceGenerator
         foreach (var classDecl in receiver.Candidates)
         {
             var model = context.Compilation.GetSemanticModel(classDecl.SyntaxTree);
-            var classSymbol = model.GetDeclaredSymbol(classDecl) as INamedTypeSymbol;
-            if (classSymbol == null)
+            if (model.GetDeclaredSymbol(classDecl) is not INamedTypeSymbol classSymbol)
                 continue;
 
             var handlers = new List<(string TypeName, string MethodName)>();
@@ -82,7 +81,7 @@ public class ActorLetterHandlerGenerator : ISourceGenerator
 
     private static string GenerateSource(INamedTypeSymbol classSymbol, List<(string TypeName, string MethodName)> handlers)
     {
-        var sb = new StringBuilder();
+        var sb = new StringBuilder(1024);
         var namespaceName = classSymbol.ContainingNamespace.IsGlobalNamespace
             ? null
             : classSymbol.ContainingNamespace.ToDisplayString();
@@ -125,7 +124,7 @@ public class ActorLetterHandlerGenerator : ISourceGenerator
 
     private class SyntaxReceiver : ISyntaxContextReceiver
     {
-        public List<ClassDeclarationSyntax> Candidates { get; } = new();
+        public List<ClassDeclarationSyntax> Candidates { get; } = [];
 
         public void OnVisitSyntaxNode(GeneratorSyntaxContext context)
         {

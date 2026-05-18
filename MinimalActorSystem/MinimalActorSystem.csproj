@@ -8,8 +8,8 @@
 
 		<!-- Метаданные пакета -->
 		<PackageId>MinimalActorSystem</PackageId>
-		<Version>1.0.0</Version>
-		<Authors>ВашеИмя</Authors>
+		<Version>1.0.1</Version>
+		<Authors>Сергей Гурин</Authors>
 		<Description>Минималистичная акторная система на C#. Изолированные акторы, обмен сообщениями, виртуальное время для тестов.</Description>
 		<PackageTags>actors;actor-model;concurrency;messaging;testing</PackageTags>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
