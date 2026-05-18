@@ -11,6 +11,7 @@ internal sealed class ActorRegistry(IActorSystem actorSystem)
 {
     private readonly IActorSystem _actorSystem = actorSystem;
     private readonly ConcurrentDictionary<Guid, Actor> _actors = [];
+    private readonly object _emptyLock = new();
     private TaskCompletionSource<bool>? _emptyTcs;
 
     /// <summary>
@@ -35,9 +36,16 @@ internal sealed class ActorRegistry(IActorSystem actorSystem)
     public void Remove(Guid uid)
     {
         _actors.TryRemove(uid, out _);
+
         if (_actors.Count == 0)
         {
-            _emptyTcs?.TrySetResult(true);
+            TaskCompletionSource<bool>? tcs;
+            lock (_emptyLock)
+            {
+                tcs = _emptyTcs;
+                _emptyTcs = null;
+            }
+            tcs?.TrySetResult(true);
         }
     }
 
@@ -86,9 +94,13 @@ internal sealed class ActorRegistry(IActorSystem actorSystem)
     /// <returns>Задача, представляющая ожидание опустошения реестра.</returns>
     public Task WaitForEmptyAsync()
     {
-        if (_actors.Count == 0)
-            return Task.CompletedTask;
-        _emptyTcs = new TaskCompletionSource<bool>();
-        return _emptyTcs.Task;
+        lock (_emptyLock)
+        {
+            if (_actors.Count == 0)
+                return Task.CompletedTask;
+
+            _emptyTcs = new TaskCompletionSource<bool>();
+            return _emptyTcs.Task;
+        }
     }
 }

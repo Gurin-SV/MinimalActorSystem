@@ -56,6 +56,7 @@ public sealed class ActorSystem : IActorSystem, IActorSystemInternal
 
     private readonly CancellationTokenSource _cts;
     private readonly ActorRegistry _registry;
+    private readonly object _idleLock = new();
     private volatile bool _isPanic;
     private int _activeCount;
     private TaskCompletionSource<bool>? _idleTcs;
@@ -198,24 +199,35 @@ public sealed class ActorSystem : IActorSystem, IActorSystemInternal
 
     void IActorSystemInternal.DecrementActivity()
     {
-        if (Settings.TimeServiceModes == TimeServiceModes.Async)
+        if (Settings.TimeServiceModes != TimeServiceModes.Async)
+            return;
+
+        if (Interlocked.Decrement(ref _activeCount) == 0)
         {
-            if (Interlocked.Decrement(ref _activeCount) == 0)
+            TaskCompletionSource<bool>? tcs;
+            lock (_idleLock)
             {
-                _idleTcs?.TrySetResult(true);
+                tcs = _idleTcs;
+                _idleTcs = null;
             }
+            tcs?.TrySetResult(true);
         }
     }
 
     Task IActorSystemInternal.WaitAllIdleAsync()
     {
-        if (Settings.TimeServiceModes == TimeServiceModes.Async)
+        if (Settings.TimeServiceModes != TimeServiceModes.Async)
+            return Task.CompletedTask;
+
+        lock (_idleLock)
         {
             if (_activeCount == 0)
                 return Task.CompletedTask;
-            _idleTcs = new TaskCompletionSource<bool>();
+
+            if (_idleTcs == null || _idleTcs.Task.IsCompleted)
+                _idleTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
             return _idleTcs.Task;
         }
-        return Task.CompletedTask;
     }
 }
