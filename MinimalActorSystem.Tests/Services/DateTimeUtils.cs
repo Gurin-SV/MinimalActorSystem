@@ -1,6 +1,6 @@
 ﻿using System.Globalization;
 
-namespace MinimalActorSystem.Testing;
+namespace MinimalActorSystem.Tests;
 
 /// <summary>
 /// Вспомогательные методы для работы с датами и временем.

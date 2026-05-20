@@ -2,7 +2,7 @@
 using System.Linq;
 using System.Xml;
 
-namespace MinimalActorSystem.CompiledModels;
+namespace MinimalActorSystem.XmlModel;
 
 /// <summary>
 /// Конфигурируемый XML-компилятор модели.
@@ -155,8 +155,8 @@ public class XmlModelCompiler(string uidAttributeName = "Uid")
                     }
                     else if (IsTextProperty(reader))
                     {
-                        var prop = ReadTextProperty(reader);
-                        element.AddProperty(prop.Name, prop.Text);
+                        var (Name, Text) = ReadTextProperty(reader);
+                        element.AddProperty(Name, Text);
                     }
                     else
                     {

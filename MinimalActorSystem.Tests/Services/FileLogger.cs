@@ -1,8 +1,8 @@
-﻿using System.Collections.Concurrent;
-using System.IO;
+﻿using Microsoft.Extensions.Logging;
+using System.Collections.Concurrent;
 using System.Text;
 
-namespace MinimalActorSystem;
+namespace MinimalActorSystem.Tests;
 
 /// <summary>
 /// Реализация <see cref="ILogger"/>, записывающая логи в файл.

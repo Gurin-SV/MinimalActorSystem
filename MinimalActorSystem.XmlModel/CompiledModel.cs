@@ -1,6 +1,6 @@
 ﻿using System.Linq;
 
-namespace MinimalActorSystem.CompiledModels;
+namespace MinimalActorSystem.XmlModel;
 
 /// <summary>
 /// Результат компиляции XML-описания модели в плоский набор элементов.

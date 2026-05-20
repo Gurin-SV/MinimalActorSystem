@@ -1,6 +1,6 @@
 ﻿using System.Globalization;
 
-namespace MinimalActorSystem.CompiledModels;
+namespace MinimalActorSystem.XmlModel;
 
 /// <summary>
 /// Плоское описание одного элемента модели — актора или вспомогательного объекта.

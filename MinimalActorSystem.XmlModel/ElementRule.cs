@@ -1,4 +1,4 @@
-﻿namespace MinimalActorSystem.CompiledModels;
+﻿namespace MinimalActorSystem.XmlModel;
 
 /// <summary>
 /// Правило разбора XML-элемента. Определяет, какие атрибуты считать свойствами,

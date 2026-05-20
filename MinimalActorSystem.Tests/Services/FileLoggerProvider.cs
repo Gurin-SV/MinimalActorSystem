@@ -1,4 +1,6 @@
-﻿namespace MinimalActorSystem;
+﻿using Microsoft.Extensions.Logging;
+
+namespace MinimalActorSystem.Tests;
 
 /// <summary>
 /// Провайдер файлового логгера. Реализует <see cref="ILoggerProvider"/> для интеграции

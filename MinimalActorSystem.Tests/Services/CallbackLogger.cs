@@ -1,6 +1,7 @@
-﻿using System.Diagnostics;
+﻿using Microsoft.Extensions.Logging;
+using System.Diagnostics;
 
-namespace MinimalActorSystem.Testing;
+namespace MinimalActorSystem.Tests;
 
 /// <summary>
 /// Тестовая реализация <see cref="ILogger"/>, передающая каждое сообщение в пользовательский делегат.

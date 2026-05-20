@@ -1,6 +1,6 @@
-﻿using System.IO;
+﻿using Microsoft.Extensions.Logging;
 
-namespace MinimalActorSystem;
+namespace MinimalActorSystem.Tests;
 
 /// <summary>
 /// Методы расширения для <see cref="IActorSystem"/>, упрощающие настройку инфраструктуры.

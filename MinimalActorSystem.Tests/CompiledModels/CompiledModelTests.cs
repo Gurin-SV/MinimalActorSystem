@@ -1,5 +1,5 @@
 ﻿using FluentAssertions;
-using MinimalActorSystem.CompiledModels;
+using MinimalActorSystem.XmlModel;
 
 namespace MinimalActorSystem.Tests.CompiledModels;
 

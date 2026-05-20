@@ -1,8 +1,7 @@
-﻿using MinimalActorSystem.Testing;
-using System.IO;
+﻿using Microsoft.Extensions.Logging;
 using System.Runtime.CompilerServices;
 
-namespace MinimalActorSystem;
+namespace MinimalActorSystem.Tests;
 
 /// <summary>
 /// Методы расширения для настройки акторной системы в тестовом окружении.

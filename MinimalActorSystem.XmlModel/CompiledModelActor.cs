@@ -1,4 +1,4 @@
-﻿namespace MinimalActorSystem.CompiledModels;
+﻿namespace MinimalActorSystem.XmlModel;
 
 /// <summary>
 /// Модельный актор, собирающий систему из <see cref="CompiledModel"/>.

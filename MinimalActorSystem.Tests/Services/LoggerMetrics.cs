@@ -1,6 +1,7 @@
-﻿using System.Diagnostics.Metrics;
+﻿using Microsoft.Extensions.Logging;
+using System.Diagnostics.Metrics;
 
-namespace MinimalActorSystem.Testing;
+namespace MinimalActorSystem.Tests;
 
 /// <summary>
 /// Тестовая реализация метрик, выводящая все вызовы в ILogger.

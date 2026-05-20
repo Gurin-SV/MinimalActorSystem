@@ -1,4 +1,4 @@
-﻿namespace MinimalActorSystem.Tests;
+﻿namespace MinimalActorSystem.Tests.SourceGenerator;
 
 public sealed class PingGeneratedLetter(Guid sender, Guid receiver, int count) : Letter(sender, receiver)
 {
