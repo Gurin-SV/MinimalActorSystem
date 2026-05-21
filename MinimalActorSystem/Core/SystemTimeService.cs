@@ -1,6 +1,4 @@
-﻿using System.Collections.Concurrent;
-
-namespace MinimalActorSystem;
+﻿namespace MinimalActorSystem;
 
 /// <summary>
 /// Продакшен-реализация <see cref="ITimeService"/>, работающая с реальным системным временем.
@@ -10,9 +8,7 @@ namespace MinimalActorSystem;
 public class SystemTimeService : ITimeService
 {
     private readonly IActorSystem _system;
-    private readonly ConcurrentQueue<PendingOp> _pending = [];
-    private readonly Dictionary<CallbackKey, TimerEntry> _timers = [];
-    private readonly SortedSet<ExpiryEntry> _expiryIndex = [];
+    private readonly TimeoutRegistry _registry = new();
 
     /// <inheritdoc/>
     public DateTime UtcNow => DateTime.UtcNow;
@@ -30,7 +26,7 @@ public class SystemTimeService : ITimeService
     /// <inheritdoc/>
     public void Register(DateTime deadline, TimeoutCallback callback)
     {
-        _pending.Enqueue(new RegisterOp(deadline, callback));
+        _registry.EnqueueRegister(deadline, callback);
     }
 
     /// <inheritdoc/>
@@ -42,7 +38,7 @@ public class SystemTimeService : ITimeService
     /// <inheritdoc/>
     public void Unregister(TimeoutCallback callback)
     {
-        _pending.Enqueue(new UnregisterOp(callback));
+        _registry.EnqueueUnregister(callback);
     }
 
     /// <summary>
@@ -56,26 +52,22 @@ public class SystemTimeService : ITimeService
     {
         while (!ct.IsCancellationRequested)
         {
-            ApplyPendingOps();
+            _registry.ApplyPendingOps();
 
             var now = UtcNow;
-            while (_expiryIndex.Count > 0 && _expiryIndex.Min.Deadline <= now)
-            {
-                var entry = _expiryIndex.Min;
-                _expiryIndex.Remove(entry);
+            var fired = _registry.FireTimeouts(now);
 
-                if (_timers.TryGetValue(entry.Key, out var timer) && timer.Deadline <= now)
-                {
-                    _timers.Remove(entry.Key);
-                    var letter = new TimeServiceLetter(SystemUids.TimeService, timer.Callback.ActorUid, timer.Callback);
-                    _system.Send(letter);
-                }
+            foreach (var callback in fired)
+            {
+                var letter = new TimeServiceLetter(SystemUids.TimeService, callback.ActorUid, callback);
+                _system.Send(letter);
             }
 
             var delay = TimeSpan.FromMilliseconds(15);
-            if (_expiryIndex.Count > 0)
+            var nextDeadline = _registry.GetNextDeadline();
+            if (nextDeadline.HasValue)
             {
-                var timeToNext = _expiryIndex.Min.Deadline - UtcNow;
+                var timeToNext = nextDeadline.Value - UtcNow;
                 if (timeToNext > TimeSpan.Zero && timeToNext < delay)
                     delay = timeToNext;
             }
@@ -90,91 +82,4 @@ public class SystemTimeService : ITimeService
             }
         }
     }
-
-    /// <summary>
-    /// Применяет все накопленные в <see cref="_pending"/> операции регистрации и отмены таймаутов
-    /// к основным структурам данных. Операции обрабатываются в порядке поступления.
-    /// </summary>
-    private void ApplyPendingOps()
-    {
-        while (_pending.TryDequeue(out var op))
-        {
-            switch (op)
-            {
-                case RegisterOp reg:
-                    {
-                        var key = new CallbackKey(reg.Callback.ActorUid, reg.Callback.CallbackId);
-
-                        if (_timers.TryGetValue(key, out var old))
-                        {
-                            _expiryIndex.Remove(new ExpiryEntry(old.Deadline, key));
-                        }
-
-                        _timers[key] = new TimerEntry(reg.Deadline, reg.Callback);
-                        _expiryIndex.Add(new ExpiryEntry(reg.Deadline, key));
-                        break;
-                    }
-                case UnregisterOp unreg:
-                    {
-                        var key = new CallbackKey(unreg.Callback.ActorUid, unreg.Callback.CallbackId);
-
-                        if (_timers.TryGetValue(key, out var old))
-                        {
-                            _timers.Remove(key);
-                            _expiryIndex.Remove(new ExpiryEntry(old.Deadline, key));
-                        }
-                        break;
-                    }
-            }
-        }
-    }
-
-    /// <summary>
-    /// Ключ коллбека: пара (ActorUid, CallbackId). Гарантирует уникальность таймаута в рамках одного актора.
-    /// </summary>
-    private sealed record CallbackKey(Guid ActorUid, int CallbackId);
-
-    /// <summary>
-    /// Запись о зарегистрированном таймауте: deadline и связанный коллбек.
-    /// </summary>
-    private sealed record TimerEntry(DateTime Deadline, TimeoutCallback Callback);
-
-    /// <summary>
-    /// Запись в индексе истечения, отсортированном по deadline.
-    /// Реализует <see cref="IComparable{T}"/> для использования в <see cref="SortedSet{T}"/>.
-    /// При равных deadline сравнение идёт по ActorUid и CallbackId для обеспечения уникальности.
-    /// </summary>
-    private sealed record ExpiryEntry(DateTime Deadline, CallbackKey Key) : IComparable<ExpiryEntry>
-    {
-        public int CompareTo(ExpiryEntry? other)
-        {
-            if (other is null)
-                return 1;
-
-            int cmp = Deadline.CompareTo(other.Deadline);
-            if (cmp != 0)
-                return cmp;
-
-            cmp = Key.ActorUid.CompareTo(other.Key.ActorUid);
-            if (cmp != 0)
-                return cmp;
-
-            return Key.CallbackId.CompareTo(other.Key.CallbackId);
-        }
-    }
-
-    /// <summary>
-    /// Базовый класс для отложенной операции (регистрация или отмена таймаута).
-    /// </summary>
-    private abstract record PendingOp;
-
-    /// <summary>
-    /// Операция регистрации таймаута.
-    /// </summary>
-    private sealed record RegisterOp(DateTime Deadline, TimeoutCallback Callback) : PendingOp;
-
-    /// <summary>
-    /// Операция отмены таймаута.
-    /// </summary>
-    private sealed record UnregisterOp(TimeoutCallback Callback) : PendingOp;
 }

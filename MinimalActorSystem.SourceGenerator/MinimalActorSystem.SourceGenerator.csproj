@@ -4,7 +4,7 @@
 		<LangVersion>12</LangVersion>
 		<EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
 		<IsRoslynComponent>true</IsRoslynComponent>
-		<Version>1.0.1</Version>
+		<Version>1.0.2</Version>
 		<Authors>Сергей Гурин</Authors>
 	</PropertyGroup>
 	<ItemGroup>

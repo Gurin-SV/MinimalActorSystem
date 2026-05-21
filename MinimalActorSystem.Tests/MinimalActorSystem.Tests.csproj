@@ -5,7 +5,7 @@
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
 		<NoWarn>$(NoWarn);CS1591;IDE0130</NoWarn>
-		<Version>1.0.1</Version>
+		<Version>1.0.2</Version>
 		<Authors>Сергей Гурин</Authors>
 
 		<IsPackable>false</IsPackable>

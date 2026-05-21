@@ -11,12 +11,10 @@ namespace MinimalActorSystem.Testing;
 /// Создаёт экземпляр сервиса виртуального времени.
 /// </remarks>
 /// <param name="system">Акторная система.</param>
-public class VirtualTimeService(IActorSystem system) : ITimeService
+public class VirtualTimeService(ActorSystem system) : ITimeService
 {
-    private readonly ActorSystem _system = (ActorSystem)system;
-    private readonly ConcurrentQueue<PendingOp> _pending = new();
-    private readonly Dictionary<CallbackKey, TimerEntry> _timers = [];
-    private readonly SortedSet<ExpiryEntry> _expiryIndex = [];
+    private readonly ActorSystem _system = system;
+    private readonly TimeoutRegistry _registry = new();
     private readonly List<IVirtualTimeSubscriber> _subscribers = [];
     private DateTime _currentTime;
 
@@ -34,20 +32,19 @@ public class VirtualTimeService(IActorSystem system) : ITimeService
     /// <inheritdoc/>
     public void Register(DateTime deadline, TimeoutCallback callback)
     {
-        _pending.Enqueue(new RegisterOp(deadline, callback));
+        _registry.EnqueueRegister(deadline, callback);
     }
 
     /// <inheritdoc/>
     public void Register(TimeSpan timeout, TimeoutCallback callback)
     {
-        var deadline = _currentTime + timeout;
-        _pending.Enqueue(new RegisterOp(deadline, callback));
+        _registry.EnqueueRegister(_currentTime + timeout, callback);
     }
 
     /// <inheritdoc/>
     public void Unregister(TimeoutCallback callback)
     {
-        _pending.Enqueue(new UnregisterOp(callback));
+        _registry.EnqueueUnregister(callback);
     }
 
     /// <summary>
@@ -75,7 +72,7 @@ public class VirtualTimeService(IActorSystem system) : ITimeService
 
         while (_currentTime <= endTime)
         {
-            ApplyPendingOps();
+            _registry.ApplyPendingOps();
             FireSubscribers();
             FireTimeouts();
             _currentTime += step;
@@ -92,7 +89,7 @@ public class VirtualTimeService(IActorSystem system) : ITimeService
 
         while (_currentTime <= endTime)
         {
-            ApplyPendingOps();
+            _registry.ApplyPendingOps();
             await FireSubscribersAsync();
             FireTimeouts();
 
@@ -105,53 +102,13 @@ public class VirtualTimeService(IActorSystem system) : ITimeService
         }
     }
 
-    private void ApplyPendingOps()
-    {
-        while (_pending.TryDequeue(out var op))
-        {
-            switch (op)
-            {
-                case RegisterOp reg:
-                    {
-                        var key = new CallbackKey(reg.Callback.ActorUid, reg.Callback.CallbackId);
-
-                        if (_timers.TryGetValue(key, out var old))
-                        {
-                            _expiryIndex.Remove(new ExpiryEntry(old.Deadline, key));
-                        }
-
-                        _timers[key] = new TimerEntry(reg.Deadline, reg.Callback);
-                        _expiryIndex.Add(new ExpiryEntry(reg.Deadline, key));
-                        break;
-                    }
-                case UnregisterOp unreg:
-                    {
-                        var key = new CallbackKey(unreg.Callback.ActorUid, unreg.Callback.CallbackId);
-
-                        if (_timers.TryGetValue(key, out var old))
-                        {
-                            _timers.Remove(key);
-                            _expiryIndex.Remove(new ExpiryEntry(old.Deadline, key));
-                        }
-                        break;
-                    }
-            }
-        }
-    }
-
     private void FireTimeouts()
     {
-        while (_expiryIndex.Count > 0 && _expiryIndex.Min.Deadline <= _currentTime)
+        var fired = _registry.FireTimeouts(_currentTime);
+        foreach (var callback in fired)
         {
-            var entry = _expiryIndex.Min;
-            _expiryIndex.Remove(entry);
-
-            if (_timers.TryGetValue(entry.Key, out var timer) && timer.Deadline <= _currentTime)
-            {
-                _timers.Remove(entry.Key);
-                _system.Send(new TimeServiceLetter(
-                    SystemUids.TimeService, timer.Callback.ActorUid, timer.Callback));
-            }
+            _system.Send(new TimeServiceLetter(
+                SystemUids.TimeService, callback.ActorUid, callback));
         }
     }
 
@@ -171,48 +128,23 @@ public class VirtualTimeService(IActorSystem system) : ITimeService
 
         foreach (var sub in _subscribers)
         {
-            if (async)
+            ValueTask task = sub.OnTimeStep(_currentTime);
+            if (!task.IsCompletedSuccessfully)
             {
-                ((IActorSystemInternal)_system).IncrementActivity();
-            }
-            try
-            {
-                await sub.OnTimeStep(_currentTime);
-            }
-            catch (Exception ex)
-            {
-                _system.Logger.LogError(ex, "Subscriber failed: {Name}", sub.Name);
-            }
-            if (async)
-            {
-                ((IActorSystemInternal)_system).DecrementActivity();
+                if (async) ((IActorSystemInternal)_system).IncrementActivity();
+                try
+                {
+                    await task;
+                }
+                catch (Exception ex)
+                {
+                    _system.Logger.LogError(ex, "Subscriber failed: {Name}", sub.Name);
+                }
+                finally
+                {
+                    if (async) ((IActorSystemInternal)_system).DecrementActivity();
+                }
             }
         }
     }
-
-    private sealed record CallbackKey(Guid ActorUid, int CallbackId);
-    private sealed record TimerEntry(DateTime Deadline, TimeoutCallback Callback);
-
-    private sealed record ExpiryEntry(DateTime Deadline, CallbackKey Key) : IComparable<ExpiryEntry>
-    {
-        public int CompareTo(ExpiryEntry? other)
-        {
-            if (other is null)
-                return 1;
-            
-            int cmp = Deadline.CompareTo(other.Deadline);
-            if (cmp != 0)
-                return cmp;
-            
-            cmp = Key.ActorUid.CompareTo(other.Key.ActorUid);
-            if (cmp != 0)
-                return cmp;
-            
-            return Key.CallbackId.CompareTo(other.Key.CallbackId);
-        }
-    }
-
-    private abstract record PendingOp;
-    private sealed record RegisterOp(DateTime Deadline, TimeoutCallback Callback) : PendingOp;
-    private sealed record UnregisterOp(TimeoutCallback Callback) : PendingOp;
 }
