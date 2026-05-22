@@ -26,6 +26,8 @@ public class SystemTimeService : ITimeService
     /// <inheritdoc/>
     public void Register(DateTime deadline, TimeoutCallback callback)
     {
+        if (_system.CancellationToken.IsCancellationRequested)
+            return;
         _registry.EnqueueRegister(deadline, callback);
     }
 
@@ -38,6 +40,8 @@ public class SystemTimeService : ITimeService
     /// <inheritdoc/>
     public void Unregister(TimeoutCallback callback)
     {
+        if (_system.CancellationToken.IsCancellationRequested)
+            return;
         _registry.EnqueueUnregister(callback);
     }
 
@@ -67,7 +71,7 @@ public class SystemTimeService : ITimeService
             var nextDeadline = _registry.GetNextDeadline();
             if (nextDeadline.HasValue)
             {
-                var timeToNext = nextDeadline.Value - UtcNow;
+                var timeToNext = nextDeadline.Value - now;
                 if (timeToNext > TimeSpan.Zero && timeToNext < delay)
                     delay = timeToNext;
             }

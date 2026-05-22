@@ -49,6 +49,11 @@ public abstract class Actor
     /// <param name="queueCapacity">Максимальный размер очереди сообщений.</param>
     protected Actor(IActorSystem system, Guid uid, string name, int queueCapacity = DefaultQueueCapacity)
     {
+        if (uid == Guid.Empty)
+            throw new ArgumentOutOfRangeException(nameof(uid), "Invalid uid");
+        if (queueCapacity < 1 || queueCapacity > 100_000)
+            throw new ArgumentOutOfRangeException(nameof(queueCapacity), "Invalid queue capacity");
+
         System = system;
         Uid = uid;
         Name = name;
@@ -150,6 +155,10 @@ public abstract class Actor
     /// <summary>
     /// Обрабатывает входящее письмо. Вызывается акторной системой для каждого письма из очереди.
     /// Наследники обязаны переопределить этот метод.
+    /// Реализация должна:
+    ///  - Не блокировать бесконечно
+    ///  - Либо периодически проверять System.CancellationToken для кооперативной отмены
+    ///  - Либо использовать перегрузки await с токеном отмены где возможно
     /// </summary>
     /// <param name="letter">Входящее письмо.</param>
     /// <returns><see cref="ValueTask"/>, представляющий асинхронную операцию обработки.</returns>

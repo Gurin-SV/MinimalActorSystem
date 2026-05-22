@@ -99,7 +99,7 @@ internal sealed class ActorRegistry(IActorSystem actorSystem)
             if (_actors.Count == 0)
                 return Task.CompletedTask;
 
-            _emptyTcs = new TaskCompletionSource<bool>();
+            _emptyTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             return _emptyTcs.Task;
         }
     }

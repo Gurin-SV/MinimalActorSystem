@@ -4,6 +4,9 @@
 /// Константные идентификаторы системных акторов с фиксированными значениями.
 /// Доступны статически через <c>SystemUids.System</c> и т.д.
 /// Используются для адресации системных акторов при отправке писем.
+/// Для других "системных" акторов конкретное приложение должно использовать другой
+/// класс, например, ApplicationUids, но в нём нужно определять идентификаторы 
+/// через Guid.NewGuid()
 /// </summary>
 public static class SystemUids
 {
@@ -20,5 +23,5 @@ public static class SystemUids
     /// <summary>
     /// Идентификатор модельного актора (<see cref="ModelActor"/>). Корневой родитель прикладных акторов.
     /// </summary>
-    public static readonly Guid Model = new("00000000-0000-0000-0000-000000000003");
+    public static readonly Guid Model = Guid.NewGuid();
 }

@@ -1,6 +1,4 @@
-﻿using System.Collections.Concurrent;
-
-namespace MinimalActorSystem.Testing;
+﻿namespace MinimalActorSystem.Testing;
 
 /// <summary>
 /// Тестовая реализация <see cref="ITimeService"/> с виртуальным временем.
@@ -64,7 +62,8 @@ public class VirtualTimeService(ActorSystem system) : ITimeService
     }
 
     /// <summary>
-    /// Синхронный режим.
+    /// Синхронный режим. Совмещение синхронного и асинхронного режима не допускается, то есть,
+    /// должен вызываться либо StartVirtualClock либо StartVirtualClockAsync, но не оба
     /// </summary>
     public void StartVirtualClock(DateTime startTime, DateTime endTime, TimeSpan step)
     {
@@ -118,7 +117,16 @@ public class VirtualTimeService(ActorSystem system) : ITimeService
         {
             var task = sub.OnTimeStep(_currentTime);
             if (!task.IsCompletedSuccessfully)
-                task.AsTask().GetAwaiter().GetResult();
+            {
+                try
+                {
+                    task.AsTask().GetAwaiter().GetResult();
+                }
+                catch (Exception ex)
+                {
+                    _system.Logger.LogError(ex, "Subscriber failed: {Name}", sub.Name);
+                }
+            }
         }
     }
 

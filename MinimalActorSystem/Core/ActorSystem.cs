@@ -118,6 +118,11 @@ public sealed class ActorSystem : IActorSystem, IActorSystemInternal
     /// <inheritdoc/>
     public bool Send(Letter letter)
     {
+        if (letter == null)
+            return false;
+        if (_cts.IsCancellationRequested)
+            return false;
+
         if (!_registry.TryGet(letter.Receiver, out var actor))
         {
             Logger.LogWarning("Send failed: actor {ActorName} not found for letter {LetterType} from {SenderName}",
