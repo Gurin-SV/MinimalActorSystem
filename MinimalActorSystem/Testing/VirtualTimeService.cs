@@ -9,23 +9,15 @@
 /// Создаёт экземпляр сервиса виртуального времени.
 /// </remarks>
 /// <param name="system">Акторная система.</param>
-public class VirtualTimeService(ActorSystem system) : ITimeService
+public sealed class VirtualTimeService(ActorSystem system) : ITimeService, IDisposable
 {
     private readonly ActorSystem _system = system;
-    private readonly TimeoutRegistry _registry = new();
+    private readonly TimeoutRegistry _registry = new(system);
     private readonly List<IVirtualTimeSubscriber> _subscribers = [];
     private DateTime _currentTime;
 
     /// <inheritdoc/>
     public DateTime UtcNow => _currentTime;
-
-    /// <summary>
-    /// Устанавливает текущее виртуальное время без вызова имитаторов и срабатывания таймаутов.
-    /// </summary>
-    public void SetTime(DateTime time)
-    {
-        _currentTime = time;
-    }
 
     /// <inheritdoc/>
     public void Register(DateTime deadline, TimeoutCallback callback)
@@ -36,7 +28,7 @@ public class VirtualTimeService(ActorSystem system) : ITimeService
     /// <inheritdoc/>
     public void Register(TimeSpan timeout, TimeoutCallback callback)
     {
-        _registry.EnqueueRegister(_currentTime + timeout, callback);
+        Register(_currentTime + timeout, callback);
     }
 
     /// <inheritdoc/>
@@ -46,8 +38,18 @@ public class VirtualTimeService(ActorSystem system) : ITimeService
     }
 
     /// <summary>
+    /// Устанавливает текущее виртуальное время без вызова имитаторов и срабатывания таймаутов.
+    /// </summary>
+    /// <param name="time">Новое виртуальное время.</param>
+    public void SetTime(DateTime time)
+    {
+        _currentTime = time;
+    }
+
+    /// <summary>
     /// Подписывает имитатор на шаги виртуального времени.
     /// </summary>
+    /// <param name="subscriber">Подписчик.</param>
     public void Subscribe(IVirtualTimeSubscriber subscriber)
     {
         _subscribers.Add(subscriber);
@@ -56,23 +58,26 @@ public class VirtualTimeService(ActorSystem system) : ITimeService
     /// <summary>
     /// Отписывает имитатор от шагов виртуального времени.
     /// </summary>
+    /// <param name="subscriber">Подписчик.</param>
     public void Unsubscribe(IVirtualTimeSubscriber subscriber)
     {
         _subscribers.Remove(subscriber);
     }
 
     /// <summary>
-    /// Синхронный режим. Совмещение синхронного и асинхронного режима не допускается, то есть,
-    /// должен вызываться либо StartVirtualClock либо StartVirtualClockAsync, но не оба
+    /// Синхронный режим. Обработчики подписчиков должны быть строго синхронными.
     /// </summary>
+    /// <param name="startTime">Начальное виртуальное время.</param>
+    /// <param name="endTime">Конечное виртуальное время.</param>
+    /// <param name="step">Шаг времени на каждой итерации.</param>
     public void StartVirtualClock(DateTime startTime, DateTime endTime, TimeSpan step)
     {
         _currentTime = startTime;
 
-        while (_currentTime <= endTime)
+        while (_currentTime <= endTime && !_system.CancellationToken.IsCancellationRequested)
         {
             _registry.ApplyPendingOps();
-            FireSubscribers();
+            FireSubscribersSync();
             FireTimeouts();
             _currentTime += step;
         }
@@ -80,13 +85,16 @@ public class VirtualTimeService(ActorSystem system) : ITimeService
 
     /// <summary>
     /// Асинхронный режим. После каждого шага ожидает завершения обработки всех сообщений,
-    /// если Settings.TimeServiceModes.Async.
+    /// если Settings.TimeServiceModes == TimeServiceModes.Async.
     /// </summary>
+    /// <param name="startTime">Начальное виртуальное время.</param>
+    /// <param name="endTime">Конечное виртуальное время.</param>
+    /// <param name="step">Шаг времени на каждой итерации.</param>
     public async Task StartVirtualClockAsync(DateTime startTime, DateTime endTime, TimeSpan step)
     {
         _currentTime = startTime;
 
-        while (_currentTime <= endTime)
+        while (_currentTime <= endTime && !_system.CancellationToken.IsCancellationRequested)
         {
             _registry.ApplyPendingOps();
             await FireSubscribersAsync();
@@ -101,6 +109,9 @@ public class VirtualTimeService(ActorSystem system) : ITimeService
         }
     }
 
+    /// <summary>
+    /// Срабатывание таймаутов для текущего виртуального времени.
+    /// </summary>
     private void FireTimeouts()
     {
         var fired = _registry.FireTimeouts(_currentTime);
@@ -111,48 +122,68 @@ public class VirtualTimeService(ActorSystem system) : ITimeService
         }
     }
 
-    private void FireSubscribers()
+    /// <summary>
+    /// Синхронный вызов подписчиков.
+    /// </summary>
+    private void FireSubscribersSync()
     {
         foreach (var sub in _subscribers)
         {
             var task = sub.OnTimeStep(_currentTime);
             if (!task.IsCompletedSuccessfully)
             {
+                // В синхронном режиме подписчики должны возвращать завершённый ValueTask
                 try
                 {
                     task.AsTask().GetAwaiter().GetResult();
                 }
                 catch (Exception ex)
                 {
-                    _system.Logger.LogError(ex, "Subscriber failed: {Name}", sub.Name);
+                    _system.Logger.LogError(ex, "Subscriber failed: {Name}", sub.SubName);
                 }
             }
         }
     }
 
+    /// <summary>
+    /// Асинхронный вызов подписчиков.
+    /// </summary>
     private async Task FireSubscribersAsync()
     {
         bool async = _system.Settings.TimeServiceModes == TimeServiceModes.Async;
 
-        foreach (var sub in _subscribers)
+        // Инкрементируем активность один раз на всех подписчиков
+        if (async && _subscribers.Count > 0)
+            ((IActorSystemInternal)_system).IncrementActivity();
+
+        try
         {
-            ValueTask task = sub.OnTimeStep(_currentTime);
-            if (!task.IsCompletedSuccessfully)
+            foreach (var sub in _subscribers)
             {
-                if (async) ((IActorSystemInternal)_system).IncrementActivity();
-                try
+                ValueTask task = sub.OnTimeStep(_currentTime);
+                if (!task.IsCompletedSuccessfully)
                 {
-                    await task;
-                }
-                catch (Exception ex)
-                {
-                    _system.Logger.LogError(ex, "Subscriber failed: {Name}", sub.Name);
-                }
-                finally
-                {
-                    if (async) ((IActorSystemInternal)_system).DecrementActivity();
+                    try
+                    {
+                        await task;
+                    }
+                    catch (Exception ex)
+                    {
+                        _system.Logger.LogError(ex, "Subscriber failed: {Name}", sub.SubName);
+                    }
                 }
             }
         }
+        finally
+        {
+            if (async && _subscribers.Count > 0)
+                ((IActorSystemInternal)_system).DecrementActivity();
+        }
+    }
+
+    /// <inheritdoc/>
+    public void Dispose()
+    {
+        _registry.Dispose();
     }
 }

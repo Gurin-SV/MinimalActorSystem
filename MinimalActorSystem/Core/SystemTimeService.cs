@@ -5,10 +5,11 @@
 /// Поддерживает регистрацию, замену и отмену таймаутов. При срабатывании таймаута отправляет
 /// актору-получателю <see cref="TimeServiceLetter"/> с зарегистрированным коллбеком.
 /// </summary>
-public class SystemTimeService : ITimeService
+public sealed class SystemTimeService : ITimeService, IDisposable
 {
     private readonly IActorSystem _system;
-    private readonly TimeoutRegistry _registry = new();
+    private readonly TimeoutRegistry _registry;
+    private readonly Task _runTask;
 
     /// <inheritdoc/>
     public DateTime UtcNow => DateTime.UtcNow;
@@ -20,14 +21,13 @@ public class SystemTimeService : ITimeService
     public SystemTimeService(IActorSystem system)
     {
         _system = system;
-        _ = RunAsync(_system.CancellationToken);
+        _registry = new TimeoutRegistry(system);
+        _runTask = RunAsync(_system.CancellationToken);
     }
 
     /// <inheritdoc/>
     public void Register(DateTime deadline, TimeoutCallback callback)
     {
-        if (_system.CancellationToken.IsCancellationRequested)
-            return;
         _registry.EnqueueRegister(deadline, callback);
     }
 
@@ -40,20 +40,18 @@ public class SystemTimeService : ITimeService
     /// <inheritdoc/>
     public void Unregister(TimeoutCallback callback)
     {
-        if (_system.CancellationToken.IsCancellationRequested)
-            return;
         _registry.EnqueueUnregister(callback);
     }
 
     /// <summary>
-    /// Фоновый цикл сервиса времени. Периодически применяет накопленные операции регистрации/отмены
-    /// и проверяет индекс на предмет истёкших таймаутов. При срабатывании таймаута отправляет
-    /// <see cref="TimeServiceLetter"/> соответствующему актору.
+    /// Фоновый цикл сервиса времени. Применяет накопленные операции, проверяет индекс
+    /// на предмет истёкших таймаутов и ожидает следующего события.
     /// Завершается при отмене <paramref name="ct"/>.
     /// </summary>
-    /// <param name="ct">Токен отмены от акторной системы.</param>
     private async Task RunAsync(CancellationToken ct)
     {
+        const int maxDelayMs = 1000;
+
         while (!ct.IsCancellationRequested)
         {
             _registry.ApplyPendingOps();
@@ -67,23 +65,48 @@ public class SystemTimeService : ITimeService
                 _system.Send(letter);
             }
 
-            var delay = TimeSpan.FromMilliseconds(15);
             var nextDeadline = _registry.GetNextDeadline();
-            if (nextDeadline.HasValue)
-            {
-                var timeToNext = nextDeadline.Value - now;
-                if (timeToNext > TimeSpan.Zero && timeToNext < delay)
-                    delay = timeToNext;
-            }
 
-            try
+            if (nextDeadline.HasValue && nextDeadline.Value > now)
             {
-                await Task.Delay(delay, ct);
+                var delay = nextDeadline.Value - now;
+                if (delay > TimeSpan.FromMilliseconds(maxDelayMs))
+                    delay = TimeSpan.FromMilliseconds(maxDelayMs);
+
+                try
+                {
+                    await Task.Delay(delay, ct);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
             }
-            catch (OperationCanceledException)
+            else if (nextDeadline.HasValue && nextDeadline.Value <= now)
             {
-                return;
+                // Дедлайн уже прошёл — немедленно повторяем цикл
+                continue;
+            }
+            else
+            {
+                // Нет таймаутов — ждём изменения реестра или отмены системы
+                try
+                {
+                    await _registry.WaitForChangeAsync(ct);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
             }
         }
+    }
+
+    /// <inheritdoc/>
+    public void Dispose()
+    {
+        _registry.Dispose();
+        // Опционально: дождаться завершения фоновой задачи
+        _runTask.Wait(TimeSpan.FromSeconds(5));
     }
 }

@@ -7,18 +7,31 @@ namespace MinimalActorSystem;
 /// и извлечение сработавших таймаутов. Используется реализациями <see cref="ITimeService"/>.
 /// Потокобезопасен: регистрация/отмена через ConcurrentQueue, извлечение — через внешнюю синхронизацию.
 /// </summary>
-internal sealed class TimeoutRegistry
+/// <remarks>
+/// Создаёт реестр таймаутов, связанный с указанной акторной системой.
+/// </remarks>
+/// <param name="system">Акторная система, чей токен отмены используется для проверок.</param>
+internal sealed class TimeoutRegistry(IActorSystem system) : IDisposable
 {
+    private readonly IActorSystem _system = system;
     private readonly ConcurrentQueue<PendingOp> _pending = new();
     private readonly Dictionary<CallbackKey, TimerEntry> _timers = [];
     private readonly SortedSet<ExpiryEntry> _expiryIndex = [];
+
+    private readonly object _waitLock = new();
+    private TaskCompletionSource<bool>? _waitTcs;
+    private CancellationTokenRegistration _ctRegistration;
 
     /// <summary>
     /// Ставит операцию регистрации таймаута в очередь на применение.
     /// </summary>
     public void EnqueueRegister(DateTime deadline, TimeoutCallback callback)
     {
+        if (_system.CancellationToken.IsCancellationRequested)
+            return;
+
         _pending.Enqueue(new RegisterOp(deadline, callback));
+        SignalChange();
     }
 
     /// <summary>
@@ -26,7 +39,11 @@ internal sealed class TimeoutRegistry
     /// </summary>
     public void EnqueueUnregister(TimeoutCallback callback)
     {
+        if (_system.CancellationToken.IsCancellationRequested)
+            return;
+
         _pending.Enqueue(new UnregisterOp(callback));
+        SignalChange();
     }
 
     /// <summary>
@@ -36,30 +53,25 @@ internal sealed class TimeoutRegistry
     {
         while (_pending.TryDequeue(out var op))
         {
-            switch (op)
+            if (op is RegisterOp reg)
             {
-                case RegisterOp reg:
-                    {
-                        var key = new CallbackKey(reg.Callback.ActorUid, reg.Callback.CallbackId);
+                var key = new CallbackKey(reg.Callback.ActorUid, reg.Callback.CallbackId);
 
-                        if (_timers.TryGetValue(key, out var old))
-                            _expiryIndex.Remove(new ExpiryEntry(old.Deadline, key));
+                if (_timers.TryGetValue(key, out var old))
+                    _expiryIndex.Remove(new ExpiryEntry(old.Deadline, key));
 
-                        _timers[key] = new TimerEntry(reg.Deadline, reg.Callback);
-                        _expiryIndex.Add(new ExpiryEntry(reg.Deadline, key));
-                        break;
-                    }
-                case UnregisterOp unreg:
-                    {
-                        var key = new CallbackKey(unreg.Callback.ActorUid, unreg.Callback.CallbackId);
+                _timers[key] = new TimerEntry(reg.Deadline, reg.Callback);
+                _expiryIndex.Add(new ExpiryEntry(reg.Deadline, key));
+            }
+            else if (op is UnregisterOp unreg)
+            {
+                var key = new CallbackKey(unreg.Callback.ActorUid, unreg.Callback.CallbackId);
 
-                        if (_timers.TryGetValue(key, out var old))
-                        {
-                            _timers.Remove(key);
-                            _expiryIndex.Remove(new ExpiryEntry(old.Deadline, key));
-                        }
-                        break;
-                    }
+                if (_timers.TryGetValue(key, out var old))
+                {
+                    _timers.Remove(key);
+                    _expiryIndex.Remove(new ExpiryEntry(old.Deadline, key));
+                }
             }
         }
     }
@@ -95,6 +107,58 @@ internal sealed class TimeoutRegistry
     public DateTime? GetNextDeadline()
     {
         return _expiryIndex.Count > 0 ? _expiryIndex.Min.Deadline : null;
+    }
+
+    /// <summary>
+    /// Возвращает задачу, которая завершится, когда изменится ближайший дедлайн
+    /// или когда будет зарегистрирован/отменён таймаут.
+    /// Используется для пробуждения ожидающего цикла.
+    /// </summary>
+    /// <param name="systemCancellationToken">Токен отмены акторной системы.</param>
+    public Task WaitForChangeAsync(CancellationToken systemCancellationToken)
+    {
+        lock (_waitLock)
+        {
+            if (systemCancellationToken.IsCancellationRequested)
+                return Task.FromCanceled(systemCancellationToken);
+
+            if (_waitTcs == null || _waitTcs.Task.IsCompleted)
+            {
+                _waitTcs = new TaskCompletionSource<bool>(
+                    TaskCreationOptions.RunContinuationsAsynchronously);
+
+                _ctRegistration.Dispose();
+                _ctRegistration = systemCancellationToken.Register(() =>
+                {
+                    lock (_waitLock)
+                    {
+                        _waitTcs?.TrySetCanceled(systemCancellationToken);
+                        _waitTcs = null;
+                    }
+                });
+            }
+
+            return _waitTcs.Task;
+        }
+    }
+
+    /// <summary>
+    /// Сигнализирует об изменении реестра (новая регистрация или отмена).
+    /// Пробуждает ожидающие задачи.
+    /// </summary>
+    private void SignalChange()
+    {
+        lock (_waitLock)
+        {
+            _waitTcs?.TrySetResult(true);
+            _waitTcs = null;
+        }
+    }
+
+    /// <inheritdoc/>
+    public void Dispose()
+    {
+        _ctRegistration.Dispose();
     }
 
     private sealed record CallbackKey(Guid ActorUid, int CallbackId);

@@ -12,7 +12,7 @@ public interface IVirtualTimeSubscriber
     /// <summary>
     /// Имя подписчика для диагностики и трассировки.
     /// </summary>
-    string Name { get; }
+    string SubName { get; }
 
     /// <summary>
     /// Вызывается при каждом шаге виртуального времени. Обработчики должны быть

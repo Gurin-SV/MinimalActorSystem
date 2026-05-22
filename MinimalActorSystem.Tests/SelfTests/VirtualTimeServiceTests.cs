@@ -9,72 +9,499 @@ public sealed class VirtualTimeServiceTests(ITestOutputHelper output)
 
     #region TestActors
 
-    private sealed class TimerTestActor : Actor
+    private sealed class SingleTimerTestActor : Actor
     {
         private readonly TimeoutCallback _callback;
         public int CallbackCount { get; private set; }
         public DateTime CallbackTime { get; private set; }
 
-        public TimerTestActor(IActorSystem system, Guid uid, string name)
+        public SingleTimerTestActor(IActorSystem system, Guid uid, string name, int callbackId = 1)
             : base(system, uid, name)
         {
-            _callback = new TimeoutCallback(uid, 1, () =>
+            _callback = new TimeoutCallback(uid, callbackId, () =>
             {
                 CallbackCount++;
                 CallbackTime = System.TimeService.UtcNow;
             });
         }
 
+        public void Register(TimeSpan timeout) => System.TimeService.Register(timeout, _callback);
+        public void Register(DateTime deadline) => System.TimeService.Register(deadline, _callback);
+        public void Unregister() => System.TimeService.Unregister(_callback);
+
         protected override ValueTask OnLetter(Letter letter)
         {
-            if (letter is InitializeLetter)
-            {
-                System.TimeService.Register(TimeSpan.FromSeconds(5), _callback);
-                System.TimeService.Register(TimeSpan.FromSeconds(5), _callback);
-            }
-            else if (letter is TimeServiceLetter timeLetter)
-            {
+            if (letter is TimeServiceLetter timeLetter)
                 timeLetter.Callback.Action();
-            }
             return ValueTask.CompletedTask;
         }
     }
 
+    private sealed class MultiTimerTestActor(IActorSystem system, Guid uid, string name) : Actor(system, uid, name)
+    {
+        private readonly Dictionary<int, TimeoutCallback> _callbacks = [];
+        public Dictionary<int, int> CallbackCounts { get; } = [];
+        public Dictionary<int, DateTime> CallbackTimes { get; } = [];
+
+        public void Register(int callbackId, TimeSpan timeout)
+        {
+            var callback = new TimeoutCallback(Uid, callbackId, () =>
+            {
+                CallbackCounts.TryGetValue(callbackId, out var count);
+                CallbackCounts[callbackId] = count + 1;
+                CallbackTimes[callbackId] = System.TimeService.UtcNow;
+            });
+            _callbacks[callbackId] = callback;
+            System.TimeService.Register(timeout, callback);
+        }
+
+        public void Unregister(int callbackId)
+        {
+            if (_callbacks.TryGetValue(callbackId, out var callback))
+                System.TimeService.Unregister(callback);
+        }
+
+        protected override ValueTask OnLetter(Letter letter)
+        {
+            if (letter is TimeServiceLetter timeLetter)
+                timeLetter.Callback.Action();
+            return ValueTask.CompletedTask;
+        }
+    }
+
+    private sealed class RescheduleTestActor : Actor
+    {
+        private readonly TimeoutCallback _callback;
+        private int _rescheduleCount;
+        public int TotalCallbacks { get; private set; }
+
+        public RescheduleTestActor(IActorSystem system, Guid uid, string name)
+            : base(system, uid, name)
+        {
+            _callback = new TimeoutCallback(uid, 1, () =>
+            {
+                TotalCallbacks++;
+                if (_rescheduleCount < 3)
+                {
+                    _rescheduleCount++;
+                    System.TimeService.Register(TimeSpan.FromSeconds(1), _callback);
+                }
+            });
+        }
+
+        public void Start() => System.TimeService.Register(TimeSpan.FromSeconds(1), _callback);
+
+        protected override ValueTask OnLetter(Letter letter)
+        {
+            if (letter is TimeServiceLetter timeLetter)
+                timeLetter.Callback.Action();
+            return ValueTask.CompletedTask;
+        }
+    }
+
+    private sealed class SubscriberTestActor(IActorSystem system, Guid uid, string name)
+        : Actor(system, uid, name), IVirtualTimeSubscriber
+    {
+        public List<DateTime> TimeSteps { get; } = [];
+        public string SubName => "test-subscriber";
+
+        public ValueTask OnTimeStep(DateTime currentTime)
+        {
+            TimeSteps.Add(currentTime);
+            return ValueTask.CompletedTask;
+        }
+
+        protected override ValueTask OnLetter(Letter letter) => ValueTask.CompletedTask;
+    }
+
     #endregion
+
+    #region Helper Methods
+
+    private static DateTime StartTime => "01.01.2024 00:00:00".AsUtc();
+    private static DateTime EndTime => "01.01.2024 00:00:10".AsUtc();
+
+    #endregion
+
+    #region Tests
 
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
-    public async Task VirtualTimeServiceTest001(bool synchronousProcessing)
+    public async Task VirtualTimeServiceTests_001(bool synchronousProcessing)
     {
-        TimeServiceModes modes = synchronousProcessing ? TimeServiceModes.Sync : TimeServiceModes.Async;
-        var system = SystemFactory.CreateSystem(_output, new Settings { TimeServiceModes = modes });
+        /// Простой таймаут: регистрация на 5 секунд, проверка что сработал один раз в нужное время
+
+        var mode = synchronousProcessing ? TimeServiceModes.Sync : TimeServiceModes.Async;
+        var system = SystemFactory.CreateSystem(_output, new Settings { TimeServiceModes = mode });
         var timeService = new VirtualTimeService(system);
         system.TimeService = timeService;
 
-        var actorUid = Guid.NewGuid();
-        var actor = new TimerTestActor(system, actorUid, "timer-test");
+        var actor = new SingleTimerTestActor(system, Guid.NewGuid(), "timer-test");
         system.RegisterActor(actor);
 
-        timeService.SetTime("01.01.2024 00:00:00".AsUtc());
-        system.Send(new InitializeLetter(SystemUids.System, actorUid));
+        timeService.SetTime(StartTime);
+        actor.Register(TimeSpan.FromSeconds(5));
 
         if (synchronousProcessing)
-        {
-            timeService.StartVirtualClock(
-                "01.01.2024 00:00:00".AsUtc(),
-                "01.01.2024 00:00:10".AsUtc(),
-                TimeSpan.FromSeconds(1));
-        }
+            timeService.StartVirtualClock(StartTime, EndTime, TimeSpan.FromSeconds(1));
         else
-        {
-            await timeService.StartVirtualClockAsync(
-                "01.01.2024 00:00:00".AsUtc(),
-                "01.01.2024 00:00:10".AsUtc(),
-                TimeSpan.FromSeconds(1));
-        }
+            await timeService.StartVirtualClockAsync(StartTime, EndTime, TimeSpan.FromSeconds(1));
 
         actor.CallbackCount.Should().Be(1);
         actor.CallbackTime.Should().Be("01.01.2024 00:00:05".AsUtc());
+
+        system.Shutdown();
+        await system.WaitForShutdownAsync();
     }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task VirtualTimeServiceTests_002(bool synchronousProcessing)
+    {
+        /// Таймаут с точным дедлайном: регистрация на 7 секунд, проверка срабатывания в указанное время
+
+        var mode = synchronousProcessing ? TimeServiceModes.Sync : TimeServiceModes.Async;
+        var system = SystemFactory.CreateSystem(_output, new Settings { TimeServiceModes = mode });
+        var timeService = new VirtualTimeService(system);
+        system.TimeService = timeService;
+
+        var actor = new SingleTimerTestActor(system, Guid.NewGuid(), "timer-test");
+        system.RegisterActor(actor);
+
+        var deadline = "01.01.2024 00:00:07".AsUtc();
+        timeService.SetTime(StartTime);
+        actor.Register(deadline);
+
+        if (synchronousProcessing)
+            timeService.StartVirtualClock(StartTime, EndTime, TimeSpan.FromSeconds(1));
+        else
+            await timeService.StartVirtualClockAsync(StartTime, EndTime, TimeSpan.FromSeconds(1));
+
+        actor.CallbackCount.Should().Be(1);
+        actor.CallbackTime.Should().Be(deadline);
+
+        system.Shutdown();
+        await system.WaitForShutdownAsync();
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task VirtualTimeServiceTests_003(bool synchronousProcessing)
+    {
+        /// Перерегистрация таймаута: вторая регистрация заменяет первую, срабатывает только один раз
+
+        var mode = synchronousProcessing ? TimeServiceModes.Sync : TimeServiceModes.Async;
+        var system = SystemFactory.CreateSystem(_output, new Settings { TimeServiceModes = mode });
+        var timeService = new VirtualTimeService(system);
+        system.TimeService = timeService;
+
+        var actor = new SingleTimerTestActor(system, Guid.NewGuid(), "timer-test");
+        system.RegisterActor(actor);
+
+        timeService.SetTime(StartTime);
+        actor.Register(TimeSpan.FromSeconds(3));
+        actor.Register(TimeSpan.FromSeconds(5));
+
+        if (synchronousProcessing)
+            timeService.StartVirtualClock(StartTime, EndTime, TimeSpan.FromSeconds(1));
+        else
+            await timeService.StartVirtualClockAsync(StartTime, EndTime, TimeSpan.FromSeconds(1));
+
+        actor.CallbackCount.Should().Be(1);
+        actor.CallbackTime.Should().Be("01.01.2024 00:00:05".AsUtc());
+
+        system.Shutdown();
+        await system.WaitForShutdownAsync();
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task VirtualTimeServiceTests_004(bool synchronousProcessing)
+    {
+        /// Отмена таймаута: после Unregister таймаут не должен сработать
+
+        var mode = synchronousProcessing ? TimeServiceModes.Sync : TimeServiceModes.Async;
+        var system = SystemFactory.CreateSystem(_output, new Settings { TimeServiceModes = mode });
+        var timeService = new VirtualTimeService(system);
+        system.TimeService = timeService;
+
+        var actor = new SingleTimerTestActor(system, Guid.NewGuid(), "timer-test");
+        system.RegisterActor(actor);
+
+        timeService.SetTime(StartTime);
+        actor.Register(TimeSpan.FromSeconds(3));
+        actor.Unregister();
+
+        if (synchronousProcessing)
+            timeService.StartVirtualClock(StartTime, EndTime, TimeSpan.FromSeconds(1));
+        else
+            await timeService.StartVirtualClockAsync(StartTime, EndTime, TimeSpan.FromSeconds(1));
+
+        actor.CallbackCount.Should().Be(0);
+
+        system.Shutdown();
+        await system.WaitForShutdownAsync();
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task VirtualTimeServiceTests_005(bool synchronousProcessing)
+    {
+        /// Несколько разных таймаутов: каждый должен сработать в своё время
+
+        var mode = synchronousProcessing ? TimeServiceModes.Sync : TimeServiceModes.Async;
+        var system = SystemFactory.CreateSystem(_output, new Settings { TimeServiceModes = mode });
+        var timeService = new VirtualTimeService(system);
+        system.TimeService = timeService;
+
+        var actor = new MultiTimerTestActor(system, Guid.NewGuid(), "multi-timer");
+        system.RegisterActor(actor);
+
+        timeService.SetTime(StartTime);
+        actor.Register(1, TimeSpan.FromSeconds(2));
+        actor.Register(2, TimeSpan.FromSeconds(5));
+        actor.Register(3, TimeSpan.FromSeconds(7));
+
+        if (synchronousProcessing)
+            timeService.StartVirtualClock(StartTime, EndTime, TimeSpan.FromSeconds(1));
+        else
+            await timeService.StartVirtualClockAsync(StartTime, EndTime, TimeSpan.FromSeconds(1));
+
+        actor.CallbackCounts[1].Should().Be(1);
+        actor.CallbackTimes[1].Should().Be("01.01.2024 00:00:02".AsUtc());
+
+        actor.CallbackCounts[2].Should().Be(1);
+        actor.CallbackTimes[2].Should().Be("01.01.2024 00:00:05".AsUtc());
+
+        actor.CallbackCounts[3].Should().Be(1);
+        actor.CallbackTimes[3].Should().Be("01.01.2024 00:00:07".AsUtc());
+
+        system.Shutdown();
+        await system.WaitForShutdownAsync();
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task VirtualTimeServiceTests_006(bool synchronousProcessing)
+    {
+        /// Самоперерегистрация: таймаут перерегистрирует сам себя, должно быть несколько срабатываний
+
+        var mode = synchronousProcessing ? TimeServiceModes.Sync : TimeServiceModes.Async;
+        var system = SystemFactory.CreateSystem(_output, new Settings { TimeServiceModes = mode });
+        var timeService = new VirtualTimeService(system);
+        system.TimeService = timeService;
+
+        var actor = new RescheduleTestActor(system, Guid.NewGuid(), "reschedule-test");
+        system.RegisterActor(actor);
+
+        timeService.SetTime(StartTime);
+        actor.Start();
+
+        var endTime = "01.01.2024 00:00:10".AsUtc();
+
+        if (synchronousProcessing)
+            timeService.StartVirtualClock(StartTime, endTime, TimeSpan.FromSeconds(1));
+        else
+            await timeService.StartVirtualClockAsync(StartTime, endTime, TimeSpan.FromSeconds(1));
+
+        actor.TotalCallbacks.Should().Be(4);
+
+        system.Shutdown();
+        await system.WaitForShutdownAsync();
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task VirtualTimeServiceTests_007(bool synchronousProcessing)
+    {
+        /// Дедлайн в прошлом: при регистрации таймаута с уже прошедшим дедлайном он срабатывает немедленно
+
+        var mode = synchronousProcessing ? TimeServiceModes.Sync : TimeServiceModes.Async;
+        var system = SystemFactory.CreateSystem(_output, new Settings { TimeServiceModes = mode });
+        var timeService = new VirtualTimeService(system);
+        system.TimeService = timeService;
+
+        var actor = new SingleTimerTestActor(system, Guid.NewGuid(), "past-deadline-test");
+        system.RegisterActor(actor);
+
+        var currentTime = "01.01.2024 00:00:10".AsUtc();
+        timeService.SetTime(currentTime);
+        actor.Register("01.01.2024 00:00:05".AsUtc());
+
+        var endTime = "01.01.2024 00:00:15".AsUtc();
+
+        if (synchronousProcessing)
+            timeService.StartVirtualClock(currentTime, endTime, TimeSpan.FromSeconds(1));
+        else
+            await timeService.StartVirtualClockAsync(currentTime, endTime, TimeSpan.FromSeconds(1));
+
+        actor.CallbackCount.Should().Be(1);
+        actor.CallbackTime.Should().Be(currentTime);
+
+        system.Shutdown();
+        await system.WaitForShutdownAsync();
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task VirtualTimeServiceTests_008(bool synchronousProcessing)
+    {
+        /// Без таймаутов: время всё равно должно продвигаться
+
+        var mode = synchronousProcessing ? TimeServiceModes.Sync : TimeServiceModes.Async;
+        var system = SystemFactory.CreateSystem(_output, new Settings { TimeServiceModes = mode });
+        var timeService = new VirtualTimeService(system);
+        system.TimeService = timeService;
+
+        timeService.SetTime(StartTime);
+
+        if (synchronousProcessing)
+            timeService.StartVirtualClock(StartTime, EndTime, TimeSpan.FromSeconds(1));
+        else
+            await timeService.StartVirtualClockAsync(StartTime, EndTime, TimeSpan.FromSeconds(1));
+
+        // Ожидаем, что время ушло вперёд, но не проверяем точное значение,
+        // так как цикл включает последний шаг
+        timeService.UtcNow.Should().BeOnOrAfter(EndTime);
+        timeService.UtcNow.Should().BeOnOrBefore(EndTime.Add(TimeSpan.FromSeconds(1)));
+
+        system.Shutdown();
+        await system.WaitForShutdownAsync();
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task VirtualTimeServiceTests_009(bool synchronousProcessing)
+    {
+        /// Подписчики: при каждом шаге времени подписчик должен получать уведомление
+
+        var mode = synchronousProcessing ? TimeServiceModes.Sync : TimeServiceModes.Async;
+        var system = SystemFactory.CreateSystem(_output, new Settings { TimeServiceModes = mode });
+        var timeService = new VirtualTimeService(system);
+        system.TimeService = timeService;
+
+        var subscriber = new SubscriberTestActor(system, Guid.NewGuid(), "subscriber");
+        system.RegisterActor(subscriber);
+        timeService.Subscribe(subscriber);
+
+        timeService.SetTime(StartTime);
+
+        if (synchronousProcessing)
+            timeService.StartVirtualClock(StartTime, EndTime, TimeSpan.FromSeconds(2));
+        else
+            await timeService.StartVirtualClockAsync(StartTime, EndTime, TimeSpan.FromSeconds(2));
+
+        var expectedSteps = new[]
+        {
+            "01.01.2024 00:00:00".AsUtc(),
+            "01.01.2024 00:00:02".AsUtc(),
+            "01.01.2024 00:00:04".AsUtc(),
+            "01.01.2024 00:00:06".AsUtc(),
+            "01.01.2024 00:00:08".AsUtc(),
+            "01.01.2024 00:00:10".AsUtc()
+        };
+
+        subscriber.TimeSteps.Should().BeEquivalentTo(expectedSteps);
+
+        system.Shutdown();
+        await system.WaitForShutdownAsync();
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task VirtualTimeServiceTests_010(bool synchronousProcessing)
+    {
+        /// Одновременные таймауты: все должны сработать в один момент времени
+
+        var mode = synchronousProcessing ? TimeServiceModes.Sync : TimeServiceModes.Async;
+        var system = SystemFactory.CreateSystem(_output, new Settings { TimeServiceModes = mode });
+        var timeService = new VirtualTimeService(system);
+        system.TimeService = timeService;
+
+        var actor = new MultiTimerTestActor(system, Guid.NewGuid(), "simultaneous-test");
+        system.RegisterActor(actor);
+
+        timeService.SetTime(StartTime);
+        actor.Register(1, TimeSpan.FromSeconds(5));
+        actor.Register(2, TimeSpan.FromSeconds(5));
+        actor.Register(3, TimeSpan.FromSeconds(5));
+
+        if (synchronousProcessing)
+            timeService.StartVirtualClock(StartTime, EndTime, TimeSpan.FromSeconds(1));
+        else
+            await timeService.StartVirtualClockAsync(StartTime, EndTime, TimeSpan.FromSeconds(1));
+
+        actor.CallbackCounts[1].Should().Be(1);
+        actor.CallbackCounts[2].Should().Be(1);
+        actor.CallbackCounts[3].Should().Be(1);
+
+        actor.CallbackTimes[1].Should().Be("01.01.2024 00:00:05".AsUtc());
+        actor.CallbackTimes[2].Should().Be("01.01.2024 00:00:05".AsUtc());
+        actor.CallbackTimes[3].Should().Be("01.01.2024 00:00:05".AsUtc());
+
+        system.Shutdown();
+        await system.WaitForShutdownAsync();
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task VirtualTimeServiceTests_011(bool synchronousProcessing)
+    {
+        /// Остановка системы: при вызове Shutdown виртуальный таймер должен прекратить работу
+
+        var mode = synchronousProcessing ? TimeServiceModes.Sync : TimeServiceModes.Async;
+        var system = SystemFactory.CreateSystem(_output, new Settings { TimeServiceModes = mode });
+        var timeService = new VirtualTimeService(system);
+        system.TimeService = timeService;
+
+        var actor = new SingleTimerTestActor(system, Guid.NewGuid(), "shutdown-test");
+        system.RegisterActor(actor);
+
+        timeService.SetTime(StartTime);
+        // Регистрируем очень долгий таймаут, который точно не должен сработать
+        actor.Register(TimeSpan.FromDays(365)); // год, а не 100 секунд
+
+        Task task;
+        if (synchronousProcessing)
+        {
+            task = Task.Run(() =>
+                timeService.StartVirtualClock(StartTime, EndTime.Add(TimeSpan.FromDays(1)), TimeSpan.FromSeconds(1)));
+        }
+        else
+        {
+            task = Task.Run(async () =>
+                await timeService.StartVirtualClockAsync(StartTime, EndTime.Add(TimeSpan.FromDays(1)), TimeSpan.FromSeconds(1)));
+        }
+
+        // Даём системе немного поработать
+        await Task.Delay(500);
+
+        system.Shutdown();
+        await system.WaitForShutdownAsync();
+
+        // Ждём завершения задачи (она должна завершиться из-за отмены)
+        try
+        {
+            await task;
+        }
+        catch (OperationCanceledException)
+        {
+            // Ожидаемое исключение при отмене
+        }
+
+        actor.CallbackCount.Should().Be(0);
+    }
+
+    #endregion
 }
