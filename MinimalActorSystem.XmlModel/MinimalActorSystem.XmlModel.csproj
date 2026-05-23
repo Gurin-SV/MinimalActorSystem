@@ -5,8 +5,8 @@
 		<LangVersion>12.0</LangVersion>
 		<Nullable>enable</Nullable>
 		<NoWarn>$(NoWarn);IDE0130</NoWarn>
-		<Version>1.0.2</Version>
-		<Authors>Сергей Гурин</Authors>
+		<Version>1.0.4</Version>
+		<Authors>Сергей Гурин, Россия, Томск. SERGEY GURIN, RUSSIA, TOMSK</Authors>
 	</PropertyGroup>
 
 	<ItemGroup>

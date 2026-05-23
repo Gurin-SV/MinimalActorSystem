@@ -5,8 +5,8 @@
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
 		<NoWarn>$(NoWarn);CS1591;IDE0130</NoWarn>
-		<Version>1.0.2</Version>
-		<Authors>Сергей Гурин</Authors>
+		<Version>1.0.4</Version>
+		<Authors>Сергей Гурин, Россия, Томск. SERGEY GURIN, RUSSIA, TOMSK</Authors>
 
 		<IsPackable>false</IsPackable>
 		<IsTestProject>true</IsTestProject>

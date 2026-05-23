@@ -12,8 +12,13 @@ namespace MinimalActorSystem.XmlModel;
 /// Вложенные элементы без атрибутов, содержащие только текст, сохраняются как свойства родителя.
 /// </summary>
 /// <remarks>
-/// Создаёт компилятор с именем атрибута идентификатора по умолчанию "Uid".
+/// Configurable XML model compiler.
+/// Parses XML into a flat set of ElementConfig objects.
+/// Uid attribute is required. Elements without Uid are skipped with a warning.
+/// Grouping elements are skipped; their children are processed recursively.
+/// Nested elements with no attributes containing only text are stored as parent properties.
 /// </remarks>
+/// <param name="uidAttributeName">Имя атрибута для идентификатора. По умолчанию "Uid".</param>
 public class XmlModelCompiler(string uidAttributeName = "Uid")
 {
     private readonly Dictionary<string, ElementRule> _rules = [];
@@ -36,6 +41,10 @@ public class XmlModelCompiler(string uidAttributeName = "Uid")
     /// </summary>
     /// <param name="elementName">Имя XML-элемента.</param>
     /// <param name="rule">Правило разбора. Если не указано, используется <see cref="ElementRule.Default"/>.</param>
+    /// <returns>Текущий компилятор для цепочки вызовов.</returns>
+    /// <remarks>
+    /// Adds a parsing rule for elements with the specified name.
+    /// </remarks>
     public XmlModelCompiler AddRule(string elementName, ElementRule? rule = null)
     {
         _rules[elementName] = rule ?? ElementRule.Default;
@@ -47,6 +56,9 @@ public class XmlModelCompiler(string uidAttributeName = "Uid")
     /// </summary>
     /// <param name="xml">XML-описание модели.</param>
     /// <returns>Скомпилированная модель.</returns>
+    /// <remarks>
+    /// Compiles an XML string into a model.
+    /// </remarks>
     public CompiledModel Compile(string xml)
     {
         _warnings.Clear();
@@ -78,6 +90,9 @@ public class XmlModelCompiler(string uidAttributeName = "Uid")
         return model;
     }
 
+    /// <summary>
+    /// Компилирует один XML-элемент и добавляет его в модель.
+    /// </summary>
     private void CompileElement(XmlReader reader, CompiledModel model)
     {
         var elementName = reader.Name;
@@ -174,6 +189,9 @@ public class XmlModelCompiler(string uidAttributeName = "Uid")
         model.Add(element);
     }
 
+    /// <summary>
+    /// Обрабатывает группирующий элемент: пропускает его и рекурсивно обрабатывает детей.
+    /// </summary>
     private void CompileGroupElement(XmlReader reader, CompiledModel model)
     {
         if (reader.IsEmptyElement)
@@ -199,11 +217,17 @@ public class XmlModelCompiler(string uidAttributeName = "Uid")
         reader.ReadEndElement();
     }
 
+    /// <summary>
+    /// Проверяет, является ли элемент текстовым свойством (не имеет атрибутов и не пустой).
+    /// </summary>
     private static bool IsTextProperty(XmlReader reader)
     {
         return reader.AttributeCount == 0 && !reader.IsEmptyElement;
     }
 
+    /// <summary>
+    /// Считывает текстовое свойство: имя элемента и его содержимое.
+    /// </summary>
     private static (string Name, string Text) ReadTextProperty(XmlReader reader)
     {
         var name = reader.Name;
@@ -213,12 +237,18 @@ public class XmlModelCompiler(string uidAttributeName = "Uid")
         return (name, text);
     }
 
+    /// <summary>
+    /// Считывает Uid из атрибута. Возвращает null, если атрибут отсутствует или не является валидным Guid.
+    /// </summary>
     private Guid? ReadUid(XmlReader reader)
     {
         var uidAttr = reader.GetAttribute(_uidAttributeName);
         return !string.IsNullOrEmpty(uidAttr) && Guid.TryParse(uidAttr, out var uid) ? uid : null;
     }
 
+    /// <summary>
+    /// Пропускает элемент и всё его содержимое.
+    /// </summary>
     private static void SkipElement(XmlReader reader)
     {
         if (reader.IsEmptyElement)

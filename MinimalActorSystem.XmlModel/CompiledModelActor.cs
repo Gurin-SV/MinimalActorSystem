@@ -15,6 +15,21 @@
 /// 6. Модель готова к работе. Остальные письма обрабатываются в <see cref="OnModelLetter"/>.
 /// 7. При ошибке на любом этапе — логирование и <see cref="IActorSystem.Panic"/>.
 /// </summary>
+/// <remarks>
+/// Model actor that builds the system from a CompiledModel.
+/// Alternative to ModelActor for declarative XML-based model construction.
+/// Only one model actor can exist per actor system.
+/// 
+/// Build lifecycle:
+/// 1. Receives InitializeLetter.
+/// 2. CompileModel() is called — descendant compiles XML into CompiledModel.
+/// 3. CreateObject() creates an object for each model element (actor or helper).
+///    All objects are stored in a temporary dictionary.
+/// 4. OnAfterCreate() establishes relationships between objects.
+/// 5. All actors are registered via IActorSystem.RegisterActor.
+/// 6. Model is ready. Other letters are handled by OnModelLetter().
+/// 7. On error at any stage: logging and IActorSystem.Panic().
+/// </remarks>
 /// <param name="system">Акторная система.</param>
 /// <param name="queueCapacity">Размер очереди сообщений.</param>
 public abstract class CompiledModelActor(IActorSystem system, int queueCapacity = 256)
@@ -26,6 +41,10 @@ public abstract class CompiledModelActor(IActorSystem system, int queueCapacity 
     /// Запечатанный обработчик писем. <see cref="InitializeLetter"/> запускает сборку модели,
     /// остальные письма делегируются в <see cref="OnModelLetter"/>.
     /// </summary>
+    /// <remarks>
+    /// Sealed message handler. InitializeLetter triggers model build.
+    /// Other letters are delegated to OnModelLetter.
+    /// </remarks>
     protected sealed override async ValueTask OnLetter(Letter letter)
     {
         switch (letter)
@@ -53,11 +72,18 @@ public abstract class CompiledModelActor(IActorSystem system, int queueCapacity 
     /// Обрабатывает все письма, кроме <see cref="InitializeLetter"/>.
     /// По умолчанию игнорирует. Наследник может переопределить.
     /// </summary>
+    /// <remarks>
+    /// Handles all letters except InitializeLetter. Default implementation ignores.
+    /// Descendants may override.
+    /// </remarks>
     protected virtual ValueTask OnModelLetter(Letter letter) => default;
 
     /// <summary>
     /// Компилирует модель. Наследник реализует, используя <see cref="XmlModelCompiler"/> или другой источник.
     /// </summary>
+    /// <remarks>
+    /// Compiles the model. Descendant implements using XmlModelCompiler or another source.
+    /// </remarks>
     protected abstract CompiledModel CompileModel();
 
     private void Build(CompiledModel model)
@@ -89,12 +115,22 @@ public abstract class CompiledModelActor(IActorSystem system, int queueCapacity 
     /// <summary>
     /// Создаёт объект по конфигурации элемента.
     /// </summary>
+    /// <param name="element">Конфигурация элемента из скомпилированной модели.</param>
+    /// <returns>Созданный объект (актор или вспомогательный объект).</returns>
+    /// <remarks>
+    /// Creates an object from an element configuration.
+    /// </remarks>
     protected abstract object CreateObject(ElementConfig element);
 
     /// <summary>
     /// Вызывается после создания всех объектов, но до регистрации акторов.
     /// Наследник устанавливает связи между объектами.
     /// </summary>
+    /// <param name="model">Скомпилированная модель со всеми элементами.</param>
+    /// <remarks>
+    /// Called after all objects are created, but before actor registration.
+    /// Descendant establishes relationships between objects.
+    /// </remarks>
     protected virtual void OnAfterCreate(CompiledModel model)
     {
     }
@@ -102,10 +138,22 @@ public abstract class CompiledModelActor(IActorSystem system, int queueCapacity 
     /// <summary>
     /// Получает ранее созданный объект по идентификатору.
     /// </summary>
+    /// <typeparam name="T">Тип объекта.</typeparam>
+    /// <param name="uid">Идентификатор объекта.</param>
+    /// <returns>Найденный объект.</returns>
+    /// <exception cref="KeyValueException">Если объект не найден.</exception>
+    /// <remarks>
+    /// Retrieves a previously created object by its UID.
+    /// </remarks>
     protected T GetObject<T>(Guid uid) where T : class => (T)_objects[uid];
 
     /// <summary>
     /// Проверяет, был ли создан объект с указанным идентификатором.
     /// </summary>
+    /// <param name="uid">Идентификатор объекта.</param>
+    /// <returns>true, если объект существует; иначе false.</returns>
+    /// <remarks>
+    /// Checks whether an object with the specified UID has been created.
+    /// </remarks>
     protected bool HasObject(Guid uid) => _objects.ContainsKey(uid);
 }
