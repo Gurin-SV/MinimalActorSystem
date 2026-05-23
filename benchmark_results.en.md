@@ -1,184 +1,163 @@
-﻿11.05.2026 13:23:26,43
-============================================================
-Test 1: Sequential Ping-Pong
-------------------------------------------------------------
-Ping/pong pairs exchange messages sequentially. Only 2 actors are active at any time. Measures the speed of a sequential message chain.
-============================================================
+﻿# Actor System Benchmark Results
 
-Configuration: 3000 pairs, 5000 messages per pair
-Total actors: 6000, total messages: 30,000,000
+**Date:** 2026-05-11 13:23:26
 
-Creating 6000 actors...
+---
 
---- After creation ---
-  Current memory:     35.6 MB
-  Peak memory:        35.6 MB
-  Allocated so far:   8.8 MB
-  Thread pool threads: 0
-  Total threads:      8
-  Max pool threads:   0
-  Creation time: 15 ms
+## Test 1: Sequential Ping-Pong
 
-Sending start messages to 3000 actors...
-Waiting for completion...
+*Ping/pong pairs exchange messages sequentially. Only 2 actors are active at any time. Measures the speed of a sequential message chain.*
 
---- After load ---
-  Current memory:     54.5 MB
-  Peak memory:        54.5 MB
-  Allocated so far:   2755.9 MB
-  Thread pool threads: 1
-  Total threads:      31
-  Max pool threads:   1
+| Metric | Value |
+|--------|-------|
+| **Configuration** | 3000 pairs, 5000 messages per pair |
+| **Total actors** | 6000 |
+| **Total messages** | 30,000,000 |
 
-=== Performance Results ===
-  Total messages:       30,000,000
-  Ping undelivered:     0
-  Pong undelivered:     0
-  Execution time:       12,659 ms
-  Time per message:     0.42 μs
-  Messages per second:  2,369,855
+### Memory & Threads
 
-Shutting down system...
+| Stage | Current Memory | Peak Memory | Allocated | Thread Pool | Total Threads | Max Pool |
+|-------|---------------|-------------|-----------|-------------|---------------|----------|
+| After creation | 35.6 MB | 35.6 MB | 8.8 MB | 0 | 8 | 0 |
+| After load | 54.5 MB | 54.5 MB | 2755.9 MB | 1 | 31 | 1 |
+| After shutdown | 55.8 MB | 55.8 MB | 2759.7 MB | 1 | 31 | 1 |
 
---- After shutdown ---
-  Current memory:     55.8 MB
-  Peak memory:        55.8 MB
-  Allocated so far:   2759.7 MB
-  Thread pool threads: 1
-  Total threads:      31
-  Max pool threads:   1
-  Shutdown time: 223 ms
+### Performance Results
 
-Forcing garbage collection...
+| Metric | Value |
+|--------|-------|
+| Total messages | 30,000,000 |
+| Ping undelivered | 0 |
+| Pong undelivered | 0 |
+| Execution time | 12,659 ms |
+| **Time per message** | **0.42 μs** |
+| **Messages per second** | **2,369,855** |
 
---- Garbage collection ---
-  Gen0 collections: 313
-  Gen1 collections: 155
-  Gen2 collections: 5
-  Total allocated: 2760.5 MB
+### Timing
 
-Test 1 completed
+| Operation | Time |
+|-----------|------|
+| Creation | 15 ms |
+| Shutdown | 223 ms |
 
-============================================================
-Test 2: Parallel Pipeline of Independent Pairs
-------------------------------------------------------------
-All pairs work simultaneously. Producer waits for response before next request. All actors are active, all cores are loaded.
-============================================================
+### Garbage Collection
 
-Configuration: 3000 pairs, 5000 messages per pair
-Total actors: 6000, total messages: 30,000,000
+| Generation | Collections |
+|------------|-------------|
+| Gen0 | 313 |
+| Gen1 | 155 |
+| Gen2 | 5 |
+| **Total allocated** | **2760.5 MB** |
 
-Creating 3000 receivers...
-Creating and starting 3000 producers...
+---
 
---- After creation and startup ---
-  Current memory:     49.9 MB
-  Peak memory:        49.9 MB
-  Allocated so far:   9.1 MB
-  Thread pool threads: 12
-  Total threads:      31
-  Max pool threads:   12
-  Creation time: 9 ms
+## Test 2: Parallel Pipeline of Independent Pairs
 
-Waiting for completion...
+*All pairs work simultaneously. Producer waits for response before next request. All actors are active, all cores are loaded.*
 
---- After load ---
-  Current memory:     55.4 MB
-  Peak memory:        55.4 MB
-  Allocated so far:   2755.4 MB
-  Thread pool threads: 1
-  Total threads:      31
-  Max pool threads:   12
+| Metric | Value |
+|--------|-------|
+| **Configuration** | 3000 pairs, 5000 messages per pair |
+| **Total actors** | 6000 |
+| **Total messages** | 30,000,000 |
 
-=== Performance Results ===
-  Total messages:       30,000,000
-  Requests processed:   15,000,000
-  Request undelivered:  0
-  Response undelivered: 0
-  Execution time:       13,456 ms
-  Time per message:     0.45 μs
-  Messages per second:  2,229,489
+### Memory & Threads
 
-Shutting down system...
+| Stage | Current Memory | Peak Memory | Allocated | Thread Pool | Total Threads | Max Pool |
+|-------|---------------|-------------|-----------|-------------|---------------|----------|
+| After creation & startup | 49.9 MB | 49.9 MB | 9.1 MB | 12 | 31 | 12 |
+| After load | 55.4 MB | 55.4 MB | 2755.4 MB | 1 | 31 | 12 |
+| After shutdown | 55.6 MB | 55.6 MB | 2759.4 MB | 1 | 31 | 12 |
 
---- After shutdown ---
-  Current memory:     55.6 MB
-  Peak memory:        55.6 MB
-  Allocated so far:   2759.4 MB
-  Thread pool threads: 1
-  Total threads:      31
-  Max pool threads:   12
-  Shutdown time: 180 ms
+### Performance Results
 
-Forcing garbage collection...
+| Metric | Value |
+|--------|-------|
+| Total messages | 30,000,000 |
+| Requests processed | 15,000,000 |
+| Request undelivered | 0 |
+| Response undelivered | 0 |
+| Execution time | 13,456 ms |
+| **Time per message** | **0.45 μs** |
+| **Messages per second** | **2,229,489** |
 
---- Garbage collection ---
-  Gen0 collections: 626
-  Gen1 collections: 309
-  Gen2 collections: 9
-  Total allocated: 5519.9 MB
+### Timing
 
-Test 2 completed
+| Operation | Time |
+|-----------|------|
+| Creation | 9 ms |
+| Shutdown | 180 ms |
 
-============================================================
-Test 3: Deep Pipeline
-------------------------------------------------------------
-Fewer pairs, but more messages per pair. Reduced thread pool contention. Tests the hypothesis about context switching overhead.
-============================================================
+### Garbage Collection
 
-Configuration: 100 pairs, 150,000 messages per pair
-Total actors: 200, total messages: 30,000,000
+| Generation | Collections |
+|------------|-------------|
+| Gen0 | 626 |
+| Gen1 | 309 |
+| Gen2 | 9 |
+| **Total allocated** | **5519.9 MB** |
 
-Creating 100 receivers...
-Creating and starting 100 producers...
+---
 
---- After creation and startup ---
-  Current memory:     41.7 MB
-  Peak memory:        41.7 MB
-  Allocated so far:   1.1 MB
-  Thread pool threads: 12
-  Total threads:      31
-  Max pool threads:   12
-  Creation time: 0 ms
+## Test 3: Deep Pipeline
 
-Waiting for completion...
+*Fewer pairs, but more messages per pair. Reduced thread pool contention. Tests the hypothesis about context switching overhead.*
 
---- After load ---
-  Current memory:     46.8 MB
-  Peak memory:        46.8 MB
-  Allocated so far:   2746.9 MB
-  Thread pool threads: 1
-  Total threads:      28
-  Max pool threads:   12
+| Metric | Value |
+|--------|-------|
+| **Configuration** | 100 pairs, 150,000 messages per pair |
+| **Total actors** | 200 |
+| **Total messages** | 30,000,000 |
 
-=== Performance Results ===
-  Total messages:       30,000,000
-  Requests processed:   15,000,000
-  Request undelivered:  0
-  Response undelivered: 0
-  Execution time:       10,173 ms
-  Time per message:     0.34 μs
-  Messages per second:  2,948,983
+### Memory & Threads
 
-Shutting down system...
+| Stage | Current Memory | Peak Memory | Allocated | Thread Pool | Total Threads | Max Pool |
+|-------|---------------|-------------|-----------|-------------|---------------|----------|
+| After creation & startup | 41.7 MB | 41.7 MB | 1.1 MB | 12 | 31 | 12 |
+| After load | 46.8 MB | 46.8 MB | 2746.9 MB | 1 | 28 | 12 |
+| After shutdown | 46.8 MB | 46.8 MB | 2747.0 MB | 1 | 28 | 12 |
 
---- After shutdown ---
-  Current memory:     46.8 MB
-  Peak memory:        46.8 MB
-  Allocated so far:   2747.0 MB
-  Thread pool threads: 1
-  Total threads:      28
-  Max pool threads:   12
-  Shutdown time: 0 ms
+### Performance Results
 
-Forcing garbage collection...
+| Metric | Value |
+|--------|-------|
+| Total messages | 30,000,000 |
+| Requests processed | 15,000,000 |
+| Request undelivered | 0 |
+| Response undelivered | 0 |
+| Execution time | 10,173 ms |
+| **Time per message** | **0.34 μs** |
+| **Messages per second** | **2,948,983** |
 
---- Garbage collection ---
-  Gen0 collections: 937
-  Gen1 collections: 313
-  Gen2 collections: 12
-  Total allocated: 8266.8 MB
+### Timing
 
-Test 3 completed
+| Operation | Time |
+|-----------|------|
+| Creation | 0 ms |
+| Shutdown | 0 ms |
 
-All tests completed.
+### Garbage Collection
+
+| Generation | Collections |
+|------------|-------------|
+| Gen0 | 937 |
+| Gen1 | 313 |
+| Gen2 | 12 |
+| **Total allocated** | **8266.8 MB** |
+
+---
+
+## Summary
+
+| Test | Configuration | Messages/sec | Time per message | Total time |
+|------|---------------|--------------|-----------------|------------|
+| **Test 1** | 3000 pairs × 5000 msgs | 2,369,855 | 0.42 μs | 12,659 ms |
+| **Test 2** | 3000 pairs × 5000 msgs (parallel) | 2,229,489 | 0.45 μs | 13,456 ms |
+| **Test 3** | 100 pairs × 150,000 msgs | **2,948,983** | **0.34 μs** | **10,173 ms** |
+
+### Key Observations
+
+- **Best performance:** Test 3 (Deep Pipeline) with **~2.95 million messages/second**
+- **Minimum latency:** **0.34 μs** per message
+- **No message loss** in any test (0 undelivered)
+- **Lower thread contention** improves performance significantly (Test 3 vs Test 2)
