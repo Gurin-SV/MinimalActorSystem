@@ -4,6 +4,8 @@ public sealed class PingPongTests(ITestOutputHelper output)
 {
     private readonly ITestOutputHelper _output = output;
 
+    #region TestActors
+
     private sealed class StartPingLetter(Guid sender, Guid receiver, Guid pongUid)
         : Letter(sender, receiver)
     {
@@ -14,7 +16,7 @@ public sealed class PingPongTests(ITestOutputHelper output)
 
     private sealed class PongLetter(Guid sender, Guid receiver) : Letter(sender, receiver);
 
-    private sealed class PingActor(IActorSystem system, Guid uid, string name, 
+    private sealed class PingActor(IActorSystem system, Guid uid, string name,
         TaskCompletionSource<bool> done)
         : Actor(system, uid, name)
     {
@@ -71,6 +73,59 @@ public sealed class PingPongTests(ITestOutputHelper output)
         }
     }
 
+    private sealed class MultiExchangePingActor(IActorSystem system, Guid uid, string name,
+        Guid pongUid, int expectedExchanges, TaskCompletionSource<bool> done)
+        : Actor(system, uid, name)
+    {
+        private int _pongCount;
+        private readonly int _expectedExchanges = expectedExchanges;
+        private readonly Guid _pongUid = pongUid;
+        private readonly TaskCompletionSource<bool> _done = done;
+
+        protected override ValueTask OnLetter(Letter letter)
+        {
+            switch (letter)
+            {
+                case StartPingLetter:
+                    System.Send(new PingLetter(Uid, _pongUid));
+                    break;
+                case PongLetter:
+                    _pongCount++;
+                    if (_pongCount < _expectedExchanges)
+                    {
+                        System.Send(new PingLetter(Uid, _pongUid));
+                    }
+                    else
+                    {
+                        _done.TrySetResult(true);
+                    }
+                    break;
+            }
+            return default;
+        }
+    }
+
+    private sealed class MultiExchangePongActor(IActorSystem system, Guid uid, string name)
+        : Actor(system, uid, name)
+    {
+        protected override ValueTask OnLetter(Letter letter)
+        {
+            if (letter is PingLetter ping)
+            {
+                System.Send(new PongLetter(Uid, ping.Sender));
+            }
+            return default;
+        }
+    }
+
+    #endregion
+
+    #region Tests
+
+    /// <summary>
+    /// Базовый сценарий: PingActor отправляет Ping, PongActor отвечает Pong.
+    /// Проверяется асинхронная доставка сообщений между акторами.
+    /// </summary>
     [Fact]
     public async Task PingPongTests_001()
     {
@@ -96,8 +151,12 @@ public sealed class PingPongTests(ITestOutputHelper output)
         Assert.False(system.IsPanic);
     }
 
+    /// <summary>
+    /// Синхронный режим (TimeServiceModes.Sync): проверка, что пинг-понг работает
+    /// без асинхронных задержек. Все сообщения обрабатываются в потоке отправителя.
+    /// </summary>
     [Fact]
-    public async Task PingPongTests_002_Debug()
+    public async Task PingPongTests_002()
     {
         var settings = new Settings
         {
@@ -122,4 +181,131 @@ public sealed class PingPongTests(ITestOutputHelper output)
 
         Assert.False(system.IsPanic);
     }
+
+    /// <summary>
+    /// Проверка, что пинг-понг работает в асинхронном режиме (TimeServiceModes.Async)
+    /// </summary>
+    [Fact]
+    public async Task PingPongTests_003()
+    {
+        var settings = new Settings
+        {
+            TimeServiceModes = TimeServiceModes.Async
+        };
+        var system = SystemFactory.CreateSystem(_output, settings);
+
+        var done = new TaskCompletionSource<bool>();
+        var modelReady = new TaskCompletionSource<bool>();
+        var model = new PingPongModelActor(system, done, modelReady);
+        system.RegisterActor(model);
+        system.Send(new InitializeLetter(SystemUids.System, SystemUids.Model));
+
+        await modelReady.Task.WaitAsync(TimeSpan.FromSeconds(1));
+        model.StartPing();
+
+        var timeout = Task.Delay(TimeSpan.FromSeconds(1));
+        var completed = await Task.WhenAny(done.Task, timeout);
+        if (completed == timeout)
+            Assert.Fail("Timeout waiting for Pong");
+
+        system.Shutdown();
+        await system.WaitForShutdownAsync();
+
+        Assert.False(system.IsPanic);
+    }
+
+    /// <summary>
+    /// Проверка корректной остановки системы после успешного пинг-понга.
+    /// Все акторы должны корректно завершиться.
+    /// </summary>
+    [Fact]
+    public async Task PingPongTests_004()
+    {
+        var system = SystemFactory.CreateSystem(_output);
+
+        var done = new TaskCompletionSource<bool>();
+        var modelReady = new TaskCompletionSource<bool>();
+        var model = new PingPongModelActor(system, done, modelReady);
+        system.RegisterActor(model);
+        system.Send(new InitializeLetter(SystemUids.System, SystemUids.Model));
+
+        await modelReady.Task.WaitAsync(TimeSpan.FromSeconds(1));
+        model.StartPing();
+
+        var timeout = Task.Delay(TimeSpan.FromSeconds(1));
+        var completed = await Task.WhenAny(done.Task, timeout);
+        if (completed == timeout)
+            Assert.Fail("Timeout waiting for Pong");
+
+        system.Shutdown();
+        var shutdownTask = system.WaitForShutdownAsync();
+        var shutdownTimeout = Task.Delay(TimeSpan.FromSeconds(2));
+        var shutdownCompleted = await Task.WhenAny(shutdownTask, shutdownTimeout);
+
+        Assert.Equal(shutdownTask, shutdownCompleted);
+        Assert.False(system.IsPanic);
+    }
+
+    /// <summary>
+    /// Проверка, что система не входит в состояние Panic при нормальной работе
+    /// </summary>
+    [Fact]
+    public async Task PingPongTests_005()
+    {
+        var system = SystemFactory.CreateSystem(_output);
+
+        var done = new TaskCompletionSource<bool>();
+        var modelReady = new TaskCompletionSource<bool>();
+        var model = new PingPongModelActor(system, done, modelReady);
+        system.RegisterActor(model);
+        system.Send(new InitializeLetter(SystemUids.System, SystemUids.Model));
+
+        await modelReady.Task.WaitAsync(TimeSpan.FromSeconds(1));
+        model.StartPing();
+
+        var timeout = Task.Delay(TimeSpan.FromSeconds(1));
+        var completed = await Task.WhenAny(done.Task, timeout);
+        if (completed == timeout)
+            Assert.Fail("Timeout waiting for Pong");
+
+        Assert.False(system.IsPanic);
+
+        system.Shutdown();
+        await system.WaitForShutdownAsync();
+    }
+
+    /// <summary>
+    /// Проверка многократного пинг-понга (несколько обменов)
+    /// </summary>
+    [Fact]
+    public async Task PingPongTests_006()
+    {
+        var system = SystemFactory.CreateSystem(_output);
+
+        const int expectedExchanges = 5;
+        var done = new TaskCompletionSource<bool>();
+
+        var pongUid = Guid.NewGuid();
+        var pingUid = Guid.NewGuid();
+
+        var pong = new MultiExchangePongActor(system, pongUid, "multi-pong");
+        var ping = new MultiExchangePingActor(system, pingUid, "multi-ping", pongUid, expectedExchanges, done);
+
+        system.RegisterActor(pong);
+        system.RegisterActor(ping);
+
+        system.Send(new StartPingLetter(SystemUids.System, pingUid, pongUid));
+
+        var timeout = Task.Delay(TimeSpan.FromSeconds(2));
+        var completed = await Task.WhenAny(done.Task, timeout);
+        if (completed == timeout)
+            Assert.Fail("Timeout waiting for multiple ping-pong exchanges");
+
+        system.Shutdown();
+        await system.WaitForShutdownAsync();
+
+        Assert.False(system.IsPanic);
+    }
+
+    #endregion
 }

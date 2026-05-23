@@ -7,6 +7,8 @@ public class CompiledModelTests(ITestOutputHelper output)
 {
     private readonly ITestOutputHelper _output = output;
 
+    #region TestHelpers
+
     private enum TestMode
     {
         Slow,
@@ -23,17 +25,12 @@ public class CompiledModelTests(ITestOutputHelper output)
         public string Path { get; set; } = "";
     }
 
-    private class TestCompiledModelActor : CompiledModelActor
+    private class TestCompiledModelActor(IActorSystem system, string xml) : CompiledModelActor(system)
     {
-        private readonly string _xml;
+        private readonly string _xml = xml;
         private readonly TaskCompletionSource<bool> _buildCompleted = new();
 
         public Task BuildCompleted => _buildCompleted.Task;
-
-        public TestCompiledModelActor(IActorSystem system, string xml) : base(system)
-        {
-            _xml = xml;
-        }
 
         public new bool HasObject(Guid uid) => base.HasObject(uid);
         public new T GetObject<T>(Guid uid) where T : class => base.GetObject<T>(uid);
@@ -66,12 +63,16 @@ public class CompiledModelTests(ITestOutputHelper output)
 
     private sealed class BuildCompletedLetter(Guid sender, Guid receiver) : Letter(sender, receiver);
 
+    #endregion
+
+    #region Tests
+
     /// <summary>
     /// Проверяет, что иерархический XML разворачивается в плоский словарь,
     /// группирующие элементы пропускаются, элементы без Uid исключаются.
     /// </summary>
     [Fact]
-    public void CompiledModelTest001()
+    public void CompiledModelTests_001()
     {
         const string xml = @"
         <Root>
@@ -104,7 +105,7 @@ public class CompiledModelTests(ITestOutputHelper output)
     /// сохраняется как свойство родителя.
     /// </summary>
     [Fact]
-    public void CompiledModelTest002()
+    public void CompiledModelTests_002()
     {
         const string xml = @"
         <Root>
@@ -130,7 +131,7 @@ public class CompiledModelTests(ITestOutputHelper output)
     /// считаются свойствами при использовании ElementRule.Default.
     /// </summary>
     [Fact]
-    public void CompiledModelTest003()
+    public void CompiledModelTests_003()
     {
         const string xml = @"
         <Root>
@@ -156,7 +157,7 @@ public class CompiledModelTests(ITestOutputHelper output)
     /// а элемент без Uid пропускается с предупреждением.
     /// </summary>
     [Fact]
-    public void CompiledModelTest004()
+    public void CompiledModelTests_004()
     {
         const string xml = @"
         <Root>
@@ -182,7 +183,7 @@ public class CompiledModelTests(ITestOutputHelper output)
     /// даже если встречается в XML многократно. Группирующие элементы в модель не попадают.
     /// </summary>
     [Fact]
-    public void CompiledModelTest005()
+    public void CompiledModelTests_005()
     {
         const string xml = @"
         <Root>
@@ -212,7 +213,7 @@ public class CompiledModelTests(ITestOutputHelper output)
     /// Построение связей по значению Source — задача прикладного кода.
     /// </summary>
     [Fact]
-    public void CompiledModelTest006()
+    public void CompiledModelTests_006()
     {
         const string xml = @"
         <Root>
@@ -241,7 +242,7 @@ public class CompiledModelTests(ITestOutputHelper output)
     /// все атрибуты сохраняются как свойства, вложенность не влияет на связи.
     /// </summary>
     [Fact]
-    public void CompiledModelTest007()
+    public void CompiledModelTests_007()
     {
         const string xml = @"
         <Root>
@@ -271,7 +272,7 @@ public class CompiledModelTests(ITestOutputHelper output)
     /// а остальные элементы модели создаются нормально.
     /// </summary>
     [Fact]
-    public void CompiledModelTest008()
+    public void CompiledModelTests_008()
     {
         const string xml = @"
             <Root>
@@ -294,7 +295,7 @@ public class CompiledModelTests(ITestOutputHelper output)
     /// Элемент с атрибутами — полноценный элемент, обязан иметь Uid.
     /// </summary>
     [Fact]
-    public void CompiledModelTest009()
+    public void CompiledModelTests_009()
     {
         const string xml = @"
         <Root>
@@ -328,7 +329,7 @@ public class CompiledModelTests(ITestOutputHelper output)
     /// Включая разные форматы чисел: десятичный, шестнадцатеричный, двоичный, восьмеричный.
     /// </summary>
     [Fact]
-    public void CompiledModelTest010()
+    public void CompiledModelTests_010()
     {
         const string xml = @"<?xml version=""1.0"" encoding=""utf-8""?>
         <Root>
@@ -390,8 +391,13 @@ public class CompiledModelTests(ITestOutputHelper output)
         mode.Should().Be(TestMode.Fast);
     }
 
+    /// <summary>
+    /// Проверяет интеграцию CompiledModelActor с акторной системой:
+    /// объекты с типом Actor регистрируются как акторы,
+    /// обычные объекты сохраняются в словаре.
+    /// </summary>
     [Fact]
-    public async Task CompiledModelTest011()
+    public async Task CompiledModelTests_011()
     {
         const string xml = @"
         <Root>
@@ -423,7 +429,7 @@ public class CompiledModelTests(ITestOutputHelper output)
     /// только явно указанные атрибуты попадают в ElementConfig.
     /// </summary>
     [Fact]
-    public void CompiledModelTest012()
+    public void CompiledModelTests_012()
     {
         const string xml = @"
     <Root>
@@ -442,11 +448,8 @@ public class CompiledModelTests(ITestOutputHelper output)
         var config = model.FindElement(Guid.Parse("00000000-0000-0000-0000-000000000001"));
         config.Should().NotBeNull();
 
-        // Явно указанные свойства — присутствуют
         config!.HasProperty("Host").Should().BeTrue();
         config.HasProperty("Port").Should().BeTrue();
-
-        // Не указанное в WithProperties — игнорируется
         config.HasProperty("Timeout").Should().BeFalse();
     }
 
@@ -455,7 +458,7 @@ public class CompiledModelTests(ITestOutputHelper output)
     /// пропускает элемент, если обязательное свойство отсутствует.
     /// </summary>
     [Fact]
-    public void CompiledModelTest013()
+    public void CompiledModelTests_013()
     {
         const string xml = @"
     <Root>
@@ -473,7 +476,6 @@ public class CompiledModelTests(ITestOutputHelper output)
 
         var model = compiler.Compile(xml);
 
-        // Первый Database пропущен (нет ConnectionString), второй добавлен
         model.Count.Should().Be(1);
         model.FindElement(Guid.Parse("00000000-0000-0000-0000-000000000001")).Should().BeNull();
         model.FindElement(Guid.Parse("00000000-0000-0000-0000-000000000002")).Should().NotBeNull();
@@ -488,7 +490,7 @@ public class CompiledModelTests(ITestOutputHelper output)
     /// добавляет обязательное свойство в список разрешённых.
     /// </summary>
     [Fact]
-    public void CompiledModelTest014()
+    public void CompiledModelTests_014()
     {
         const string xml = @"
     <Root>
@@ -516,7 +518,7 @@ public class CompiledModelTests(ITestOutputHelper output)
     /// фильтруют атрибуты и требуют обязательные.
     /// </summary>
     [Fact]
-    public void CompiledModelTest015()
+    public void CompiledModelTests_015()
     {
         const string xml = @"
     <Root>
@@ -539,8 +541,6 @@ public class CompiledModelTests(ITestOutputHelper output)
 
         worker!.HasProperty("Name").Should().BeTrue();
         worker.HasProperty("Threads").Should().BeTrue();
-
-        // Debug не в списке WithProperties — игнорируется
         worker.HasProperty("Debug").Should().BeFalse();
     }
 
@@ -548,7 +548,7 @@ public class CompiledModelTests(ITestOutputHelper output)
     /// Проверяет, что множественные группирующие элементы обрабатываются независимо.
     /// </summary>
     [Fact]
-    public void CompiledModelTest016()
+    public void CompiledModelTests_016()
     {
         const string xml = @"
     <Root>
@@ -570,4 +570,6 @@ public class CompiledModelTests(ITestOutputHelper output)
         model.FindElement(Guid.Parse("00000000-0000-0000-0000-000000000001")).Should().NotBeNull();
         model.FindElement(Guid.Parse("00000000-0000-0000-0000-000000000002")).Should().NotBeNull();
     }
+
+    #endregion
 }

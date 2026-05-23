@@ -7,6 +7,10 @@ namespace MinimalActorSystem.Tests;
 /// с Microsoft.Extensions.Logging. Создаёт единственный экземпляр <see cref="FileLogger"/>,
 /// который разделяется между всеми категориями.
 /// </summary>
+/// <remarks>
+/// File logger provider. Implements ILoggerProvider for Microsoft.Extensions.Logging integration.
+/// Creates a single FileLogger instance shared across all categories.
+/// </remarks>
 /// <param name="filePath">Путь к файлу лога.</param>
 /// <param name="system">Акторная система.</param>
 /// <param name="minLevel">Минимальный уровень логирования.</param>

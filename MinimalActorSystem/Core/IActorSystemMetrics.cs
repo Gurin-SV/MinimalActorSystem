@@ -7,6 +7,10 @@ namespace MinimalActorSystem;
 /// Реализация SystemMetrics использует System.Diagnostics.Metrics для интеграции
 /// с OpenTelemetry, Prometheus и другими сборщиками.
 /// </summary>
+/// <remarks>
+/// Actor system metrics. Default is a no-op implementation.
+/// The built-in implementation uses System.Diagnostics.Metrics for OpenTelemetry/Prometheus integration.
+/// </remarks>
 public interface IActorSystemMetrics
 {
     /// <summary>
@@ -39,5 +43,9 @@ public interface IActorSystemMetrics
     /// Акторы могут использовать его для создания собственных инструментов.
     /// null, если метрики не поддерживаются реализацией.
     /// </summary>
+    /// <remarks>
+    /// Standard Meter from System.Diagnostics.Metrics. Actors can use it to create custom instruments.
+    /// May be null if metrics are not supported.
+    /// </remarks>
     Meter? Meter { get; }
 }

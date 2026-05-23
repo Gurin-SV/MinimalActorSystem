@@ -5,6 +5,9 @@
 /// Наследники переопределяют <see cref="OnLetter"/> для обработки входящих писем
 /// и опционально <see cref="OnShutdown"/> для освобождения ресурсов при завершении.
 /// </summary>
+/// <remarks>
+/// Base actor class. Encapsulates message queue, processing loop, and lifecycle.
+/// </remarks>
 public abstract class Actor
 {
     private readonly Channel<Letter> _channel;
@@ -73,6 +76,9 @@ public abstract class Actor
     /// </summary>
     /// <param name="letter">Письмо для доставки.</param>
     /// <returns><c>true</c>, если письмо помещено в очередь; <c>false</c>, если очередь заполнена.</returns>
+    /// <remarks>
+    /// Called by actor system. Returns false if queue is full.
+    /// </remarks>
     internal bool TryEnqueue(Letter letter)
     {
         if (!_channel.Writer.TryWrite(letter))
@@ -89,6 +95,9 @@ public abstract class Actor
     /// При завершении вызывает <see cref="OnShutdown"/> и удаляет актор из реестра.
     /// </summary>
     /// <param name="ct">Токен отмены, связанный с жизненным циклом акторной системы.</param>
+    /// <remarks>
+    /// Runs main message loop until cancellation. On exit, calls OnShutdown and unregisters the actor.
+    /// </remarks>
     internal async Task RunAsync(CancellationToken ct)
     {
         try
@@ -115,7 +124,7 @@ public abstract class Actor
                 {
                     if (System.Settings.TimeServiceModes == TimeServiceModes.Async)
                         ((IActorSystemInternal)System).DecrementActivity();
-                } 
+                }
             }
         }
         catch (OperationCanceledException)
@@ -138,6 +147,9 @@ public abstract class Actor
     /// Используется только в отладочном режиме при <c>Settings.SynchronousProcessing == true</c>.
     /// </summary>
     /// <param name="letter">Письмо для обработки.</param>
+    /// <remarks>
+    /// Synchronously processes a message in caller's thread. Debug mode only.
+    /// </remarks>
     internal void HandleSynchronously(Letter letter)
     {
         try
@@ -162,6 +174,9 @@ public abstract class Actor
     /// </summary>
     /// <param name="letter">Входящее письмо.</param>
     /// <returns><see cref="ValueTask"/>, представляющий асинхронную операцию обработки.</returns>
+    /// <remarks>
+    /// Must be overridden. Handles a single message. Should be non-blocking and cooperative with cancellation.
+    /// </remarks>
     protected abstract ValueTask OnLetter(Letter letter);
 
     /// <summary>
@@ -169,5 +184,8 @@ public abstract class Actor
     /// Наследники могут переопределить для освобождения ресурсов.
     /// </summary>
     /// <returns><see cref="ValueTask"/>, представляющий асинхронную операцию завершения.</returns>
+    /// <remarks>
+    /// Optional override for resource cleanup. Called during shutdown before unregistering.
+    /// </remarks>
     protected virtual ValueTask OnShutdown() => default;
 }

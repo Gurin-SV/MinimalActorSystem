@@ -1,7 +1,7 @@
 ﻿using FluentAssertions;
 using MinimalActorSystem.Testing;
 
-namespace MinimalActorSystem.Tests.Self;
+namespace MinimalActorSystem.Tests.Core;
 
 public sealed class VirtualTimeServiceTests(ITestOutputHelper output)
 {
@@ -125,13 +125,14 @@ public sealed class VirtualTimeServiceTests(ITestOutputHelper output)
 
     #region Tests
 
+    /// <summary>
+    /// Простой таймаут: регистрация на 5 секунд, проверка что сработал один раз в нужное время
+    /// </summary>
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
     public async Task VirtualTimeServiceTests_001(bool synchronousProcessing)
     {
-        /// Простой таймаут: регистрация на 5 секунд, проверка что сработал один раз в нужное время
-
         var mode = synchronousProcessing ? TimeServiceModes.Sync : TimeServiceModes.Async;
         var system = SystemFactory.CreateSystem(_output, new Settings { TimeServiceModes = mode });
         var timeService = new VirtualTimeService(system);
@@ -155,13 +156,14 @@ public sealed class VirtualTimeServiceTests(ITestOutputHelper output)
         await system.WaitForShutdownAsync();
     }
 
+    /// <summary>
+    /// Таймаут с точным дедлайном: регистрация на 7 секунд, проверка срабатывания в указанное время
+    /// </summary>
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
     public async Task VirtualTimeServiceTests_002(bool synchronousProcessing)
     {
-        /// Таймаут с точным дедлайном: регистрация на 7 секунд, проверка срабатывания в указанное время
-
         var mode = synchronousProcessing ? TimeServiceModes.Sync : TimeServiceModes.Async;
         var system = SystemFactory.CreateSystem(_output, new Settings { TimeServiceModes = mode });
         var timeService = new VirtualTimeService(system);
@@ -186,13 +188,14 @@ public sealed class VirtualTimeServiceTests(ITestOutputHelper output)
         await system.WaitForShutdownAsync();
     }
 
+    /// <summary>
+    /// Перерегистрация таймаута: вторая регистрация заменяет первую, срабатывает только один раз
+    /// </summary>
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
     public async Task VirtualTimeServiceTests_003(bool synchronousProcessing)
     {
-        /// Перерегистрация таймаута: вторая регистрация заменяет первую, срабатывает только один раз
-
         var mode = synchronousProcessing ? TimeServiceModes.Sync : TimeServiceModes.Async;
         var system = SystemFactory.CreateSystem(_output, new Settings { TimeServiceModes = mode });
         var timeService = new VirtualTimeService(system);
@@ -217,13 +220,14 @@ public sealed class VirtualTimeServiceTests(ITestOutputHelper output)
         await system.WaitForShutdownAsync();
     }
 
+    /// <summary>
+    /// Отмена таймаута: после Unregister таймаут не должен сработать
+    /// </summary>
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
     public async Task VirtualTimeServiceTests_004(bool synchronousProcessing)
     {
-        /// Отмена таймаута: после Unregister таймаут не должен сработать
-
         var mode = synchronousProcessing ? TimeServiceModes.Sync : TimeServiceModes.Async;
         var system = SystemFactory.CreateSystem(_output, new Settings { TimeServiceModes = mode });
         var timeService = new VirtualTimeService(system);
@@ -247,13 +251,14 @@ public sealed class VirtualTimeServiceTests(ITestOutputHelper output)
         await system.WaitForShutdownAsync();
     }
 
+    /// <summary>
+    /// Несколько разных таймаутов: каждый должен сработать в своё время
+    /// </summary>
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
     public async Task VirtualTimeServiceTests_005(bool synchronousProcessing)
     {
-        /// Несколько разных таймаутов: каждый должен сработать в своё время
-
         var mode = synchronousProcessing ? TimeServiceModes.Sync : TimeServiceModes.Async;
         var system = SystemFactory.CreateSystem(_output, new Settings { TimeServiceModes = mode });
         var timeService = new VirtualTimeService(system);
@@ -285,13 +290,14 @@ public sealed class VirtualTimeServiceTests(ITestOutputHelper output)
         await system.WaitForShutdownAsync();
     }
 
+    /// <summary>
+    /// Самоперерегистрация: таймаут перерегистрирует сам себя, должно быть несколько срабатываний
+    /// </summary>
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
     public async Task VirtualTimeServiceTests_006(bool synchronousProcessing)
     {
-        /// Самоперерегистрация: таймаут перерегистрирует сам себя, должно быть несколько срабатываний
-
         var mode = synchronousProcessing ? TimeServiceModes.Sync : TimeServiceModes.Async;
         var system = SystemFactory.CreateSystem(_output, new Settings { TimeServiceModes = mode });
         var timeService = new VirtualTimeService(system);
@@ -316,13 +322,14 @@ public sealed class VirtualTimeServiceTests(ITestOutputHelper output)
         await system.WaitForShutdownAsync();
     }
 
+    /// <summary>
+    /// Дедлайн в прошлом: при регистрации таймаута с уже прошедшим дедлайном он срабатывает немедленно
+    /// </summary>
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
     public async Task VirtualTimeServiceTests_007(bool synchronousProcessing)
     {
-        /// Дедлайн в прошлом: при регистрации таймаута с уже прошедшим дедлайном он срабатывает немедленно
-
         var mode = synchronousProcessing ? TimeServiceModes.Sync : TimeServiceModes.Async;
         var system = SystemFactory.CreateSystem(_output, new Settings { TimeServiceModes = mode });
         var timeService = new VirtualTimeService(system);
@@ -349,13 +356,14 @@ public sealed class VirtualTimeServiceTests(ITestOutputHelper output)
         await system.WaitForShutdownAsync();
     }
 
+    /// <summary>
+    /// Без таймаутов: время всё равно должно продвигаться
+    /// </summary>
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
     public async Task VirtualTimeServiceTests_008(bool synchronousProcessing)
     {
-        /// Без таймаутов: время всё равно должно продвигаться
-
         var mode = synchronousProcessing ? TimeServiceModes.Sync : TimeServiceModes.Async;
         var system = SystemFactory.CreateSystem(_output, new Settings { TimeServiceModes = mode });
         var timeService = new VirtualTimeService(system);
@@ -368,8 +376,6 @@ public sealed class VirtualTimeServiceTests(ITestOutputHelper output)
         else
             await timeService.StartVirtualClockAsync(StartTime, EndTime, TimeSpan.FromSeconds(1));
 
-        // Ожидаем, что время ушло вперёд, но не проверяем точное значение,
-        // так как цикл включает последний шаг
         timeService.UtcNow.Should().BeOnOrAfter(EndTime);
         timeService.UtcNow.Should().BeOnOrBefore(EndTime.Add(TimeSpan.FromSeconds(1)));
 
@@ -377,13 +383,14 @@ public sealed class VirtualTimeServiceTests(ITestOutputHelper output)
         await system.WaitForShutdownAsync();
     }
 
+    /// <summary>
+    /// Подписчики: при каждом шаге времени подписчик должен получать уведомление
+    /// </summary>
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
     public async Task VirtualTimeServiceTests_009(bool synchronousProcessing)
     {
-        /// Подписчики: при каждом шаге времени подписчик должен получать уведомление
-
         var mode = synchronousProcessing ? TimeServiceModes.Sync : TimeServiceModes.Async;
         var system = SystemFactory.CreateSystem(_output, new Settings { TimeServiceModes = mode });
         var timeService = new VirtualTimeService(system);
@@ -416,13 +423,14 @@ public sealed class VirtualTimeServiceTests(ITestOutputHelper output)
         await system.WaitForShutdownAsync();
     }
 
+    /// <summary>
+    /// Одновременные таймауты: все должны сработать в один момент времени
+    /// </summary>
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
     public async Task VirtualTimeServiceTests_010(bool synchronousProcessing)
     {
-        /// Одновременные таймауты: все должны сработать в один момент времени
-
         var mode = synchronousProcessing ? TimeServiceModes.Sync : TimeServiceModes.Async;
         var system = SystemFactory.CreateSystem(_output, new Settings { TimeServiceModes = mode });
         var timeService = new VirtualTimeService(system);
@@ -453,13 +461,14 @@ public sealed class VirtualTimeServiceTests(ITestOutputHelper output)
         await system.WaitForShutdownAsync();
     }
 
+    /// <summary>
+    /// Остановка системы: при вызове Shutdown виртуальный таймер должен прекратить работу
+    /// </summary>
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
     public async Task VirtualTimeServiceTests_011(bool synchronousProcessing)
     {
-        /// Остановка системы: при вызове Shutdown виртуальный таймер должен прекратить работу
-
         var mode = synchronousProcessing ? TimeServiceModes.Sync : TimeServiceModes.Async;
         var system = SystemFactory.CreateSystem(_output, new Settings { TimeServiceModes = mode });
         var timeService = new VirtualTimeService(system);
@@ -469,8 +478,7 @@ public sealed class VirtualTimeServiceTests(ITestOutputHelper output)
         system.RegisterActor(actor);
 
         timeService.SetTime(StartTime);
-        // Регистрируем очень долгий таймаут, который точно не должен сработать
-        actor.Register(TimeSpan.FromDays(365)); // год, а не 100 секунд
+        actor.Register(TimeSpan.FromDays(365));
 
         Task task;
         if (synchronousProcessing)
@@ -484,13 +492,11 @@ public sealed class VirtualTimeServiceTests(ITestOutputHelper output)
                 await timeService.StartVirtualClockAsync(StartTime, EndTime.Add(TimeSpan.FromDays(1)), TimeSpan.FromSeconds(1)));
         }
 
-        // Даём системе немного поработать
         await Task.Delay(500);
 
         system.Shutdown();
         await system.WaitForShutdownAsync();
 
-        // Ждём завершения задачи (она должна завершиться из-за отмены)
         try
         {
             await task;

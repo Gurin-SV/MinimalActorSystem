@@ -7,16 +7,30 @@ using System.Text;
 
 namespace MinimalActorSystem.SourceGenerator;
 
+/// <summary>
+/// Source generator для автоматической генерации диспетчеризации писем в акторах.
+/// Ищет partial-классы с атрибутом <see cref="ActorLetterHandlerAttribute"/>,
+/// находит private-методы вида On{TypeName}({TypeName} letter) и генерирует
+/// переопределение OnLetter со switch по всем найденным типам.
+/// </summary>
+/// <remarks>
+/// Source generator that automatically generates message dispatch in actors.
+/// Looks for partial classes with <see cref="ActorLetterHandlerAttribute"/>,
+/// finds private methods like On{TypeName}({TypeName} letter), and generates
+/// an OnLetter override with a switch over all found letter types.
+/// </remarks>
 [Generator]
 public class ActorLetterHandlerGenerator : ISourceGenerator
 {
     private readonly HashSet<string> _generated = [];
 
+    /// <inheritdoc/>
     public void Initialize(GeneratorInitializationContext context)
     {
         context.RegisterForSyntaxNotifications(() => new SyntaxReceiver());
     }
 
+    /// <inheritdoc/>
     public void Execute(GeneratorExecutionContext context)
     {
         if (context.SyntaxContextReceiver is not SyntaxReceiver receiver)
@@ -67,6 +81,14 @@ public class ActorLetterHandlerGenerator : ISourceGenerator
         }
     }
 
+    /// <summary>
+    /// Проверяет, наследуется ли указанный тип от Letter.
+    /// </summary>
+    /// <param name="type">Тип для проверки.</param>
+    /// <returns>true, если тип наследуется от Letter; иначе false.</returns>
+    /// <remarks>
+    /// Checks whether the specified type inherits from Letter.
+    /// </remarks>
     private static bool InheritsFromLetter(INamedTypeSymbol type)
     {
         var baseType = type.BaseType;
@@ -79,6 +101,15 @@ public class ActorLetterHandlerGenerator : ISourceGenerator
         return false;
     }
 
+    /// <summary>
+    /// Генерирует исходный код для переопределения OnLetter.
+    /// </summary>
+    /// <param name="classSymbol">Символ класса, для которого генерируется код.</param>
+    /// <param name="handlers">Список пар (имя типа письма, имя метода-обработчика).</param>
+    /// <returns>Сгенерированный исходный код.</returns>
+    /// <remarks>
+    /// Generates source code for the OnLetter override.
+    /// </remarks>
     private static string GenerateSource(INamedTypeSymbol classSymbol, List<(string TypeName, string MethodName)> handlers)
     {
         var sb = new StringBuilder(1024);
@@ -122,18 +153,32 @@ public class ActorLetterHandlerGenerator : ISourceGenerator
         return sb.ToString();
     }
 
+    /// <summary>
+    /// Синтаксический ресивер для сбора кандидатов на генерацию кода.
+    /// Находит partial-классы с атрибутом ActorLetterHandler.
+    /// </summary>
+    /// <remarks>
+    /// Syntax receiver that collects candidates for code generation.
+    /// Finds partial classes with the ActorLetterHandler attribute.
+    /// </remarks>
     private class SyntaxReceiver : ISyntaxContextReceiver
     {
+        /// <summary>
+        /// Список классов-кандидатов, для которых будет выполнена генерация.
+        /// </summary>
         public List<ClassDeclarationSyntax> Candidates { get; } = [];
 
+        /// <inheritdoc/>
         public void OnVisitSyntaxNode(GeneratorSyntaxContext context)
         {
             if (context.Node is not ClassDeclarationSyntax classDecl)
                 return;
 
+            // Класс должен быть partial
             if (!classDecl.Modifiers.Any(SyntaxKind.PartialKeyword))
                 return;
 
+            // Класс должен иметь атрибут ActorLetterHandler
             var hasAttribute = classDecl.AttributeLists
                 .SelectMany(al => al.Attributes)
                 .Any(attr => attr.Name.ToString() == "ActorLetterHandler"

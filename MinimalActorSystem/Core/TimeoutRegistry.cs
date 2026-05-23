@@ -8,7 +8,8 @@ namespace MinimalActorSystem;
 /// Потокобезопасен: регистрация/отмена через ConcurrentQueue, извлечение — через внешнюю синхронизацию.
 /// </summary>
 /// <remarks>
-/// Создаёт реестр таймаутов, связанный с указанной акторной системой.
+/// Timeout registry. Thread-safe: registration/unregistration via concurrent queue,
+/// extraction via external synchronization.
 /// </remarks>
 /// <param name="system">Акторная система, чей токен отмены используется для проверок.</param>
 internal sealed class TimeoutRegistry(IActorSystem system) : IDisposable
@@ -25,6 +26,9 @@ internal sealed class TimeoutRegistry(IActorSystem system) : IDisposable
     /// <summary>
     /// Ставит операцию регистрации таймаута в очередь на применение.
     /// </summary>
+    /// <remarks>
+    /// Enqueues a register operation. Does nothing if system cancellation is requested.
+    /// </remarks>
     public void EnqueueRegister(DateTime deadline, TimeoutCallback callback)
     {
         if (_system.CancellationToken.IsCancellationRequested)
@@ -37,6 +41,9 @@ internal sealed class TimeoutRegistry(IActorSystem system) : IDisposable
     /// <summary>
     /// Ставит операцию отмены таймаута в очередь на применение.
     /// </summary>
+    /// <remarks>
+    /// Enqueues an unregister operation. Does nothing if system cancellation is requested.
+    /// </remarks>
     public void EnqueueUnregister(TimeoutCallback callback)
     {
         if (_system.CancellationToken.IsCancellationRequested)
@@ -49,6 +56,9 @@ internal sealed class TimeoutRegistry(IActorSystem system) : IDisposable
     /// <summary>
     /// Применяет все накопленные операции регистрации и отмены к основным структурам.
     /// </summary>
+    /// <remarks>
+    /// Applies all pending register/unregister operations to the internal structures.
+    /// </remarks>
     public void ApplyPendingOps()
     {
         while (_pending.TryDequeue(out var op))
@@ -82,6 +92,10 @@ internal sealed class TimeoutRegistry(IActorSystem system) : IDisposable
     /// </summary>
     /// <param name="currentTime">Текущее время для проверки.</param>
     /// <returns>Список коллбеков сработавших таймаутов. Может быть пустым.</returns>
+    /// <remarks>
+    /// Fires and removes all timeouts with deadline less or equal currentTime.
+    /// Returns the list of fired callbacks.
+    /// </remarks>
     public List<TimeoutCallback> FireTimeouts(DateTime currentTime)
     {
         var fired = new List<TimeoutCallback>();
@@ -115,6 +129,11 @@ internal sealed class TimeoutRegistry(IActorSystem system) : IDisposable
     /// Используется для пробуждения ожидающего цикла.
     /// </summary>
     /// <param name="systemCancellationToken">Токен отмены акторной системы.</param>
+    /// <remarks>
+    /// Returns a task that completes when the registry changes (new timeout or cancellation),
+    /// or when the system cancellation token is cancelled.
+    /// Used to wake up the waiting loop.
+    /// </remarks>
     public Task WaitForChangeAsync(CancellationToken systemCancellationToken)
     {
         lock (_waitLock)
@@ -146,6 +165,9 @@ internal sealed class TimeoutRegistry(IActorSystem system) : IDisposable
     /// Сигнализирует об изменении реестра (новая регистрация или отмена).
     /// Пробуждает ожидающие задачи.
     /// </summary>
+    /// <remarks>
+    /// Signals that the registry has changed. Wakes up waiting tasks.
+    /// </remarks>
     private void SignalChange()
     {
         lock (_waitLock)

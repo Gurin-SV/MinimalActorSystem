@@ -7,6 +7,11 @@
 /// При срабатывании таймаута доставляется актору через <see cref="TimeServiceLetter"/>,
 /// где актор вызывает <see cref="Action"/>.
 /// </summary>
+/// <remarks>
+/// Timeout callback. Created once per actor and can be reused with different deadlines.
+/// Uniqueness is determined by the pair (ActorUid, CallbackId).
+/// On timeout, delivered to the actor via TimeServiceLetter.
+/// </remarks>
 /// <param name="actorUid">Идентификатор актора, зарегистрировавшего таймаут.</param>
 /// <param name="callbackId">Уникальный в рамках актора идентификатор коллбека. Назначается актором.</param>
 /// <param name="action">Действие, выполняемое при срабатывании таймаута.</param>

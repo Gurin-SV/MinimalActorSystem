@@ -7,6 +7,11 @@
 /// Используется для имитации внешней среды: источников телеметрии,
 /// модификаторов конфигурации, сценариев отказов и т.п.
 /// </summary>
+/// <remarks>
+/// Subscriber to virtual time steps. Called on each time step after pending operations are applied
+/// and before timeouts fire. Used to simulate external environment: telemetry sources,
+/// configuration modifiers, failure scenarios, etc.
+/// </remarks>
 public interface IVirtualTimeSubscriber
 {
     /// <summary>
@@ -20,5 +25,9 @@ public interface IVirtualTimeSubscriber
     /// </summary>
     /// <param name="currentTime">Текущее виртуальное время на данном шаге.</param>
     /// <returns>ValueTask для поддержки синхронных и асинхронных реализаций.</returns>
+    /// <remarks>
+    /// Called on each virtual time step. Handlers must be strictly synchronous
+    /// (return a completed ValueTask) to avoid deadlocks.
+    /// </remarks>
     ValueTask OnTimeStep(DateTime currentTime);
 }

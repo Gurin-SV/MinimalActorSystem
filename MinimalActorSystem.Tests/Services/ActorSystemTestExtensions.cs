@@ -7,6 +7,10 @@ namespace MinimalActorSystem.Tests;
 /// Методы расширения для настройки акторной системы в тестовом окружении.
 /// Предоставляет упрощённые способы создания файловых и callback-логгеров.
 /// </summary>
+/// <remarks>
+/// Extension methods for configuring actor system in test environment.
+/// Provides simplified ways to create file and callback loggers.
+/// </remarks>
 public static class ActorSystemTestExtensions
 {
     /// <summary>
@@ -24,6 +28,9 @@ public static class ActorSystemTestExtensions
     /// <param name="system">Акторная система.</param>
     /// <param name="minLevel">Минимальный уровень логирования. По умолчанию <see cref="LogLevel.Trace"/>.</param>
     /// <param name="testMethodName">Имя тестового метода (подставляется автоматически).</param>
+    /// <remarks>
+    /// Creates a file logger for test runs. File name is auto-generated from the test method name.
+    /// </remarks>
     public static void CreateTestFileLogger(this IActorSystem system, LogLevel minLevel = LogLevel.Trace,
         [CallerMemberName] string testMethodName = "")
     {
@@ -45,6 +52,10 @@ public static class ActorSystemTestExtensions
     /// <param name="system">Акторная система.</param>
     /// <param name="writeLine">Делегат, принимающий строку лога. Обычно <c>TestContext.WriteLine</c> или <c>Console.WriteLine</c>.</param>
     /// <param name="minLevel">Минимальный уровень логирования. По умолчанию <see cref="LogLevel.Trace"/>.</param>
+    /// <remarks>
+    /// Creates a callback logger that passes each message to the specified delegate.
+    /// Useful for verifying logs in tests without writing to files.
+    /// </remarks>
     public static void CreateTestLogger(this IActorSystem system, Action<string> writeLine,
         LogLevel minLevel = LogLevel.Trace)
     {

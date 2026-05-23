@@ -8,7 +8,8 @@ namespace MinimalActorSystem.Tests;
 /// Удобно для проверки метрик в тестах — все события видны в логах.
 /// </summary>
 /// <remarks>
-/// Создаёт экземпляр, который пишет метрики в указанный логгер.
+/// Test metrics implementation that logs all calls to ILogger.
+/// Useful for verifying metrics in tests.
 /// </remarks>
 /// <param name="logger">Логгер, в который выводятся метрики.</param>
 public sealed class LoggerMetrics(ILogger logger) : IActorSystemMetrics

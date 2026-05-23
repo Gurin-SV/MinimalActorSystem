@@ -6,7 +6,8 @@
 /// из тестового кода разделены через очередь отложенных операций.
 /// </summary>
 /// <remarks>
-/// Создаёт экземпляр сервиса виртуального времени.
+/// Test implementation with virtual time. Thread-safe: registration/unregistration from actors
+/// and time control from test code are separated via a pending operations queue.
 /// </remarks>
 /// <param name="system">Акторная система.</param>
 public sealed class VirtualTimeService(ActorSystem system) : ITimeService, IDisposable
@@ -41,6 +42,9 @@ public sealed class VirtualTimeService(ActorSystem system) : ITimeService, IDisp
     /// Устанавливает текущее виртуальное время без вызова имитаторов и срабатывания таймаутов.
     /// </summary>
     /// <param name="time">Новое виртуальное время.</param>
+    /// <remarks>
+    /// Sets current virtual time without firing subscribers or timeouts.
+    /// </remarks>
     public void SetTime(DateTime time)
     {
         _currentTime = time;
@@ -70,6 +74,9 @@ public sealed class VirtualTimeService(ActorSystem system) : ITimeService, IDisp
     /// <param name="startTime">Начальное виртуальное время.</param>
     /// <param name="endTime">Конечное виртуальное время.</param>
     /// <param name="step">Шаг времени на каждой итерации.</param>
+    /// <remarks>
+    /// Synchronous mode. Subscriber handlers must be strictly synchronous.
+    /// </remarks>
     public void StartVirtualClock(DateTime startTime, DateTime endTime, TimeSpan step)
     {
         _currentTime = startTime;
@@ -90,6 +97,10 @@ public sealed class VirtualTimeService(ActorSystem system) : ITimeService, IDisp
     /// <param name="startTime">Начальное виртуальное время.</param>
     /// <param name="endTime">Конечное виртуальное время.</param>
     /// <param name="step">Шаг времени на каждой итерации.</param>
+    /// <remarks>
+    /// Asynchronous mode. After each step, waits for all messages to be processed
+    /// when Settings.TimeServiceModes == TimeServiceModes.Async.
+    /// </remarks>
     public async Task StartVirtualClockAsync(DateTime startTime, DateTime endTime, TimeSpan step)
     {
         _currentTime = startTime;
@@ -112,6 +123,9 @@ public sealed class VirtualTimeService(ActorSystem system) : ITimeService, IDisp
     /// <summary>
     /// Срабатывание таймаутов для текущего виртуального времени.
     /// </summary>
+    /// <remarks>
+    /// Fires timeouts for the current virtual time.
+    /// </remarks>
     private void FireTimeouts()
     {
         var fired = _registry.FireTimeouts(_currentTime);
@@ -125,6 +139,9 @@ public sealed class VirtualTimeService(ActorSystem system) : ITimeService, IDisp
     /// <summary>
     /// Синхронный вызов подписчиков.
     /// </summary>
+    /// <remarks>
+    /// Synchronous subscriber invocation. Subscribers must return a completed ValueTask.
+    /// </remarks>
     private void FireSubscribersSync()
     {
         foreach (var sub in _subscribers)
@@ -148,6 +165,9 @@ public sealed class VirtualTimeService(ActorSystem system) : ITimeService, IDisp
     /// <summary>
     /// Асинхронный вызов подписчиков.
     /// </summary>
+    /// <remarks>
+    /// Asynchronous subscriber invocation. Activity is incremented once for all subscribers.
+    /// </remarks>
     private async Task FireSubscribersAsync()
     {
         bool async = _system.Settings.TimeServiceModes == TimeServiceModes.Async;

@@ -4,12 +4,21 @@ public sealed class ActorRegistryTests(ITestOutputHelper output)
 {
     private readonly ITestOutputHelper _output = output;
 
-    private sealed class FakeActor(IActorSystem system, Guid uid, string name)
-        : Actor(system, uid, name)
+    #region TestActors
+
+    private sealed class FakeActor(IActorSystem system, Guid uid, string name, int queueCapacity = Actor.DefaultQueueCapacity)
+        : Actor(system, uid, name, queueCapacity)
     {
         protected override ValueTask OnLetter(Letter letter) => default;
     }
 
+    #endregion
+
+    #region Tests
+
+    /// <summary>
+    /// Проверка: RegisterActor добавляет актор в реестр.
+    /// </summary>
     [Fact]
     public void ActorRegistryTests_001()
     {
@@ -21,6 +30,9 @@ public sealed class ActorRegistryTests(ITestOutputHelper output)
         Assert.Single(system.GetAllActors());
     }
 
+    /// <summary>
+    /// Проверка: UnregisterActor удаляет актор из реестра.
+    /// </summary>
     [Fact]
     public void ActorRegistryTests_002()
     {
@@ -33,6 +45,9 @@ public sealed class ActorRegistryTests(ITestOutputHelper output)
         Assert.Equal(0, system.ActorCount);
     }
 
+    /// <summary>
+    /// Проверка: FindActor возвращает зарегистрированного актора.
+    /// </summary>
     [Fact]
     public void ActorRegistryTests_003()
     {
@@ -45,6 +60,9 @@ public sealed class ActorRegistryTests(ITestOutputHelper output)
         Assert.Same(actor, found);
     }
 
+    /// <summary>
+    /// Проверка: FindActor возвращает null для незарегистрированного Uid.
+    /// </summary>
     [Fact]
     public void ActorRegistryTests_004()
     {
@@ -55,6 +73,9 @@ public sealed class ActorRegistryTests(ITestOutputHelper output)
         Assert.Null(found);
     }
 
+    /// <summary>
+    /// Проверка: GetActorName возвращает имя зарегистрированного актора.
+    /// </summary>
     [Fact]
     public void ActorRegistryTests_005()
     {
@@ -67,6 +88,9 @@ public sealed class ActorRegistryTests(ITestOutputHelper output)
         Assert.Equal("test-actor", name);
     }
 
+    /// <summary>
+    /// Проверка: GetActorName возвращает строковое представление Guid для незарегистрированного Uid.
+    /// </summary>
     [Fact]
     public void ActorRegistryTests_006()
     {
@@ -78,6 +102,9 @@ public sealed class ActorRegistryTests(ITestOutputHelper output)
         Assert.Equal(uid.ToString(), name);
     }
 
+    /// <summary>
+    /// Проверка: GetAllActors возвращает список всех зарегистрированных акторов.
+    /// </summary>
     [Fact]
     public void ActorRegistryTests_007()
     {
@@ -93,4 +120,102 @@ public sealed class ActorRegistryTests(ITestOutputHelper output)
         Assert.Contains(actor2, all);
         Assert.Equal(2, all.Count);
     }
+
+    /// <summary>
+    /// Проверка: GetActorName возвращает "System" для SystemUids.System.
+    /// </summary>
+    [Fact]
+    public void ActorRegistryTests_008()
+    {
+        var system = SystemFactory.CreateSystem(_output);
+
+        var name = system.GetActorName(SystemUids.System);
+
+        Assert.Equal("System", name);
+    }
+
+    /// <summary>
+    /// Проверка: GetActorName возвращает "TimeService" для SystemUids.TimeService.
+    /// </summary>
+    [Fact]
+    public void ActorRegistryTests_009()
+    {
+        var system = SystemFactory.CreateSystem(_output);
+
+        var name = system.GetActorName(SystemUids.TimeService);
+
+        Assert.Equal("TimeService", name);
+    }
+
+    /// <summary>
+    /// Проверка: ActorCount возвращает правильное количество акторов.
+    /// </summary>
+    [Fact]
+    public void ActorRegistryTests_010()
+    {
+        var system = SystemFactory.CreateSystem(_output);
+
+        Assert.Equal(0, system.ActorCount);
+
+        var actor1 = new FakeActor(system, Guid.NewGuid(), "a1");
+        var actor2 = new FakeActor(system, Guid.NewGuid(), "a2");
+
+        system.RegisterActor(actor1);
+        Assert.Equal(1, system.ActorCount);
+
+        system.RegisterActor(actor2);
+        Assert.Equal(2, system.ActorCount);
+
+        system.UnregisterActor(actor1.Uid);
+        Assert.Equal(1, system.ActorCount);
+
+        system.UnregisterActor(actor2.Uid);
+        Assert.Equal(0, system.ActorCount);
+    }
+
+    /// <summary>
+    /// Проверка: WaitForEmptyAsync завершается немедленно, если реестр пуст.
+    /// </summary>
+    [Fact]
+    public async Task ActorRegistryTests_011()
+    {
+        var system = SystemFactory.CreateSystem(_output);
+
+        var waitTask = system.WaitForShutdownAsync();
+        var completedTask = await Task.WhenAny(waitTask, Task.Delay(100));
+
+        Assert.Equal(waitTask, completedTask);
+    }
+
+    /// <summary>
+    /// Проверка: WaitForEmptyAsync ожидает, пока все акторы не будут удалены.
+    /// </summary>
+    [Fact]
+    public async Task ActorRegistryTests_012()
+    {
+        var system = SystemFactory.CreateSystem(_output);
+
+        var actor1 = new FakeActor(system, Guid.NewGuid(), "a1");
+        var actor2 = new FakeActor(system, Guid.NewGuid(), "a2");
+
+        system.RegisterActor(actor1);
+        system.RegisterActor(actor2);
+
+        var waitTask = system.WaitForShutdownAsync();
+
+        // Задача не должна быть завершена, пока есть акторы
+        var completedTask = await Task.WhenAny(waitTask, Task.Delay(100));
+        Assert.NotEqual(waitTask, completedTask);
+
+        // Удаляем акторов
+        system.UnregisterActor(actor1.Uid);
+        system.UnregisterActor(actor2.Uid);
+
+        // Теперь задача должна завершиться
+        var timeout = Task.Delay(TimeSpan.FromSeconds(1));
+        completedTask = await Task.WhenAny(waitTask, timeout);
+        Assert.Equal(waitTask, completedTask);
+    }
+
+    #endregion
 }

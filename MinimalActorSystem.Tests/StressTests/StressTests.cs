@@ -289,6 +289,12 @@ public sealed class StressTests(ITestOutputHelper output)
 
     #endregion Letters
 
+    #region Tests
+
+    /// <summary>
+    /// Стресс-тест: один пинг-понг актор выполняет 100 000 обменов.
+    /// Измеряет производительность в сообщениях/сек.
+    /// </summary>
     [Fact]
     public async Task StressTests_001()
     {
@@ -326,6 +332,10 @@ public sealed class StressTests(ITestOutputHelper output)
         Assert.False(system.IsPanic);
     }
 
+    /// <summary>
+    /// Стресс-тест: 300 пинг-понг пар, каждая выполняет 1 000 обменов.
+    /// Проверяет параллельную работу множества акторов.
+    /// </summary>
     [Fact]
     public async Task StressTests_002()
     {
@@ -361,6 +371,10 @@ public sealed class StressTests(ITestOutputHelper output)
         Assert.False(system.IsPanic);
     }
 
+    /// <summary>
+    /// Стресс-тест: создание 10 000 акторов, затем их остановка.
+    /// Проверяет производительность регистрации и завершения.
+    /// </summary>
     [Fact]
     public async Task StressTests_003()
     {
@@ -385,6 +399,10 @@ public sealed class StressTests(ITestOutputHelper output)
         _output.WriteLine("Done");
     }
 
+    /// <summary>
+    /// Стресс-тест: 2 000 акторов, каждый отправляет 100 сообщений случайным получателям.
+    /// Проверяет случайную маршрутизацию под нагрузкой.
+    /// </summary>
     [Fact]
     public async Task StressTests_004()
     {
@@ -422,4 +440,42 @@ public sealed class StressTests(ITestOutputHelper output)
         await system.WaitForShutdownAsync();
         Assert.False(system.IsPanic);
     }
+
+    /// <summary>
+    /// Стресс-тест: асинхронный режим с 10 пинг-понг парами по 10 000 обменов.
+    /// Проверяет работу в асинхронном режиме с учётом активности.
+    /// </summary>
+    [Fact]
+    public async Task StressTests_005()
+    {
+        const int pairs = 10;
+        const int count = 10_000;
+        var settings = new Settings { TimeServiceModes = TimeServiceModes.Async };
+        var system = new ActorSystem(settings);
+
+        var allDone = new TaskCompletionSource<bool>();
+        var modelReady = new TaskCompletionSource<bool>();
+        var model = new StressModelActor(system, allDone, modelReady, pairs, count);
+        system.RegisterActor(model);
+        system.Send(new InitializeLetter(SystemUids.System, SystemUids.Model));
+
+        await modelReady.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        var sw = Stopwatch.StartNew();
+        model.StartAll();
+        await allDone.Task.WaitAsync(TimeSpan.FromSeconds(120));
+        sw.Stop();
+
+        int totalMessages = pairs * count * 2;
+        _output.WriteLine($"Async mode - Pairs: {pairs}, exchanges: {count}");
+        _output.WriteLine($"Total messages: {totalMessages}");
+        _output.WriteLine($"Time: {sw.ElapsedMilliseconds} ms");
+        _output.WriteLine($"Messages/sec: {totalMessages / (sw.ElapsedMilliseconds / 1000.0):F0}");
+
+        system.Shutdown();
+        await system.WaitForShutdownAsync();
+        Assert.False(system.IsPanic);
+    }
+
+    #endregion Tests
 }

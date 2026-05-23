@@ -6,6 +6,10 @@ namespace MinimalActorSystem;
 /// Продакшен-реализация метрик на основе System.Diagnostics.Metrics.
 /// Интегрируется с OpenTelemetry, Prometheus и другими сборщиками через стандартный Meter.
 /// </summary>
+/// <remarks>
+/// Production metrics implementation using System.Diagnostics.Metrics.
+/// Integrates with OpenTelemetry, Prometheus, etc., via the standard Meter.
+/// </remarks>
 public sealed class SystemMetrics : IActorSystemMetrics, IDisposable
 {
     private readonly Meter _meter;
@@ -23,6 +27,9 @@ public sealed class SystemMetrics : IActorSystemMetrics, IDisposable
     /// Создаёт новый Meter с указанным именем. Подходит для сценариев с одной акторной системой.
     /// </summary>
     /// <param name="meterName">Имя Meter. Используется для идентификации источника метрик в OpenTelemetry.</param>
+    /// <remarks>
+    /// Creates a new Meter with the given name. Suitable for single-actor-system scenarios.
+    /// </remarks>
     public SystemMetrics(string meterName = "MinimalActorSystem")
     {
         _meter = new Meter(meterName);
@@ -48,6 +55,10 @@ public sealed class SystemMetrics : IActorSystemMetrics, IDisposable
     /// </summary>
     /// <param name="meter">Существующий экземпляр Meter. Не может быть null.</param>
     /// <exception cref="ArgumentNullException">Выбрасывается, если meter равен null.</exception>
+    /// <remarks>
+    /// Uses an existing Meter. Suitable for multi-actor-system scenarios
+    /// or when the Meter is created centrally for all application metrics.
+    /// </remarks>
     public SystemMetrics(Meter meter)
     {
         _meter = meter ?? throw new ArgumentNullException(nameof(meter));
@@ -86,6 +97,10 @@ public sealed class SystemMetrics : IActorSystemMetrics, IDisposable
     /// Освобождает Meter, если он был создан внутри этого экземпляра.
     /// Если Meter был передан извне — не освобождает.
     /// </summary>
+    /// <remarks>
+    /// Disposes the Meter only if it was created internally.
+    /// Does not dispose externally provided Meters.
+    /// </remarks>
     public void Dispose()
     {
         if (_ownsMeter)

@@ -4,6 +4,10 @@
 /// Интерфейс акторной системы. Предоставляет акторам доступ к инфраструктуре:
 /// отправка писем, регистрация, настройки, логгер, сервис времени и управление жизненным циклом.
 /// </summary>
+/// <remarks>
+/// Actor system interface. Provides actors with infrastructure: message sending, registration,
+/// settings, logger, time service, and lifecycle management.
+/// </remarks>
 public interface IActorSystem
 {
     /// <summary>
@@ -67,12 +71,19 @@ public interface IActorSystem
     /// </summary>
     /// <param name="letter">Письмо для отправки. Должно содержать корректные <see cref="Letter.Sender"/> и <see cref="Letter.Receiver"/>.</param>
     /// <returns><c>true</c>, если письмо доставлено в очередь получателя; <c>false</c> в противном случае.</returns>
+    /// <remarks>
+    /// Returns false if receiver not found, queue is full, or system is shutting down.
+    /// Dropped letters are logged as Warning.
+    /// </remarks>
     bool Send(Letter letter);
 
     /// <summary>
     /// Запускает штатное завершение системы. Отменяет <see cref="CancellationToken"/>,
     /// что приводит к последовательному завершению всех акторов.
     /// </summary>
+    /// <remarks>
+    /// Initiates graceful shutdown. Cancels the CancellationToken.
+    /// </remarks>
     void Shutdown();
 
     /// <summary>
@@ -80,6 +91,9 @@ public interface IActorSystem
     /// и отменяет <see cref="CancellationToken"/>. Акторы завершаются так же, как при <see cref="Shutdown"/>,
     /// но внешний код может определить причину по флагу <see cref="IsPanic"/>.
     /// </summary>
+    /// <remarks>
+    /// Initiates panic shutdown. Same as Shutdown but sets IsPanic = true for diagnostics.
+    /// </remarks>
     void Panic();
 
     /// <summary>
@@ -87,6 +101,9 @@ public interface IActorSystem
     /// Завершается после того, как последний актор вызовет <see cref="UnregisterActor"/>.
     /// </summary>
     /// <returns>Задача, представляющая ожидание завершения системы.</returns>
+    /// <remarks>
+    /// Waits asynchronously until all actors have shut down and the registry is empty.
+    /// </remarks>
     Task WaitForShutdownAsync();
 
     /// <summary>

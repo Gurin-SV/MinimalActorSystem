@@ -5,6 +5,9 @@ namespace MinimalActorSystem.Tests;
 /// <summary>
 /// Методы расширения для <see cref="IActorSystem"/>, упрощающие настройку инфраструктуры.
 /// </summary>
+/// <remarks>
+/// Extension methods for IActorSystem that simplify infrastructure setup.
+/// </remarks>
 public static class ActorSystemExtensions
 {
     /// <summary>
@@ -21,6 +24,10 @@ public static class ActorSystemExtensions
     /// <param name="system">Акторная система.</param>
     /// <param name="fileNameWithoutExtension">Имя файла без расширения.</param>
     /// <param name="minLevel">Минимальный уровень логирования. По умолчанию <see cref="LogLevel.Trace"/>.</param>
+    /// <remarks>
+    /// Creates a file logger and assigns it to the actor system.
+    /// Creates the log directory if it doesn't exist.
+    /// </remarks>
     public static void CreateFileLogger(this IActorSystem system, string fileNameWithoutExtension,
         LogLevel minLevel = LogLevel.Trace)
     {

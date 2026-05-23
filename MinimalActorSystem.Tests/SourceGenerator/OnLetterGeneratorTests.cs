@@ -1,5 +1,7 @@
 ﻿namespace MinimalActorSystem.Tests.SourceGenerator;
 
+#region TestActorsAndLetters
+
 public sealed class PingGeneratedLetter(Guid sender, Guid receiver, int count) : Letter(sender, receiver)
 {
     public int Count { get; set; } = count;
@@ -29,10 +31,15 @@ public partial class TestGeneratedActor(IActorSystem system, Guid uid, string na
     }
 }
 
+#endregion
+
 public sealed class ActorLetterHandlerGeneratorTests
 {
+    /// <summary>
+    /// Проверка: генератор создаёт диспетчеризацию для PingGeneratedLetter.
+    /// </summary>
     [Fact]
-    public void Generated_OnLetter_Routes_Ping_To_OnPing()
+    public void ActorLetterHandlerGeneratorTests_001()
     {
         var settings = new Settings { TimeServiceModes = TimeServiceModes.Sync };
         var system = new ActorSystem(settings);
@@ -45,8 +52,11 @@ public sealed class ActorLetterHandlerGeneratorTests
         Assert.Equal(0, actor.PongReceived);
     }
 
+    /// <summary>
+    /// Проверка: генератор создаёт диспетчеризацию для PongGeneratedLetter.
+    /// </summary>
     [Fact]
-    public void Generated_OnLetter_Routes_Pong_To_OnPong()
+    public void ActorLetterHandlerGeneratorTests_002()
     {
         var settings = new Settings { TimeServiceModes = TimeServiceModes.Sync };
         var system = new ActorSystem(settings);
@@ -59,8 +69,11 @@ public sealed class ActorLetterHandlerGeneratorTests
         Assert.Equal(7, actor.PongReceived);
     }
 
+    /// <summary>
+    /// Проверка: генератор игнорирует неизвестные типы писем (например, ShutdownLetter).
+    /// </summary>
     [Fact]
-    public void Generated_OnLetter_Ignores_Unknown_Message()
+    public void ActorLetterHandlerGeneratorTests_003()
     {
         var settings = new Settings { TimeServiceModes = TimeServiceModes.Sync };
         var system = new ActorSystem(settings);

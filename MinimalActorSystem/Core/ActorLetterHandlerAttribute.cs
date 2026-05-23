@@ -9,6 +9,11 @@
 /// Если атрибут отсутствует, актор должен вручную переопределить OnLetter.
 /// <para><b>Важно:</b> класс ДОЛЖЕН быть объявлен с модификатором <c>partial</c>, иначе генерация кода не удастся.</para>
 /// </summary>
+/// <remarks>
+/// Enables source-generated message dispatch. Looks for private methods like OnXxx(Xxx letter)
+/// and generates an override of Actor.OnLetter with a switch over all found letter types.
+/// The class must be partial; otherwise code generation fails.
+/// </remarks>
 [AttributeUsage(AttributeTargets.Class)]
 public sealed class ActorLetterHandlerAttribute
     : Attribute

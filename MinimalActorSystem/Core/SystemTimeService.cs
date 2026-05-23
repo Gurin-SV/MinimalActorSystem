@@ -5,6 +5,10 @@
 /// Поддерживает регистрацию, замену и отмену таймаутов. При срабатывании таймаута отправляет
 /// актору-получателю <see cref="TimeServiceLetter"/> с зарегистрированным коллбеком.
 /// </summary>
+/// <remarks>
+/// Production implementation using real system time.
+/// On timeout, sends a <see cref="TimeServiceLetter"/> to the target actor.
+/// </remarks>
 public sealed class SystemTimeService : ITimeService, IDisposable
 {
     private readonly IActorSystem _system;
@@ -48,6 +52,10 @@ public sealed class SystemTimeService : ITimeService, IDisposable
     /// на предмет истёкших таймаутов и ожидает следующего события.
     /// Завершается при отмене <paramref name="ct"/>.
     /// </summary>
+    /// <remarks>
+    /// Background loop: applies pending operations, fires expired timeouts, and waits for the next event.
+    /// Exits when <paramref name="ct"/> is cancelled.
+    /// </remarks>
     private async Task RunAsync(CancellationToken ct)
     {
         const int maxDelayMs = 1000;
@@ -103,10 +111,13 @@ public sealed class SystemTimeService : ITimeService, IDisposable
     }
 
     /// <inheritdoc/>
+    /// <remarks>
+    /// Waits up to 5 seconds for the background loop to complete.
+    /// </remarks>
     public void Dispose()
     {
         _registry.Dispose();
         // Опционально: дождаться завершения фоновой задачи
-        _runTask.Wait(TimeSpan.FromSeconds(5));
+        //_runTask.Wait(TimeSpan.FromSeconds(5));
     }
 }

@@ -13,11 +13,18 @@ internal interface IActorSystemInternal
 /// Реализация акторной системы. Управляет реестром акторов, маршрутизацией писем,
 /// жизненным циклом и предоставляет доступ к инфраструктурным сервисам (логгер, время, настройки).
 /// </summary>
+/// <remarks>
+/// Actor system implementation. Manages actor registry, message routing, lifecycle,
+/// and infrastructure services.
+/// </remarks>
 public sealed class ActorSystem : IActorSystem, IActorSystemInternal
 {
     /// <summary>
     /// Пустая реализация <see cref="ILogger"/>, используемая по умолчанию. Все вызовы игнорируются.
     /// </summary>
+    /// <remarks>
+    /// Default no-op logger. Ignores all calls.
+    /// </remarks>
     private sealed class NullLogger : ILogger
     {
         public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
@@ -31,6 +38,9 @@ public sealed class ActorSystem : IActorSystem, IActorSystemInternal
     /// Пустая реализация <see cref="ITimeService"/>, используемая по умолчанию.
     /// Предоставляет реальное время через <see cref="DateTime.UtcNow"/>, но не обрабатывает таймауты.
     /// </summary>
+    /// <remarks>
+    /// Default no-op time service. Provides real UTC time but does not handle timeouts.
+    /// </remarks>
     private sealed class NullTimeService : ITimeService
     {
         public DateTime UtcNow => DateTime.UtcNow;
@@ -43,6 +53,9 @@ public sealed class ActorSystem : IActorSystem, IActorSystemInternal
     /// Null-реализация метрик. Все вызовы игнорируются.
     /// Используется по умолчанию, если потребитель не установил свою реализацию.
     /// </summary>
+    /// <remarks>
+    /// Default no-op metrics. Used when no custom implementation is provided.
+    /// </remarks>
     private sealed class NullMetrics : IActorSystemMetrics
     {
         public void MessageSent() { }
@@ -196,12 +209,19 @@ public sealed class ActorSystem : IActorSystem, IActorSystemInternal
         return null;
     }
 
+    /// <remarks>
+    /// Increments active actor count. Used only in Async time service mode.
+    /// </remarks>
     void IActorSystemInternal.IncrementActivity()
     {
         if (Settings.TimeServiceModes == TimeServiceModes.Async)
             Interlocked.Increment(ref _activeCount);
     }
 
+    /// <remarks>
+    /// Decrements active actor count. When count reaches zero, signals WaitAllIdleAsync.
+    /// Used only in Async time service mode.
+    /// </remarks>
     void IActorSystemInternal.DecrementActivity()
     {
         if (Settings.TimeServiceModes != TimeServiceModes.Async)
@@ -219,6 +239,10 @@ public sealed class ActorSystem : IActorSystem, IActorSystemInternal
         }
     }
 
+    /// <remarks>
+    /// Returns a task that completes when all actors are idle (no messages being processed).
+    /// Returns CompletedTask immediately if no active messages or in Sync mode.
+    /// </remarks>
     Task IActorSystemInternal.WaitAllIdleAsync()
     {
         if (Settings.TimeServiceModes != TimeServiceModes.Async)

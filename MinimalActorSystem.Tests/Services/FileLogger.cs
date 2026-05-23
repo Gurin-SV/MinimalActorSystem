@@ -9,6 +9,10 @@ namespace MinimalActorSystem.Tests;
 /// Буферизует сообщения в памяти и сбрасывает их на диск пачками с задержкой до 100 мс.
 /// Потокобезопасна. При вызове <see cref="Dispose"/> немедленно сбрасывает накопленный буфер.
 /// </summary>
+/// <remarks>
+/// File-based ILogger implementation. Buffers messages in memory and flushes them in batches
+/// with up to 100ms delay. Thread-safe. Calls Dispose to flush immediately.
+/// </remarks>
 public sealed class FileLogger : ILogger, IDisposable
 {
     /// <summary>
@@ -60,7 +64,7 @@ public sealed class FileLogger : ILogger, IDisposable
 
         var message = formatter(state, exception);
         var timestamp = _system.TimeService.UtcNow.ToLocalTime();
-        var line = $"{timestamp:dd.MM.yyyy HH:mm:ss.fff} [{logLevel}] [{Thread.CurrentThread.ManagedThreadId}] {message}";
+        var line = $"{timestamp:dd.MM.yyyy HH:mm:ss.fff} [{logLevel}] [{Environment.CurrentManagedThreadId}] {message}";
         _queue.Enqueue(line);
         ScheduleFlush();
     }
@@ -70,6 +74,10 @@ public sealed class FileLogger : ILogger, IDisposable
     /// Если запись уже запланирована, новый вызов игнорируется.
     /// Задержка перед сбросом — 100 мс, что позволяет накапливать сообщения и писать их пачкой.
     /// </summary>
+    /// <remarks>
+    /// Schedules a delayed flush. Ignores duplicate scheduling.
+    /// 100ms delay allows batching multiple messages.
+    /// </remarks>
     private void ScheduleFlush()
     {
         if (_disposed)
@@ -122,6 +130,9 @@ public sealed class FileLogger : ILogger, IDisposable
     /// Освобождает ресурсы и немедленно сбрасывает оставшиеся сообщения на диск.
     /// После вызова новые сообщения не принимаются.
     /// </summary>
+    /// <remarks>
+    /// Disposes resources and immediately flushes remaining messages to disk.
+    /// </remarks>
     public void Dispose()
     {
         _disposed = true;

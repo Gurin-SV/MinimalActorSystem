@@ -6,6 +6,9 @@ namespace MinimalActorSystem;
 /// Внутренний реестр акторов. Единственное место в системе, где хранятся прямые ссылки на экземпляры <see cref="Actor"/>.
 /// Потокобезопасен. Недоступен внешнему коду.
 /// </summary>
+/// <remarks>
+/// Internal actor registry. Thread-safe. Holds direct Actor references.
+/// </remarks>
 /// <param name="actorSystem">Акторная система, которой принадлежит реестр.</param>
 internal sealed class ActorRegistry(IActorSystem actorSystem)
 {
@@ -33,6 +36,9 @@ internal sealed class ActorRegistry(IActorSystem actorSystem)
     /// Если реестр становится пустым, сигнализирует об этом через <see cref="WaitForEmptyAsync"/>.
     /// </summary>
     /// <param name="uid">Идентификатор удаляемого актора.</param>
+    /// <remarks>
+    /// Removes an actor. When count reaches zero, signals WaitForEmptyAsync.
+    /// </remarks>
     public void Remove(Guid uid)
     {
         _actors.TryRemove(uid, out _);
@@ -67,6 +73,9 @@ internal sealed class ActorRegistry(IActorSystem actorSystem)
     /// </summary>
     /// <param name="uid">Идентификатор актора.</param>
     /// <returns>Имя актора.</returns>
+    /// <remarks>
+    /// Returns actor name. Handles system UIDs (System, TimeService) gracefully.
+    /// </remarks>
     public string GetName(Guid uid)
     {
         if (_actors.TryGetValue(uid, out var actor))
@@ -92,6 +101,10 @@ internal sealed class ActorRegistry(IActorSystem actorSystem)
     /// Если реестр уже пуст на момент вызова, возвращает <see cref="Task.CompletedTask"/>.
     /// </summary>
     /// <returns>Задача, представляющая ожидание опустошения реестра.</returns>
+    /// <remarks>
+    /// Returns a task that completes when the registry becomes empty.
+    /// Returns CompletedTask immediately if already empty.
+    /// </remarks>
     public Task WaitForEmptyAsync()
     {
         lock (_emptyLock)
