@@ -32,23 +32,21 @@ public abstract class ModelActor(IActorSystem system, int queueCapacity = 256)
     /// </remarks>
     protected sealed override async ValueTask OnLetter(Letter letter)
     {
-        switch (letter)
+        if (letter is InitializeLetter)
         {
-            case InitializeLetter:
-                try
-                {
-                    OnBuildModel();
-                }
-                catch (Exception ex)
-                {
-                    System.Logger.LogError(ex, "Model build failed, triggering panic");
-                    System.Panic();
-                }
-                break;
-
-            default:
-                await OnModelLetter(letter);
-                break;
+            try
+            {
+                OnBuildModel();
+            }
+            catch (Exception ex)
+            {
+                System.Logger.LogError(ex, "Model build failed, triggering panic");
+                System.Panic();
+            }
+        }
+        else
+        { 
+            await OnModelLetter(letter);
         }
     }
 

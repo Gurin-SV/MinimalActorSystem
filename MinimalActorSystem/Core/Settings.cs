@@ -38,13 +38,14 @@ public enum TimeServiceModes
 }
 
 /// <summary>
-/// Настройки акторной системы.
-/// Передаются в конструктор <see cref="ActorSystem"/> и доступны акторам через <see cref="IActorSystem.Settings"/>.
+/// Базовый класс настройки акторной системы.
+/// Настройки передаются в конструктор <see cref="ActorSystem"/> и доступны акторам через <see cref="IActorSystem.Settings"/>.
+/// Класс настроек прикладной программы может наследоваться от Settings и добавлять собственные свойства.
 /// </summary>
 /// <remarks>
 /// Actor system settings. Passed to the <see cref="ActorSystem"/> constructor.
 /// </remarks>
-public sealed class Settings
+public class Settings
 {
     /// <summary>
     /// Режим работы сервиса времени.

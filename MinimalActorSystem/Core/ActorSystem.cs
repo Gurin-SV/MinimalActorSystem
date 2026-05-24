@@ -28,10 +28,11 @@ public sealed class ActorSystem : IActorSystem, IActorSystemInternal
     private sealed class NullLogger : ILogger
     {
         public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
-        public bool IsEnabled(LogLevel logLevel) => true;
+        public bool IsEnabled(LogLevel logLevel) => false;
         public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
             Func<TState, Exception?, string> formatter)
-        { }
+        { 
+        }
     }
 
     /// <summary>
@@ -68,7 +69,7 @@ public sealed class ActorSystem : IActorSystem, IActorSystemInternal
     }
 
     private readonly CancellationTokenSource _cts;
-    private readonly ActorRegistry _registry;
+    private readonly ActorRegistry _registry = new();
     private readonly object _idleLock = new();
     private volatile bool _isPanic;
     private int _activeCount;
@@ -105,7 +106,6 @@ public sealed class ActorSystem : IActorSystem, IActorSystemInternal
         Settings = settings;
         _cts = new();
         CancellationToken = _cts.Token;
-        _registry = new(this);
         Logger = new NullLogger();
         TimeService = new NullTimeService();
         Metrics = new NullMetrics();

@@ -21,29 +21,34 @@ public static class DateTimeUtils
     public static TimeSpan LocalOffset { get; set; } = TimeSpan.FromHours(3);
 
     /// <summary>
-    /// Преобразует строку вида "dd.MM.yyyy HH:mm:ss" в UTC.
+    /// Отображаемый формат даты в логах
+    /// </summary>
+    public const string DateTimeFormat = "dd.MM.yyyy HH:mm:ss";
+
+    /// <summary>
+    /// Преобразует строку вида DateTimeFormat в UTC.
     /// Входная строка интерпретируется как локальное время с учётом <see cref="LocalOffset"/>.
     /// </summary>
-    /// <param name="s">Строка в формате "dd.MM.yyyy HH:mm:ss".</param>
+    /// <param name="s">Строка в формате DateTimeFormat.</param>
     /// <returns>UTC-время. Kind = <see cref="DateTimeKind.Utc"/>.</returns>
     /// <remarks>
     /// Parses a string as local time (using LocalOffset) and converts to UTC.
     /// </remarks>
     public static DateTime AsUtc(this string s)
     {
-        var local = DateTime.ParseExact(s, "dd.MM.yyyy HH:mm:ss", CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal);
+        var local = DateTime.ParseExact(s, DateTimeFormat, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal);
         var utcValue = local.Subtract(LocalOffset);
         return new DateTime(utcValue.Ticks, DateTimeKind.Utc);
     }
 
     /// <summary>
-    /// Преобразует строку вида "dd.MM.yyyy HH:mm:ss" в локальное время.
+    /// Преобразует строку вида DateTimeFormat в локальное время.
     /// </summary>
-    /// <param name="s">Строка в формате "dd.MM.yyyy HH:mm:ss".</param>
+    /// <param name="s">Строка в формате DateTimeFormat.</param>
     /// <returns>Локальное время. Kind = <see cref="DateTimeKind.Local"/>.</returns>
     public static DateTime AsLocal(this string s)
     {
-        return DateTime.ParseExact(s, "dd.MM.yyyy HH:mm:ss", CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal);
+        return DateTime.ParseExact(s, DateTimeFormat, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal);
     }
 
     /// <summary>
@@ -64,5 +69,10 @@ public static class DateTimeUtils
     public static DateTime ConvertToUtc(this DateTime local)
     {
         return new DateTime(local.Subtract(LocalOffset).Ticks, DateTimeKind.Utc);
+    }
+
+    public static string ConvertToString(this DateTime time)
+    {
+        return time.ToString(DateTimeFormat);
     }
 }

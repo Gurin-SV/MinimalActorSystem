@@ -40,7 +40,7 @@ public sealed class CallbackLogger(IActorSystem system, Action<string> writeLine
 
         var message = formatter(state, exception);
         var timestamp = _system.TimeService.UtcNow.ToLocalTime();
-        var line = $"{timestamp:dd.MM.yyyy HH:mm:ss} {sw.ElapsedMilliseconds:D4} [{logLevel}] [{Environment.CurrentManagedThreadId}] {message}";
+        var line = $"{timestamp.ConvertToString()} {sw.ElapsedMilliseconds:D4} [{logLevel}] [{Environment.CurrentManagedThreadId}] {message}";
 
         if (exception != null)
         {

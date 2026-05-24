@@ -9,10 +9,8 @@ namespace MinimalActorSystem;
 /// <remarks>
 /// Internal actor registry. Thread-safe. Holds direct Actor references.
 /// </remarks>
-/// <param name="actorSystem">Акторная система, которой принадлежит реестр.</param>
-internal sealed class ActorRegistry(IActorSystem actorSystem)
+internal sealed class ActorRegistry
 {
-    private readonly IActorSystem _actorSystem = actorSystem;
     private readonly ConcurrentDictionary<Guid, Actor> _actors = [];
     private readonly object _emptyLock = new();
     private TaskCompletionSource<bool>? _emptyTcs;

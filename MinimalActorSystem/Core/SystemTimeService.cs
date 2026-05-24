@@ -111,13 +111,8 @@ public sealed class SystemTimeService : ITimeService, IDisposable
     }
 
     /// <inheritdoc/>
-    /// <remarks>
-    /// Waits up to 5 seconds for the background loop to complete.
-    /// </remarks>
     public void Dispose()
     {
         _registry.Dispose();
-        // Опционально: дождаться завершения фоновой задачи
-        //_runTask.Wait(TimeSpan.FromSeconds(5));
     }
 }

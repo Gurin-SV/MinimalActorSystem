@@ -64,7 +64,7 @@ public sealed class FileLogger : ILogger, IDisposable
 
         var message = formatter(state, exception);
         var timestamp = _system.TimeService.UtcNow.ToLocalTime();
-        var line = $"{timestamp:dd.MM.yyyy HH:mm:ss.fff} [{logLevel}] [{Environment.CurrentManagedThreadId}] {message}";
+        var line = $"{timestamp.ConvertToString()} [{logLevel}] [{Environment.CurrentManagedThreadId}] {message}";
         _queue.Enqueue(line);
         ScheduleFlush();
     }
