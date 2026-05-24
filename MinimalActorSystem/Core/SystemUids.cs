@@ -31,6 +31,17 @@ public static class SystemUids
     /// </remarks>
     public static readonly Guid TimeService = new("00000000-0000-0000-0000-000000000002");
 
+    
+    /// <summary>
+    /// Идентификатор сетевого прокси-актора. Через него осуществляется сетевое взаимодействие между узлами.
+    /// Письма, адресованные этому актору, должны включать свойство ReceiverNodeName для указания узла-получателя.
+    /// </summary>
+    /// <remarks>
+    /// Network proxy actor UID. Used for network communication between nodes.
+    /// Letters addressed to this actor must include ReceiverNodeName property to specify the target node.
+    /// </remarks>
+    public static readonly Guid Network = new("00000000-0000-0000-0000-000000000003");
+
     /// <summary>
     /// Идентификатор модельного актора (<see cref="ModelActor"/>). Корневой родитель прикладных акторов.
     /// </summary>
