@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
         <TargetFramework>net8.0</TargetFramework>
@@ -21,9 +21,11 @@
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\MinimalActorSystem.Network.TestTopology\MinimalActorSystem.Network.TestTopology.csproj" />
-        <ProjectReference Include="..\MinimalActorSystem.Network\MinimalActorSystem.Network.csproj" />
-        <ProjectReference Include="..\MinimalActorSystem\MinimalActorSystem.csproj" />
+        <ProjectReference Include="..\..\src\MinimalActorSystem.SourceGenerator\MinimalActorSystem.SourceGenerator.csproj"
+						  OutputItemType="Analyzer"
+						  ReferenceOutputAssembly="false" />
+        <ProjectReference Include="..\..\src\MinimalActorSystem.XmlModel\MinimalActorSystem.XmlModel.csproj" />
+        <ProjectReference Include="..\..\src\MinimalActorSystem\MinimalActorSystem.csproj" />
     </ItemGroup>
 
     <ItemGroup>

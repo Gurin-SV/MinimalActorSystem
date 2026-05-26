@@ -17,8 +17,8 @@
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\MinimalActorSystem.Network\MinimalActorSystem.Network.csproj" />
-        <ProjectReference Include="..\MinimalActorSystem\MinimalActorSystem.csproj" />
+      <ProjectReference Include="..\..\src\MinimalActorSystem.Network\MinimalActorSystem.Network.csproj" />
+      <ProjectReference Include="..\..\src\MinimalActorSystem\MinimalActorSystem.csproj" />
     </ItemGroup>
 
     <ItemGroup>

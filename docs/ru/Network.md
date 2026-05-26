@@ -7,7 +7,7 @@
 **Ключевые принципы:**
 - Сетевая логика полностью изолирована в отдельной сборке `MinimalActorSystem.Network`
 - Сетевое взаимодействие строится по принципу "послал и забыл"
-- Таймауты и ожидание ответов реализуются на уровне прикладных акторов через `ITimeService`
+- Таймауты и ожидание ответов реализуруются на уровне прикладных акторов через `ITimeService`
 - Конкретные транспортные реализации (HTTP, gRPC, WebSockets) остаются за разработчиком приложения
 - Сериализация — JSON, вынесенная в отдельный компонент
 
@@ -54,9 +54,6 @@
             IRouterClient routerClient,
             Assembly topologyAssembly);
         
-        // Реестр узлов сети
-        protected NodeRegistry NodeRegistry { get; }
-        
         // Словари маршрутизации
         protected readonly Dictionary<Type, string[]> OutboundRoutes;
         protected readonly Dictionary<Type, Guid> InboundRoutes;
@@ -73,6 +70,9 @@
         
         // Отмена отложенного письма по локальному идентификатору
         public bool CancelPendingLetter(Guid localMessageId);
+        
+        // Реестр узлов сети
+        protected NodeRegistry NodeRegistry { get; }
     }
 
 **Особенности:**
@@ -300,10 +300,12 @@
 
 **Вариант B (императивный, через код после инициализации):**
 
-    var actor = new ComputeNodeNetworkActor(system, routerAddresses);
+    var actor = new MyNetworkActor(system, routerAddresses);
     await actor.InitializeAsync(nodeName, nodeAddress, transport, routerClient, topologyAssembly);
-    actor.AddOutboundRoute<PrimeCalculationPayload>("ComputeNode");
-    actor.AddInboundRoute<PrimeCalculationPayload>(ComputeNodeUids.PrimeCalculator);
+    
+    // Регистрация маршрутов
+    actor.RegisterOutboundRoute<PrimeCalculationPayload>("ComputeNode");
+    actor.RegisterInboundRoute<PrimeCalculationPayload>(ComputeNodeUids.PrimeCalculator);
 
 ---
 

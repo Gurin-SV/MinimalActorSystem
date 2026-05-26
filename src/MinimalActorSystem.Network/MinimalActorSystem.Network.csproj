@@ -21,7 +21,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\MinimalActorSystem\MinimalActorSystem.csproj" />
+      <ProjectReference Include="..\MinimalActorSystem\MinimalActorSystem.csproj" />
     </ItemGroup>
 
     <ItemGroup>

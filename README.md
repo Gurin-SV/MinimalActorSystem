@@ -1,11 +1,26 @@
 # MinimalActorSystem
 
-[![.NET](https://img.shields.io/badge/.NET-6.0%2B-blue)](https://dotnet.microsoft.com/)
+[![.NET](https://img.shields.io/badge/.NET-8.0%2B-blue)](https://dotnet.microsoft.com/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 **Minimalistic actor system for .NET with no external dependencies except Microsoft.Extensions.Logging.**
 
 **2.3M messages/sec · 0.43 μs per message · ~6 KB per actor**
+
+## Project Structure
+
+    MinimalActorSystem/
+    ├── src/               # Core and extension libraries
+    │   ├── MinimalActorSystem/                 # Core actor system
+    │   ├── MinimalActorSystem.Network/         # Network abstractions
+    │   ├── MinimalActorSystem.Network.Http/    # HTTP transport implementation
+    │   ├── MinimalActorSystem.SourceGenerator/ # OnLetter source generator
+    │   └── MinimalActorSystem.XmlModel/        # XML configuration support
+    ├── tests/             # Unit tests
+    ├── docs/              # Documentation (ru/en)
+    │   ├── ru/
+    │   └── en/
+    └── samples/           # Usage examples
 
 ## Philosophy
 
@@ -14,7 +29,7 @@
 - Actors consume **no CPU when idle**
 - No global state, no singletons — multiple independent systems per application
 
-- ## Features
+## Features
 
 | Feature                      | Description                                                       |
 |------------------------------|------------------------------------------------------------------|
@@ -22,73 +37,83 @@
 | **Sync test mode**           | Process messages synchronously in a single thread for simple test|
 | **Mutable accumulator**      | Reuse the same letter as it travels through actor chain          |
 | **XML model**                | Build actor graph declaratively from XML configuration           |
+| **Network support**          | Distributed actor communication over HTTP (optional extension)   |
 | **High performance**         | 2.3 million messages per second                                  |
 | **No external dependencies** | Only `Microsoft.Extensions.Logging`                              |
 
 ## Quick Start
 
-```csharp
-// 1. Create system
-var settings = new Settings { TimeServiceModes = TimeServiceModes.System };
-var system = new ActorSystem(settings);
+    // 1. Create system
+    var settings = new Settings { TimeServiceModes = TimeServiceModes.System };
+    var system = new ActorSystem(settings);
+    
+    // 2. Add logger and time service
+    system.Logger = loggerFactory.CreateLogger("System");
+    system.TimeService = new SystemTimeService(system);
+    
+    // 3. Create model actor
+    var model = new MyModelActor(system);
+    system.RegisterActor(model);
+    
+    // 4. Build the actor graph
+    system.Send(new InitializeLetter(SystemUids.System, SystemUids.Model));
+    
+    // 5. Shutdown when done
+    system.Shutdown();
+    await system.WaitForShutdownAsync();
 
-// 2. Add logger and time service
-system.Logger = loggerFactory.CreateLogger("System");
-system.TimeService = new SystemTimeService(system);
+## Network Extension
 
-// 3. Create model actor
-var model = new MyModelActor(system);
-system.RegisterActor(model);
+For distributed systems, add the network extension:
 
-// 4. Build the actor graph
-model.SendInitialize();
+    // Reference MinimalActorSystem.Network and MinimalActorSystem.Network.Http
+    
+    // Define your topology (common assembly for all nodes)
+    [DestinationNode("ComputeNode")]
+    public class ComputePayload { }
+    
+    // Create network actor
+    var networkActor = new MyNetworkActor(system, routerAddresses);
+    await networkActor.InitializeAsync(nodeName, nodeAddress, transport, routerClient, topologyAssembly);
+    
+    // Send message to remote node
+    var letter = new ComputeLetter(SystemUids.System, SystemUids.Network) { Payload = new ComputePayload() };
+    system.Send(letter);
 
-// 5. Shutdown when done
-system.Shutdown();
-await system.WaitForShutdownAsync();
-```
----
+See [Network documentation](docs/en/Network.md) for details.
 
 ## Actor Example: Ping-Pong
 
-```csharp
-public sealed class Ping : Letter
-{
-    public int Remaining { get; }
-    public Ping(Guid sender, Guid receiver, int remaining) : base(sender, receiver) { }
-}
-
-public class PingActor : Actor
-{
-    protected override ValueTask OnLetter(Letter letter)
+    public sealed class PingLetter : Letter
     {
-        if (letter is Ping ping && ping.Remaining > 0)
-        {
-            var pong = new Pong(Uid, ping.Sender, ping.Remaining - 1);
-            System.Send(pong);
-        }
-        return default;
+        public int Remaining { get; }
+        public PingLetter(Guid sender, Guid receiver, int remaining) : base(sender, receiver) { }
     }
-}
-```
-
----
+    
+    public class PingActor : Actor
+    {
+        protected override ValueTask OnLetter(Letter letter)
+        {
+            if (letter is PingLetter ping && ping.Remaining > 0)
+            {
+                var pong = new PongLetter(Uid, ping.Sender, ping.Remaining - 1);
+                System.Send(pong);
+            }
+            return default;
+        }
+    }
 
 ## Testing with Virtual Time
 
-```csharp
-var settings = new Settings { TimeServiceModes = TimeServiceModes.Sync };
-var system = new ActorSystem(settings);
-
-var timeService = new VirtualTimeService(system);
-timeService.SetTime(DateTime.UtcNow);
-system.TimeService = timeService;
-
-// Advance time instantly
-timeService.StartVirtualClock(startTime, endTime, TimeSpan.FromSeconds(1));
-```
-
----
+    var settings = new Settings { TimeServiceModes = TimeServiceModes.Sync };
+    var system = new ActorSystem(settings);
+    
+    var timeService = new VirtualTimeService(system);
+    timeService.SetTime(DateTime.UtcNow);
+    system.TimeService = timeService;
+    
+    // Advance time instantly
+    timeService.StartVirtualClock(startTime, endTime, TimeSpan.FromSeconds(1));
 
 ## Performance
 
@@ -101,10 +126,10 @@ timeService.StartVirtualClock(startTime, endTime, TimeSpan.FromSeconds(1));
 
 ## Documentation
 
-- [Manifest](Manifest.md) — philosophy and architecture
-- [Contracts](Contracts.md) — API signatures and contracts
-- [Tutorials](Tutorials.md) — step-by-step guide
-- [Tips & Tricks](TipsAndTricks.md) — practical patterns
+| Document | RU | EN |
+|----------|----|----|
+| Manifest (philosophy & architecture) | [RU](docs/ru/Manifest.md) | [EN](docs/en/Manifest.md) |
+| Network extension | [RU](docs/ru/Network.md) | [EN](docs/en/Network.md) |
 
 ## License
 

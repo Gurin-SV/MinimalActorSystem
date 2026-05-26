@@ -54,9 +54,6 @@ Extension of `MinimalActorSystem` to support network communication without modif
             IRouterClient routerClient,
             Assembly topologyAssembly);
         
-        // Node registry
-        protected NodeRegistry NodeRegistry { get; }
-        
         // Routing dictionaries
         protected readonly Dictionary<Type, string[]> OutboundRoutes;
         protected readonly Dictionary<Type, Guid> InboundRoutes;
@@ -73,6 +70,9 @@ Extension of `MinimalActorSystem` to support network communication without modif
         
         // Cancel pending letter by local identifier
         public bool CancelPendingLetter(Guid localMessageId);
+        
+        // Node registry
+        protected NodeRegistry NodeRegistry { get; }
     }
 
 **Features:**
@@ -300,10 +300,12 @@ Contains:
 
 **Option B (imperative, via code after initialization):**
 
-    var actor = new ComputeNodeNetworkActor(system, routerAddresses);
+    var actor = new MyNetworkActor(system, routerAddresses);
     await actor.InitializeAsync(nodeName, nodeAddress, transport, routerClient, topologyAssembly);
-    actor.AddOutboundRoute<PrimeCalculationPayload>("ComputeNode");
-    actor.AddInboundRoute<PrimeCalculationPayload>(ComputeNodeUids.PrimeCalculator);
+    
+    // Register routes
+    actor.RegisterOutboundRoute<PrimeCalculationPayload>("ComputeNode");
+    actor.RegisterInboundRoute<PrimeCalculationPayload>(ComputeNodeUids.PrimeCalculator);
 
 ---
 
