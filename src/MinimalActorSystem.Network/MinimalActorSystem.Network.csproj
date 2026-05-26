@@ -8,7 +8,7 @@
 
         <!-- Метаданные пакета -->
         <PackageId>MinimalActorSystem.Network</PackageId>
-        <Version>1.0.6</Version>
+        <Version>1.0.7</Version>
         <Authors>Сергей Гурин, Россия, Томск. SERGEY GURIN, RUSSIA, TOMSK</Authors>
         <Description>Сетевое расширение для MinimalActorSystem. Прокси-акторы, сериализуемые письма, клиенты маршрутизаторов.</Description>
         <PackageTags>actors;actor-model;networking;distributed-systems;messaging</PackageTags>

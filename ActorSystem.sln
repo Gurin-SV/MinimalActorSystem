@@ -7,8 +7,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Элементы решен
 	ProjectSection(SolutionItems) = preProject
 		.gitattributes = .gitattributes
 		.gitignore = .gitignore
+		build_nuget.bat = build_nuget.bat
 		LICENSE = LICENSE
 		README.md = README.md
+		run_benchmark.bat = run_benchmark.bat
 	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MinimalActorSystem", "src\MinimalActorSystem\MinimalActorSystem.csproj", "{F6E85EAE-3269-D544-6390-15DA0F54B749}"

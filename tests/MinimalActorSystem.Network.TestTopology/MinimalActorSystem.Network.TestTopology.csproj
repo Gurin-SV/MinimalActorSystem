@@ -8,7 +8,7 @@
 
         <!-- Метаданные пакета -->
         <PackageId>MinimalActorSystem.Network.TestTopology</PackageId>
-        <Version>1.0.0</Version>
+        <Version>1.0.7</Version>
         <Authors>Сергей Гурин, Россия, Томск. SERGEY GURIN, RUSSIA, TOMSK</Authors>
     </PropertyGroup>
 

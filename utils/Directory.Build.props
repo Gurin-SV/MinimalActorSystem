@@ -1,5 +1,0 @@
-<Project>
-  <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
-    <DefineConstants>$(DefineConstants);</DefineConstants>
-  </PropertyGroup>
-</Project>
