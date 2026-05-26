@@ -20,8 +20,9 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Элементы решен
 		Dockerfile.txt = Dockerfile.txt
 		Manifest.en.md = Manifest.en.md
 		Manifest.ru.md = Manifest.ru.md
-		NetworkDraft.txt = NetworkDraft.txt
+		Network.en.md = Network.en.md
 		nuget.config = nuget.config
+		Network.ru.md = Network.ru.md
 		pack.bat = pack.bat
 		README.md = README.md
 		run_benchmark.bat = run_benchmark.bat
@@ -46,6 +47,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MinimalActorSystem.Network", "MinimalActorSystem.Network\MinimalActorSystem.Network.csproj", "{A7C389A4-18CC-422C-9B41-D7EF00E21398}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MinimalActorSystem.Network.Tests", "MinimalActorSystem.Network.Tests\MinimalActorSystem.Network.Tests.csproj", "{1A61949F-8561-4BF2-ADF2-01B8004C683E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MinimalActorSystem.Network.TestTopology", "MinimalActorSystem.Network.TestTopology\MinimalActorSystem.Network.TestTopology.csproj", "{52F01C42-5788-4A56-90C4-6E4A19598043}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -81,6 +84,10 @@ Global
 		{1A61949F-8561-4BF2-ADF2-01B8004C683E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1A61949F-8561-4BF2-ADF2-01B8004C683E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1A61949F-8561-4BF2-ADF2-01B8004C683E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{52F01C42-5788-4A56-90C4-6E4A19598043}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{52F01C42-5788-4A56-90C4-6E4A19598043}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{52F01C42-5788-4A56-90C4-6E4A19598043}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{52F01C42-5788-4A56-90C4-6E4A19598043}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

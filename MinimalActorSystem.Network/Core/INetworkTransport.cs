@@ -1,33 +1,49 @@
-﻿using System.IO;
-
-namespace MinimalActorSystem.Network;
+﻿namespace MinimalActorSystem.Network;
 
 /// <summary>
-/// Транспортный интерфейс для отправки сетевых писем между узлами.
-/// Абстрагирует конкретную реализацию транспорта (HTTP, gRPC, TCP, etc.).
+/// Интерфейс транспортного уровня для отправки сетевых сообщений.
+/// Предоставляет метод для отправки сообщений и возможность установки обработчика входящих сообщений.
 /// </summary>
 /// <remarks>
-/// Transport interface for sending network letters between nodes.
-/// Abstracts the concrete transport implementation (HTTP, gRPC, TCP, etc.).
+/// Transport layer interface for sending network messages.
+/// Provides a method for sending messages and the ability to set an incoming message handler.
 /// </remarks>
-public interface INetworkTransport
+public interface INetworkTransport : IDisposable
 {
     /// <summary>
-    /// Отправляет сетевое письмо на указанный адрес.
-    /// Реализует семантику "послал и забыл" - не гарантирует доставку.
+    /// Устанавливает обработчик входящих сообщений.
+    /// Вызывается транспортной реализацией при получении сообщения от другого узла.
     /// </summary>
-    /// <param name="targetAddress">Сетевой адрес узла-получателя.</param>
-    /// <param name="networkLetter">Сетевое письмо для отправки.</param>
-    /// <param name="cancellationToken">Токен отмены.</param>
-    /// <returns>Задача, представляющая асинхронную операцию отправки.</returns>
-    Task SendAsync(string targetAddress, NetworkLetter networkLetter, CancellationToken cancellationToken = default);
+    /// <param name="onMessageReceived">Делегат, вызываемый при получении сообщения.
+    /// Параметры: имя узла-отправителя, сериализованное сообщение.</param>
+    /// <remarks>
+    /// Sets the incoming message handler.
+    /// Called by the transport implementation when a message is received from another node.
+    /// </remarks>
+    void SetMessageHandler(Func<string, string, Task> onMessageReceived);
 
     /// <summary>
-    /// Десериализует входящий поток данных в сетевое письмо.
-    /// Вызывается приложением при получении HTTP-запроса для преобразования тела запроса в объект письма.
+    /// Отправляет сериализованное сообщение на указанный узел.
     /// </summary>
-    /// <param name="bodyStream">Поток данных тела запроса.</param>
-    /// <param name="cancellationToken">Токен отмены.</param>
-    /// <returns>Задача, содержащая десериализованное сетевое письмо, или null при ошибке.</returns>
-    Task<NetworkLetter?> DeserializeAsync(Stream bodyStream, CancellationToken cancellationToken = default);
+    /// <param name="nodeName">Символическое имя узла-получателя.</param>
+    /// <param name="serializedMessage">Сериализованное сетевое сообщение.</param>
+    /// <param name="cancellationToken">Токен отмены операции.</param>
+    /// <returns>Задача, представляющая асинхронную операцию отправки.</returns>
+    /// <remarks>
+    /// Sends a serialized message to the specified node.
+    /// </remarks>
+    Task SendAsync(string nodeName, string serializedMessage, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Регистрирует текущий узел в транспорте.
+    /// Вызывается при старте узла.
+    /// </summary>
+    /// <param name="nodeName">Символическое имя текущего узла.</param>
+    /// <param name="cancellationToken">Токен отмены операции.</param>
+    /// <returns>Задача, представляющая асинхронную операцию регистрации.</returns>
+    /// <remarks>
+    /// Registers the current node in the transport.
+    /// Called when the node starts.
+    /// </remarks>
+    Task RegisterNodeAsync(string nodeName, CancellationToken cancellationToken = default);
 }

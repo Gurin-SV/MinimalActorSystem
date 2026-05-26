@@ -1,7 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 using MinimalActorSystem.Testing;
 
-namespace MinimalActorSystem.Tests;
+namespace MinimalActorSystem.Network.Tests;
 
 /// <summary>
 /// Фабрика для создания экземпляров акторной системы в тестах.

@@ -1,40 +1,68 @@
 ﻿namespace MinimalActorSystem.Network;
 
 /// <summary>
-/// Клиент для взаимодействия с сервером-маршрутизатором. Предоставляет методы для:
-/// - Регистрации узла в сети
-/// - Получения таблицы разрешения имён узлов
-/// - Подтверждения доступности узла (heartbeat)
+/// Интерфейс клиента для взаимодействия с роутером.
+/// Обеспечивает регистрацию узла, разрешение имён и получение уведомлений о появлении узлов.
 /// </summary>
 /// <remarks>
-/// Client for interacting with the router server. Provides methods for:
-/// - Registering a node in the network
-/// - Getting the node name resolution table
-/// - Confirming node availability (heartbeat)
+/// Router client interface for interacting with the router.
+/// Provides node registration, name resolution, and node discovery notifications.
 /// </remarks>
-public interface IRouterClient
+public interface IRouterClient : IDisposable
 {
     /// <summary>
-    /// Регистрирует текущий узел на маршрутизаторе и получает таблицу разрешения имён.
+    /// Регистрирует текущий узел в роутере.
     /// </summary>
     /// <param name="nodeName">Символическое имя узла.</param>
-    /// <param name="nodeAddress">Сетевой адрес узла для обратного подключения.</param>
-    /// <param name="cancellationToken">Токен отмены.</param>
-    /// <returns>Таблица разрешения: имя узла -> сетевой адрес.</returns>
-    Task<Dictionary<string, string>> RegisterNodeAsync(string nodeName, string nodeAddress, CancellationToken cancellationToken = default);
+    /// <param name="nodeAddress">Сетевой адрес узла (URL, IP:port и т.д.).</param>
+    /// <param name="cancellationToken">Токен отмены операции.</param>
+    /// <returns>Задача, представляющая асинхронную операцию регистрации.</returns>
+    /// <remarks>
+    /// Registers the current node with the router.
+    /// </remarks>
+    Task RegisterNodeAsync(string nodeName, string nodeAddress, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Запрашивает актуальную таблицу разрешения имён у маршрутизатора.
-    /// </summary>
-    /// <returns>Таблица разрешения: имя узла -> сетевой адрес.</returns>
-    /// <param name="cancellationToken">Токен отмены.</param>
-    Task<Dictionary<string, string>> GetResolutionTableAsync(CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Подтверждает доступность узла (heartbeat). Вызывается периодически.
+    /// Разрешает символическое имя узла в сетевой адрес.
     /// </summary>
     /// <param name="nodeName">Символическое имя узла.</param>
-    /// <param name="cancellationToken">Токен отмены.</param>
-    /// <returns><c>true</c>, если маршрутизатор подтвердил получение; <c>false</c> в противном случае.</returns>
-    Task<bool> SendHeartbeatAsync(string nodeName, CancellationToken cancellationToken = default);
+    /// <param name="cancellationToken">Токен отмены операции.</param>
+    /// <returns>Сетевой адрес узла или null, если узел не найден.</returns>
+    /// <remarks>
+    /// Resolves a symbolic node name to a network address.
+    /// </remarks>
+    Task<string?> ResolveNodeAddressAsync(string nodeName, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Запрашивает у роутера список всех известных узлов.
+    /// </summary>
+    /// <param name="cancellationToken">Токен отмены операции.</param>
+    /// <returns>Словарь соответствия имени узла его сетевому адресу.</returns>
+    /// <remarks>
+    /// Requests the list of all known nodes from the router.
+    /// </remarks>
+    Task<IReadOnlyDictionary<string, string>> GetAllNodesAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Устанавливает обработчик уведомлений о появлении новых узлов.
+    /// Вызывается роутером, когда обнаруживается новый узел.
+    /// </summary>
+    /// <param name="onNodeDiscovered">Делегат, вызываемый при обнаружении нового узла.
+    /// Параметры: имя узла, сетевой адрес.</param>
+    /// <remarks>
+    /// Sets the notification handler for new node discovery.
+    /// Called by the router when a new node is detected.
+    /// </remarks>
+    void SetNodeDiscoveredHandler(Func<string, string, Task> onNodeDiscovered);
+
+    /// <summary>
+    /// Запускает фоновый процесс опроса роутера для получения обновлений.
+    /// </summary>
+    /// <param name="pollingInterval">Интервал опроса роутера.</param>
+    /// <param name="cancellationToken">Токен отмены для остановки опроса.</param>
+    /// <returns>Задача, представляющая асинхронную операцию опроса.</returns>
+    /// <remarks>
+    /// Starts a background polling process to get updates from the router.
+    /// </remarks>
+    Task StartPollingAsync(TimeSpan pollingInterval, CancellationToken cancellationToken = default);
 }

@@ -9,7 +9,7 @@ Extension of `MinimalActorSystem` to support network communication without modif
 - Network communication follows the "fire-and-forget" principle
 - Timeouts and response waiting are implemented at the application actor level via `ITimeService`
 - Specific transport implementations (HTTP, gRPC, WebSockets) remain the responsibility of the application developer
-- Serialization uses JSON, implemented in base classes
+- Serialization uses JSON, extracted into a separate component
 
 ---
 
@@ -29,11 +29,11 @@ Extension of `MinimalActorSystem` to support network communication without modif
 **Sending:**
 
     Local actor → IPayloadLetter (Receiver = SystemUids.Network) → NetworkActor →
-    → node selection via [DestinationNode] attributes → NetworkLetter (JSON) → INetworkTransport
+    → node selection via [DestinationNode] attributes → NetworkLetter → IMessageSerializer → INetworkTransport
 
 **Receiving:**
 
-    INetworkTransport → NetworkLetter (JSON) → NetworkActor →
+    INetworkTransport → IMessageSerializer → NetworkLetter → NetworkActor →
     → local actor selection via attributes/registration → create original letter (Sender = SystemUids.Network) →
     → System.Send() → target local actor
 
@@ -54,6 +54,9 @@ Extension of `MinimalActorSystem` to support network communication without modif
             IRouterClient routerClient,
             Assembly topologyAssembly);
         
+        // Node registry
+        protected NodeRegistry NodeRegistry { get; }
+        
         // Routing dictionaries
         protected readonly Dictionary<Type, string[]> OutboundRoutes;
         protected readonly Dictionary<Type, Guid> InboundRoutes;
@@ -65,24 +68,115 @@ Extension of `MinimalActorSystem` to support network communication without modif
         // Register inbound route for Payload type
         protected void RegisterInboundRoute<TPayload>(Guid localActorUid);
         
-        // Auto-register routes from attributes
-        protected void RegisterOutboundRoutesFromAssembly();
-        protected void RegisterInboundRoutesFromHandlers();
-        
-        // Configured in derived class (via attributes or code)
-        protected abstract void ConfigureRouting();
+        // Set node selection strategy
+        public void SetNodeSelectionStrategy(INodeSelectionStrategy strategy);
         
         // Cancel pending letter by local identifier
-        public bool CancelPendingLetter(Guid localLetterId);
+        public bool CancelPendingLetter(Guid localMessageId);
     }
 
 **Features:**
 - Has two queues (letters from local actors + incoming network messages)
-- Uses `[DestinationNode]` attributes on PayloadType for outbound routing
+- Uses `[DestinationNode]` attributes on Payload type for outbound routing (auto-loaded via TopologyLoader)
 - Uses `RegisterInboundRoute()` or `[HandlesPayload]` attributes for inbound routing
-- Supports pending message queue (when destination node is not yet resolved)
+- Supports pending message queue (`IPendingMessageQueue`)
+- Automatically loads routes from attributes during initialization
 
-### 3.2 INetworkTransport (interface)
+### 3.2 NodeRegistry (node registry)
+
+    public enum NodeStatus { Inactive, Active }
+    
+    public sealed class NodeInfo
+    {
+        public string NodeName { get; }
+        public string NodeAddress { get; set; }
+        public NodeStatus Status { get; set; }
+        public DateTime LastSeen { get; set; }
+        public DateTime RegisteredAt { get; }
+    }
+    
+    public sealed class NodeRegistry
+    {
+        public int Count { get; }
+        public bool RegisterNode(string nodeName, string nodeAddress);
+        public bool UnregisterNode(string nodeName);
+        public bool TryGetNodeAddress(string nodeName, out string? nodeAddress);
+        public NodeInfo? GetNodeInfo(string nodeName);
+        public bool SetNodeStatus(string nodeName, NodeStatus status);
+        public IReadOnlyList<NodeInfo> GetAllNodes();
+        public IReadOnlyList<NodeInfo> GetActiveNodes();
+        public IReadOnlyList<NodeInfo> GetInactiveNodes();
+        public bool Contains(string nodeName);
+        public void Clear();
+    }
+
+### 3.3 IPendingMessageQueue (pending message queue)
+
+    public sealed class PendingMessage
+    {
+        public Guid LocalMessageId { get; }
+        public object Payload { get; set; }
+        public Type PayloadType { get; set; }
+        public Type LetterType { get; set; }
+        public string DestinationNode { get; set; }
+        public string SourceNode { get; set; }
+        public DateTime CreatedAt { get; }
+        public DateTime? SentAt { get; set; }
+        public bool IsSent { get; set; }
+        public bool IsQueued { get; set; }
+        public int AttemptCount { get; set; }
+    }
+    
+    public interface IPendingMessageQueue
+    {
+        void Enqueue(PendingMessage message);
+        IReadOnlyList<PendingMessage> DequeueForNode(string nodeName);
+        bool Remove(Guid localMessageId);
+        bool Contains(Guid localMessageId);
+        PendingMessage? Get(Guid localMessageId);
+        int Count { get; }
+        int GetQueuedCountForNode(string nodeName);
+        void Clear();
+    }
+
+### 3.4 INodeSelectionStrategy (node selection strategy)
+
+    public interface INodeSelectionStrategy
+    {
+        string? SelectNode(string[] availableNodes, NodeRegistry nodeRegistry, string currentNodeName);
+    }
+    
+    // Built-in strategies:
+    public sealed class FirstAvailableStrategy : INodeSelectionStrategy;
+    public sealed class LeastLoadedStrategy : INodeSelectionStrategy;
+    public sealed class RoundRobinStrategy : INodeSelectionStrategy;
+
+### 3.5 IMessageSerializer (message serializer)
+
+    public interface IMessageSerializer
+    {
+        string Serialize(NetworkLetter letter);
+        NetworkLetter? Deserialize(string data);
+    }
+    
+    public sealed class JsonMessageSerializer : IMessageSerializer;
+
+**Serialization format:** `"TypeName\0{...json...}"`, where `TypeName` is the AssemblyQualifiedName of the `NetworkLetter` type.
+
+### 3.6 TopologyLoader (topology loader)
+
+    public sealed class TopologyLoader
+    {
+        public TopologyLoader(Assembly assembly);
+        public Assembly Assembly { get; }
+        public IReadOnlyList<string> RouterAddresses { get; }
+        public IReadOnlyList<string> NodeNames { get; }
+        public IReadOnlyDictionary<Type, string[]> DestinationNodeRoutes { get; }
+        public string[]? GetDestinationNodesForPayload(Type payloadType);
+        public IReadOnlyList<Type> GetPayloadTypes();
+    }
+
+### 3.7 INetworkTransport (interface)
 
     public interface INetworkTransport : IDisposable
     {
@@ -91,7 +185,7 @@ Extension of `MinimalActorSystem` to support network communication without modif
         Task SendAsync(string nodeName, string serializedMessage, CancellationToken cancellationToken = default);
     }
 
-### 3.3 IRouterClient (interface)
+### 3.8 IRouterClient (interface)
 
     public interface IRouterClient : IDisposable
     {
@@ -102,7 +196,7 @@ Extension of `MinimalActorSystem` to support network communication without modif
         Task StartPollingAsync(TimeSpan pollingInterval, CancellationToken cancellationToken = default);
     }
 
-### 3.4 IPayloadLetter (interface)
+### 3.9 IPayloadLetter (interface)
 
     public interface IPayloadLetter
     {
@@ -110,7 +204,7 @@ Extension of `MinimalActorSystem` to support network communication without modif
         Type PayloadType { get; }
     }
 
-### 3.5 NetworkLetter (serializable container)
+### 3.10 NetworkLetter (serializable container)
 
     public sealed class NetworkLetter
     {
@@ -135,13 +229,9 @@ Extension of `MinimalActorSystem` to support network communication without modif
             Type payloadType,
             Type letterType,
             Guid localLetterId);
-        public string Serialize();
-        public static NetworkLetter? Deserialize(string data);
     }
 
-**Serialization format:** `"TypeName\0{...json...}"`, where `TypeName` is the AssemblyQualifiedName of the `NetworkLetter` type. JSON serialization via `System.Text.Json` with attribute support.
-
-### 3.6 Routing Attributes
+### 3.11 Routing Attributes
 
     [AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
     public sealed class DestinationNodeAttribute : Attribute
@@ -190,9 +280,10 @@ Contains:
 
 ### 5.1 Sending (local → remote)
 
-- `NetworkActor` reads `[DestinationNode]` attributes from `PayloadType` in Topology assembly
-- If multiple nodes are specified, selects one (strategy: first available, round-robin, etc.)
-- If name resolution fails (router hasn't returned address yet) — letter is placed in pending queue
+- `NetworkActor` automatically loads routes from `[DestinationNode]` attributes via `TopologyLoader`
+- If multiple nodes are specified, selects one using a strategy (default: `FirstAvailableStrategy`)
+- Strategy can be changed via `SetNodeSelectionStrategy()`
+- If node is not in registry — letter is placed in pending queue
 
 ### 5.2 Receiving (remote → local)
 
@@ -200,23 +291,19 @@ Contains:
 
     public class ComputeNodeNetworkActor : NetworkActor
     {
+        public ComputeNodeNetworkActor(IActorSystem system, IEnumerable<string> routerAddresses)
+            : base(system, routerAddresses) { }
+    
         [HandlesPayload(typeof(PrimeCalculationPayload))]
         public Guid PrimeCalculatorHandler => ComputeNodeUids.PrimeCalculator;
-    
-        protected override void ConfigureRouting()
-        {
-            RegisterOutboundRoutesFromAssembly();
-            RegisterInboundRoutesFromHandlers();
-        }
     }
 
-**Option B (imperative, via code):**
+**Option B (imperative, via code after initialization):**
 
-    protected override void ConfigureRouting()
-    {
-        RegisterOutboundRoute<PrimeCalculationPayload>("ComputeNode");
-        RegisterInboundRoute<PrimeCalculationPayload>(ComputeNodeUids.PrimeCalculator);
-    }
+    var actor = new ComputeNodeNetworkActor(system, routerAddresses);
+    await actor.InitializeAsync(nodeName, nodeAddress, transport, routerClient, topologyAssembly);
+    actor.AddOutboundRoute<PrimeCalculationPayload>("ComputeNode");
+    actor.AddInboundRoute<PrimeCalculationPayload>(ComputeNodeUids.PrimeCalculator);
 
 ---
 
@@ -224,13 +311,13 @@ Contains:
 
 ### 6.1 Pending Messages
 
-- If destination node is unknown, `NetworkActor` stores `NetworkLetter` in **pending queue**
+- If destination node is not in registry, `NetworkActor` stores `PendingMessage` in **pending queue** (`IPendingMessageQueue`)
 - When router notifies of a new node — sends all accumulated letters for that node
 
 ### 6.2 Timeouts and Cancellation
 
 - Actor expecting a response registers a timeout via `ITimeService`
-- Each sent `NetworkLetter` is assigned a local `Guid` (not transmitted over network)
+- Each sent letter is assigned a local `Guid` (not transmitted over network)
 - On timeout, actor sends a special letter with this `Guid` to `NetworkActor`
 - `NetworkActor` finds the letter in the pending queue and removes it via `CancelPendingLetter`
 
@@ -239,19 +326,19 @@ Contains:
 ## 7. Node Startup and Registration
 
 1. Node starts, creates `ActorSystem` and `NetworkActor`
-2. `NetworkActor` loads router list from `Topology` (passed via constructor)
-3. Calls `InitializeAsync` with node name, address, transport, router client, and topology assembly
-4. Inside `InitializeAsync`:
+2. Calls `InitializeAsync` with node name, address, transport, router client, and topology assembly
+3. Inside `InitializeAsync`:
    - Registers node with transport via `_transport.RegisterNodeAsync(nodeName)`
    - Sets message handler via `_transport.SetMessageHandler(OnNetworkMessageReceived)`
    - Registers node with all routers via `_routerClient.RegisterNodeAsync(nodeName, nodeAddress)`
-   - Loads all known nodes via `_routerClient.GetAllNodesAsync()`
+   - Loads all known nodes via `_routerClient.GetAllNodesAsync()` into `NodeRegistry`
    - Sets node discovery handler via `_routerClient.SetNodeDiscoveredHandler(OnNodeDiscovered)`
    - Starts router polling via `_routerClient.StartPollingAsync(TimeSpan.FromSeconds(30))`
-5. Calls `ConfigureRouting()` to set up outbound and inbound routes
-6. Routers start periodically polling the node via `/health` (implementation-specific)
-7. If node wants to send a message but destination node name is not yet resolved — letter goes to pending queue
-8. Upon successful resolution from router — accumulated letters are automatically sent
+   - Automatically loads outbound routes from attributes via `TopologyLoader`
+   - Automatically loads inbound routes from `[HandlesPayload]` attributes
+4. Routers start periodically polling the node via `/health` (implementation-specific)
+5. If node wants to send a message but destination node is not in registry — letter goes to pending queue
+6. Upon successful resolution from router (new node discovered) — accumulated letters are sent
 
 ---
 
@@ -260,7 +347,7 @@ Contains:
 - Routers **do not exchange data** with each other
 - Each router independently maintains its own name → address table
 - Node may receive multiple address variants for the same name (if routers diverge)
-- Address selection is the responsibility of `NetworkActor` (e.g., take first available)
+- Address selection is the responsibility of the transport
 
 ---
 
@@ -272,7 +359,7 @@ Contains:
 | Router Client (`IRouterClient`) | Fully (HTTP/gRPC to their routers) |
 | Node and Router Web Services | Fully |
 | `Topology` Assembly | Fully |
-| Concrete `NetworkActor` | Inherits from `NetworkActor`, implements `ConfigureRouting()` |
+| Concrete `NetworkActor` | Inherits from `NetworkActor`, adds handlers via `[HandlesPayload]` attributes |
 | Security, Authentication | At transport and router level |
 
 ---
@@ -296,3 +383,18 @@ No other changes are made to the base library.
     Topology (Payload, attributes, constants)
             ↑
     NodeApplication (concrete NetworkActor, transport, router client)
+
+---
+
+## 12. Testing
+
+All components are covered by unit tests. The following test helpers are available:
+- `FakeNetworkTransport` — fake transport implementation
+- `FakeRouterClient` — fake router client implementation
+- `TestNetworkActor` — test implementation of network actor
+- `TestReceiverActor` — test actor for receiving messages
+- `TestTopology` — test topology with sample DTOs and letters
+
+**Number of tests:** 89
+
+**Status:** All tests pass

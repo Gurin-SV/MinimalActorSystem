@@ -8,7 +8,7 @@
 
 		<!-- Метаданные пакета -->
 		<PackageId>MinimalActorSystem</PackageId>
-		<Version>1.0.5</Version>
+		<Version>1.0.6</Version>
 		<Authors>Сергей Гурин, Россия, Томск. SERGEY GURIN, RUSSIA, TOMSK</Authors>
 		<Description>Минималистичная акторная система на C#. Изолированные акторы, обмен сообщениями, виртуальное время для тестов.</Description>
 		<PackageTags>actors;actor-model;concurrency;messaging;testing</PackageTags>

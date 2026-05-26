@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
+using MinimalActorSystem.Testing;
 
 namespace MinimalActorSystem.Tests.Core;
 
