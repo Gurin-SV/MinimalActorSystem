@@ -44,7 +44,7 @@ public sealed class SequentialPingPongTest : IBenchmarkTest
                     _received++;
                     if (_received >= messagesPerPair)
                     {
-                        var remaining = Interlocked.Decrement(ref counter.Value);
+                        int remaining = Interlocked.Decrement(ref counter.Value);
                         if (remaining == 0)
                             done.TrySetResult(true);
                     }
@@ -137,7 +137,7 @@ public sealed class SequentialPingPongTest : IBenchmarkTest
         }
 
         swCreation.Stop();
-        monitor.Snapshot(out var memAfterCreate, out var peakAfterCreate, out var threadsAfterCreate, out var pendingAfterCreate, out var allocAfterCreate);
+        monitor.Snapshot(out long memAfterCreate, out long peakAfterCreate, out int threadsAfterCreate, out int pendingAfterCreate, out long allocAfterCreate);
         monitor.PrintStats("После создания", memAfterCreate, peakAfterCreate, threadsAfterCreate, pendingAfterCreate, allocAfterCreate);
         Console.WriteLine($"  Время создания: {swCreation.ElapsedMilliseconds} мс");
 
@@ -154,7 +154,7 @@ public sealed class SequentialPingPongTest : IBenchmarkTest
 
         swWork.Stop();
 
-        monitor.Snapshot(out var memAfterWork, out var peakAfterWork, out var threadsAfterWork, out var pendingAfterWork, out var allocAfterWork);
+        monitor.Snapshot(out long memAfterWork, out long peakAfterWork, out int threadsAfterWork, out int pendingAfterWork, out long allocAfterWork);
         monitor.PrintStats("После нагрузки", memAfterWork, peakAfterWork, threadsAfterWork, pendingAfterWork, allocAfterWork);
 
         long totalMessages = (long)pairs * messagesPerPair * 2;
@@ -182,7 +182,7 @@ public sealed class SequentialPingPongTest : IBenchmarkTest
         await system.WaitForShutdownAsync();
         swShutdown.Stop();
 
-        monitor.Snapshot(out var memAfterShutdown, out var peakFinal, out var threadsAfterShutdown, out var pendingAfterShutdown, out var allocAfterShutdown);
+        monitor.Snapshot(out long memAfterShutdown, out long peakFinal, out int threadsAfterShutdown, out int pendingAfterShutdown, out long allocAfterShutdown);
         monitor.PrintStats("После завершения", memAfterShutdown, peakFinal, threadsAfterShutdown, pendingAfterShutdown, allocAfterShutdown);
         Console.WriteLine($"  Время завершения: {swShutdown.ElapsedMilliseconds} мс");
     }

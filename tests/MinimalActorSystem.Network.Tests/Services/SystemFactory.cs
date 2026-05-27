@@ -24,7 +24,7 @@ public static class SystemFactory
     public static ActorSystem CreateSystem(ITestOutputHelper output, Settings? settings = null,
         LogLevel minLevel = LogLevel.Trace)
     {
-        var system = new ActorSystem(settings ?? new Settings());
+        ActorSystem system = new(settings ?? new Settings());
         system.CreateTestLogger(output.WriteLine, minLevel);
         return system;
     }

@@ -1,5 +1,4 @@
-﻿using System;
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace MinimalActorSystem.Network.Http;
@@ -34,15 +33,15 @@ public static class ServiceCollectionExtensions
 
         services.AddSingleton<IRouterClient>(sp =>
         {
-            var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
-            var logger = sp.GetRequiredService<ILogger<HttpRouterClient>>();
+            IHttpClientFactory httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
+            ILogger<HttpRouterClient> logger = sp.GetRequiredService<ILogger<HttpRouterClient>>();
             return new HttpRouterClient(httpClientFactory, logger, routerAddresses);
         });
 
         services.AddSingleton<INetworkTransport>(sp =>
         {
-            var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
-            var logger = sp.GetRequiredService<ILogger<HttpNetworkTransport>>();
+            IHttpClientFactory httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
+            ILogger<HttpNetworkTransport> logger = sp.GetRequiredService<ILogger<HttpNetworkTransport>>();
             return new HttpNetworkTransport(httpClientFactory, logger);
         });
 
@@ -65,8 +64,8 @@ public static class ServiceCollectionExtensions
 
         services.AddSingleton<INetworkTransport>(sp =>
         {
-            var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
-            var logger = sp.GetRequiredService<ILogger<HttpNetworkTransport>>();
+            IHttpClientFactory httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
+            ILogger<HttpNetworkTransport> logger = sp.GetRequiredService<ILogger<HttpNetworkTransport>>();
             return new HttpNetworkTransport(httpClientFactory, logger);
         });
 
@@ -95,8 +94,8 @@ public static class ServiceCollectionExtensions
 
         services.AddSingleton<IRouterClient>(sp =>
         {
-            var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
-            var logger = sp.GetRequiredService<ILogger<HttpRouterClient>>();
+            IHttpClientFactory httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
+            ILogger<HttpRouterClient> logger = sp.GetRequiredService<ILogger<HttpRouterClient>>();
             return new HttpRouterClient(httpClientFactory, logger, routerAddresses);
         });
 
@@ -128,15 +127,15 @@ public static class ServiceCollectionExtensions
 
         services.AddSingleton<IRouterClient>(sp =>
         {
-            var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
-            var logger = sp.GetRequiredService<ILogger<HttpRouterClient>>();
+            IHttpClientFactory httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
+            ILogger<HttpRouterClient> logger = sp.GetRequiredService<ILogger<HttpRouterClient>>();
             return new HttpRouterClient(httpClientFactory, logger, routerAddresses);
         });
 
         services.AddSingleton<INetworkTransport>(sp =>
         {
-            var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
-            var logger = sp.GetRequiredService<ILogger<HttpNetworkTransport>>();
+            IHttpClientFactory httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
+            ILogger<HttpNetworkTransport> logger = sp.GetRequiredService<ILogger<HttpNetworkTransport>>();
             return new HttpNetworkTransport(httpClientFactory, logger);
         });
 

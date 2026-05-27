@@ -16,16 +16,16 @@ public sealed class NodeRegistryTests(ITestOutputHelper output)
         _output.WriteLine("Test 001: RegisterNode adds new node");
 
         // Arrange
-        var registry = new NodeRegistry();
+        NodeRegistry registry = new();
 
         // Act
-        var isNew = registry.RegisterNode("TestNode", "http://localhost:8080");
+        bool isNew = registry.RegisterNode("TestNode", "http://localhost:8080");
 
         // Assert
         Assert.True(isNew);
         Assert.Equal(1, registry.Count);
         Assert.True(registry.Contains("TestNode"));
-        Assert.True(registry.TryGetNodeAddress("TestNode", out var address));
+        Assert.True(registry.TryGetNodeAddress("TestNode", out string? address));
         Assert.Equal("http://localhost:8080", address);
     }
 
@@ -38,16 +38,16 @@ public sealed class NodeRegistryTests(ITestOutputHelper output)
         _output.WriteLine("Test 002: RegisterNode updates existing node");
 
         // Arrange
-        var registry = new NodeRegistry();
+        NodeRegistry registry = new();
         registry.RegisterNode("TestNode", "http://localhost:8080");
 
         // Act
-        var isNew = registry.RegisterNode("TestNode", "http://localhost:9090");
+        bool isNew = registry.RegisterNode("TestNode", "http://localhost:9090");
 
         // Assert
         Assert.False(isNew);
         Assert.Equal(1, registry.Count);
-        Assert.True(registry.TryGetNodeAddress("TestNode", out var address));
+        Assert.True(registry.TryGetNodeAddress("TestNode", out string? address));
         Assert.Equal("http://localhost:9090", address);
     }
 
@@ -60,11 +60,11 @@ public sealed class NodeRegistryTests(ITestOutputHelper output)
         _output.WriteLine("Test 003: UnregisterNode removes node");
 
         // Arrange
-        var registry = new NodeRegistry();
+        NodeRegistry registry = new();
         registry.RegisterNode("TestNode", "http://localhost:8080");
 
         // Act
-        var removed = registry.UnregisterNode("TestNode");
+        bool removed = registry.UnregisterNode("TestNode");
 
         // Assert
         Assert.True(removed);
@@ -81,10 +81,10 @@ public sealed class NodeRegistryTests(ITestOutputHelper output)
         _output.WriteLine("Test 004: TryGetNodeAddress returns false for unknown node");
 
         // Arrange
-        var registry = new NodeRegistry();
+        NodeRegistry registry = new();
 
         // Act
-        var found = registry.TryGetNodeAddress("UnknownNode", out var address);
+        bool found = registry.TryGetNodeAddress("UnknownNode", out string? address);
 
         // Assert
         Assert.False(found);
@@ -100,7 +100,7 @@ public sealed class NodeRegistryTests(ITestOutputHelper output)
         _output.WriteLine("Test 005: GetNodeInfo returns node information");
 
         // Arrange
-        var registry = new NodeRegistry();
+        NodeRegistry registry = new();
         registry.RegisterNode("TestNode", "http://localhost:8080");
 
         // Act
@@ -122,11 +122,11 @@ public sealed class NodeRegistryTests(ITestOutputHelper output)
         _output.WriteLine("Test 006: SetNodeStatus changes node status");
 
         // Arrange
-        var registry = new NodeRegistry();
+        NodeRegistry registry = new();
         registry.RegisterNode("TestNode", "http://localhost:8080");
 
         // Act
-        var updated = registry.SetNodeStatus("TestNode", NodeStatus.Active);
+        bool updated = registry.SetNodeStatus("TestNode", NodeStatus.Active);
         var info = registry.GetNodeInfo("TestNode");
 
         // Assert
@@ -143,7 +143,7 @@ public sealed class NodeRegistryTests(ITestOutputHelper output)
         _output.WriteLine("Test 007: GetActiveNodes returns only active nodes");
 
         // Arrange
-        var registry = new NodeRegistry();
+        NodeRegistry registry = new();
         registry.RegisterNode("Node1", "http://localhost:8081");
         registry.RegisterNode("Node2", "http://localhost:8082");
         registry.RegisterNode("Node3", "http://localhost:8083");
@@ -169,7 +169,7 @@ public sealed class NodeRegistryTests(ITestOutputHelper output)
         _output.WriteLine("Test 008: GetAllNodes returns all nodes");
 
         // Arrange
-        var registry = new NodeRegistry();
+        NodeRegistry registry = new();
         registry.RegisterNode("Node1", "http://localhost:8081");
         registry.RegisterNode("Node2", "http://localhost:8082");
 
@@ -189,7 +189,7 @@ public sealed class NodeRegistryTests(ITestOutputHelper output)
         _output.WriteLine("Test 009: Clear empties the registry");
 
         // Arrange
-        var registry = new NodeRegistry();
+        NodeRegistry registry = new();
         registry.RegisterNode("Node1", "http://localhost:8081");
         registry.RegisterNode("Node2", "http://localhost:8082");
 

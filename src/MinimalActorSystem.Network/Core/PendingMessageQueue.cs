@@ -38,13 +38,13 @@ public sealed class PendingMessageQueue : IPendingMessageQueue
         if (string.IsNullOrWhiteSpace(nodeName))
             throw new ArgumentException("Node name cannot be empty", nameof(nodeName));
 
-        var messages = new List<PendingMessage>();
+        List<PendingMessage> messages = [];
 
-        if (_messagesByNode.TryRemove(nodeName, out var messageIds))
+        if (_messagesByNode.TryRemove(nodeName, out ConcurrentBag<Guid>? messageIds))
         {
-            foreach (var id in messageIds)
+            foreach (Guid id in messageIds)
             {
-                if (_messagesById.TryRemove(id, out var message))
+                if (_messagesById.TryRemove(id, out PendingMessage? message))
                 {
                     messages.Add(message);
                 }
@@ -57,11 +57,11 @@ public sealed class PendingMessageQueue : IPendingMessageQueue
     /// <inheritdoc/>
     public bool Remove(Guid localMessageId)
     {
-        if (_messagesById.TryRemove(localMessageId, out var message))
+        if (_messagesById.TryRemove(localMessageId, out PendingMessage? message))
         {
-            if (_messagesByNode.TryGetValue(message.DestinationNode, out var bag))
+            if (_messagesByNode.TryGetValue(message.DestinationNode, out ConcurrentBag<Guid>? bag))
             {
-                var newBag = new ConcurrentBag<Guid>(bag.Where(id => id != localMessageId));
+                ConcurrentBag<Guid> newBag = [.. bag.Where(id => id != localMessageId)];
                 if (newBag.Any())
                 {
                     _messagesByNode[message.DestinationNode] = newBag;
@@ -86,13 +86,13 @@ public sealed class PendingMessageQueue : IPendingMessageQueue
     /// <inheritdoc/>
     public PendingMessage? Get(Guid localMessageId)
     {
-        return _messagesById.TryGetValue(localMessageId, out var message) ? message : null;
+        return _messagesById.TryGetValue(localMessageId, out PendingMessage? message) ? message : null;
     }
 
     /// <inheritdoc/>
     public int GetQueuedCountForNode(string nodeName)
     {
-        if (!_messagesByNode.TryGetValue(nodeName, out var bag))
+        if (!_messagesByNode.TryGetValue(nodeName, out ConcurrentBag<Guid>? bag))
             return 0;
 
         return bag.Count(id => _messagesById.ContainsKey(id));

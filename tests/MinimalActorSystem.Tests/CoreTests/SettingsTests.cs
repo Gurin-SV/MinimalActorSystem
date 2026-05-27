@@ -8,7 +8,7 @@ public sealed class SettingsTests
     [Fact]
     public void SettingsTests_001()
     {
-        var settings = new Settings();
+        Settings settings = new();
 
         Assert.Equal(TimeServiceModes.System, settings.TimeServiceModes);
     }
@@ -19,7 +19,7 @@ public sealed class SettingsTests
     [Fact]
     public void SettingsTests_002()
     {
-        var settings = new Settings
+        Settings settings = new()
         {
             TimeServiceModes = TimeServiceModes.Sync
         };
@@ -33,7 +33,7 @@ public sealed class SettingsTests
     [Fact]
     public void SettingsTests_003()
     {
-        var settings = new Settings
+        Settings settings = new()
         {
             TimeServiceModes = TimeServiceModes.Async
         };
@@ -47,9 +47,9 @@ public sealed class SettingsTests
     [Fact]
     public void SettingsTests_004()
     {
-        var settings1 = new Settings();
-        var settings2 = new Settings { TimeServiceModes = TimeServiceModes.Sync };
-        var settings3 = new Settings { TimeServiceModes = TimeServiceModes.Async };
+        Settings settings1 = new();
+        Settings settings2 = new() { TimeServiceModes = TimeServiceModes.Sync };
+        Settings settings3 = new() { TimeServiceModes = TimeServiceModes.Async };
 
         Assert.Equal(TimeServiceModes.System, settings1.TimeServiceModes);
         Assert.Equal(TimeServiceModes.Sync, settings2.TimeServiceModes);
@@ -62,7 +62,7 @@ public sealed class SettingsTests
     [Fact]
     public void SettingsTests_005()
     {
-        var settings = new Settings { TimeServiceModes = TimeServiceModes.Sync };
+        Settings settings = new() { TimeServiceModes = TimeServiceModes.Sync };
 
         // Проверяем, что значение установлено
         Assert.Equal(TimeServiceModes.Sync, settings.TimeServiceModes);

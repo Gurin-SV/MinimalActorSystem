@@ -24,8 +24,8 @@ public sealed class ResourceMonitor
         if (currentMemory > _peakMemory)
             _peakMemory = currentMemory;
         peakMemory = _peakMemory;
-        ThreadPool.GetAvailableThreads(out var availableWorker, out _);
-        ThreadPool.GetMaxThreads(out var maxWorker, out _);
+        ThreadPool.GetAvailableThreads(out int availableWorker, out _);
+        ThreadPool.GetMaxThreads(out int maxWorker, out _);
         threadCount = maxWorker - availableWorker;
         pendingThreads = _process.Threads.Count;
         if (threadCount > _maxThreads)

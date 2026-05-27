@@ -46,7 +46,7 @@ public class CompiledModel
     /// </remarks>
     public ElementConfig? FindElement(Guid uid)
     {
-        return _elements.TryGetValue(uid, out var element) ? element : null;
+        return _elements.TryGetValue(uid, out ElementConfig? element) ? element : null;
     }
 
     /// <summary>

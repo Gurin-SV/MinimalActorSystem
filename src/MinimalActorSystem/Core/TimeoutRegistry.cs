@@ -61,13 +61,13 @@ internal sealed class TimeoutRegistry(IActorSystem system) : IDisposable
     /// </remarks>
     public void ApplyPendingOps()
     {
-        while (_pending.TryDequeue(out var op))
+        while (_pending.TryDequeue(out PendingOp? op))
         {
             if (op is RegisterOp reg)
             {
                 var key = new CallbackKey(reg.Callback.ActorUid, reg.Callback.CallbackId);
 
-                if (_timers.TryGetValue(key, out var old))
+                if (_timers.TryGetValue(key, out TimerEntry? old))
                     _expiryIndex.Remove(new ExpiryEntry(old.Deadline, key));
 
                 _timers[key] = new TimerEntry(reg.Deadline, reg.Callback);
@@ -77,7 +77,7 @@ internal sealed class TimeoutRegistry(IActorSystem system) : IDisposable
             {
                 var key = new CallbackKey(unreg.Callback.ActorUid, unreg.Callback.CallbackId);
 
-                if (_timers.TryGetValue(key, out var old))
+                if (_timers.TryGetValue(key, out TimerEntry? old))
                 {
                     _timers.Remove(key);
                     _expiryIndex.Remove(new ExpiryEntry(old.Deadline, key));
@@ -102,10 +102,10 @@ internal sealed class TimeoutRegistry(IActorSystem system) : IDisposable
 
         while (_expiryIndex.Count > 0 && _expiryIndex.Min.Deadline <= currentTime)
         {
-            var entry = _expiryIndex.Min;
+            ExpiryEntry entry = _expiryIndex.Min;
             _expiryIndex.Remove(entry);
 
-            if (_timers.TryGetValue(entry.Key, out var timer) && timer.Deadline <= currentTime)
+            if (_timers.TryGetValue(entry.Key, out TimerEntry? timer) && timer.Deadline <= currentTime)
             {
                 _timers.Remove(entry.Key);
                 fired.Add(timer.Callback);

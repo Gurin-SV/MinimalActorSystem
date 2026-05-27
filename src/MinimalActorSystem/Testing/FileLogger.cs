@@ -62,9 +62,9 @@ public sealed class FileLogger : ILogger, IDisposable
         if (!IsEnabled(logLevel))
             return;
 
-        var message = formatter(state, exception);
+        string message = formatter(state, exception);
         var timestamp = _system.TimeService.UtcNow.ToLocalTime();
-        var line = $"{timestamp.ConvertToString()} [{logLevel}] [{Environment.CurrentManagedThreadId}] {message}";
+        string line = $"{timestamp.ConvertToString()} [{logLevel}] [{Environment.CurrentManagedThreadId}] {message}";
         _queue.Enqueue(line);
         ScheduleFlush();
     }
@@ -103,7 +103,7 @@ public sealed class FileLogger : ILogger, IDisposable
     private void Flush()
     {
         var sb = new StringBuilder();
-        while (_queue.TryDequeue(out var line))
+        while (_queue.TryDequeue(out string? line))
         {
             sb.AppendLine(line);
         }

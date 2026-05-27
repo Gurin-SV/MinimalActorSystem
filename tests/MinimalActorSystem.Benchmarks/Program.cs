@@ -1,7 +1,6 @@
-﻿using System.Diagnostics;
-using System.Diagnostics.Metrics;
-using OpenTelemetry;
+﻿using OpenTelemetry;
 using OpenTelemetry.Metrics;
+using System.Diagnostics.Metrics;
 
 namespace MinimalActorSystem.Benchmarks;
 
@@ -9,15 +8,15 @@ public class Program
 {
     public static async Task Main(string[] _)
     {
-        using var meter = new Meter("MinimalActorSystem");
+        using Meter meter = new("MinimalActorSystem");
 
         // Экспорт метрик в OpenTelemetry Collector
-        using var meterProvider = Sdk.CreateMeterProviderBuilder()
+        using MeterProvider meterProvider = Sdk.CreateMeterProviderBuilder()
             .AddMeter("MinimalActorSystem")
             .AddOtlpExporter()
             .Build();
 
-        var tests = new IBenchmarkTest[]
+        IBenchmarkTest[] tests = new IBenchmarkTest[]
         {
             new SequentialPingPongTest(),
             new DeepPipelineTest(),
@@ -25,7 +24,7 @@ public class Program
 
         for (int i = 0; i < tests.Length; i++)
         {
-            var test = tests[i];
+            IBenchmarkTest test = tests[i];
 
             Console.WriteLine(new string('=', 60));
             Console.WriteLine($"Тест {i + 1}: {test.Name}");
@@ -35,10 +34,10 @@ public class Program
             Console.WriteLine();
 
             // Сборщик метрик для консольного вывода
-            var measurements = new Dictionary<string, long>();
-            var observableValues = new Dictionary<string, int>();
+            Dictionary<string, long> measurements = [];
+            Dictionary<string, int> observableValues = [];
 
-            using var listener = new MeterListener();
+            using MeterListener listener = new MeterListener();
 
             listener.InstrumentPublished = (instrument, listener) =>
             {
@@ -94,7 +93,7 @@ public class Program
 
             Console.WriteLine();
             Console.WriteLine("--- Прикладные метрики ---");
-            foreach (var kvp in measurements.Where(m => m.Key.Contains(".")
+            foreach (KeyValuePair<string, long> kvp in measurements.Where(m => m.Key.Contains('.')
                 && !m.Key.StartsWith("messages")
                 && !m.Key.StartsWith("actors")).OrderBy(m => m.Key))
             {

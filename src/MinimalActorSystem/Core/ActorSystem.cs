@@ -2,13 +2,6 @@
 
 namespace MinimalActorSystem;
 
-internal interface IActorSystemInternal
-{
-    void IncrementActivity();
-    void DecrementActivity();
-    Task WaitAllIdleAsync();
-}
-
 /// <summary>
 /// Реализация акторной системы. Управляет реестром акторов, маршрутизацией писем,
 /// жизненным циклом и предоставляет доступ к инфраструктурным сервисам (логгер, время, настройки).
@@ -19,62 +12,6 @@ internal interface IActorSystemInternal
 /// </remarks>
 public sealed class ActorSystem : IActorSystem, IActorSystemInternal
 {
-    /// <summary>
-    /// Пустая реализация <see cref="ILogger"/>, используемая по умолчанию. Все вызовы игнорируются.
-    /// </summary>
-    /// <remarks>
-    /// Default no-op logger. Ignores all calls.
-    /// </remarks>
-    private sealed class NullLogger : ILogger
-    {
-        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
-        public bool IsEnabled(LogLevel logLevel) => false;
-        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
-            Func<TState, Exception?, string> formatter)
-        { 
-        }
-    }
-
-    /// <summary>
-    /// Пустая реализация <see cref="ITimeService"/>, используемая по умолчанию.
-    /// Предоставляет реальное время через <see cref="DateTime.UtcNow"/>, но не обрабатывает таймауты.
-    /// </summary>
-    /// <remarks>
-    /// Default no-op time service. Provides real UTC time but does not handle timeouts.
-    /// </remarks>
-    private sealed class NullTimeService : ITimeService
-    {
-        public DateTime UtcNow => DateTime.UtcNow;
-        public void Register(DateTime deadline, TimeoutCallback callback) { }
-        public void Register(TimeSpan timeout, TimeoutCallback callback) { }
-        public void Unregister(TimeoutCallback callback) { }
-    }
-
-    /// <summary>
-    /// Null-реализация метрик. Все вызовы игнорируются.
-    /// Используется по умолчанию, если потребитель не установил свою реализацию.
-    /// </summary>
-    /// <remarks>
-    /// Default no-op metrics. Used when no custom implementation is provided.
-    /// </remarks>
-    private sealed class NullMetrics : IActorSystemMetrics
-    {
-        public void MessageSent() { }
-        public void MessageDropped() { }
-        public void ActorCreated() { }
-        public void ActorDestroyed() { }
-        public void ActorCountChanged(int count) { }
-
-        public Meter? Meter => null;
-    }
-
-    private readonly CancellationTokenSource _cts;
-    private readonly ActorRegistry _registry = new();
-    private readonly object _idleLock = new();
-    private volatile bool _isPanic;
-    private int _activeCount;
-    private TaskCompletionSource<bool>? _idleTcs;
-
     /// <inheritdoc/>
     public Settings Settings { get; }
 
@@ -95,6 +32,13 @@ public sealed class ActorSystem : IActorSystem, IActorSystemInternal
 
     /// <inheritdoc/>
     public bool IsPanic => _isPanic;
+
+    private readonly CancellationTokenSource _cts;
+    private readonly ActorRegistry _registry = new();
+    private readonly object _idleLock = new();
+    private volatile bool _isPanic;
+    private int _activeCount;
+    private TaskCompletionSource<bool>? _idleTcs;
 
     /// <summary>
     /// Создаёт экземпляр акторной системы с указанными настройками.
@@ -136,7 +80,7 @@ public sealed class ActorSystem : IActorSystem, IActorSystemInternal
         if (_cts.IsCancellationRequested)
             return false;
 
-        if (!_registry.TryGet(letter.Receiver, out var actor))
+        if (!_registry.TryGet(letter.Receiver, out Actor? actor))
         {
             Logger.LogWarning("Send failed: actor {ActorName} not found for letter {LetterType} from {SenderName}",
                 GetActorName(letter.Receiver), letter.GetType().Name, GetActorName(letter.Sender));
@@ -204,7 +148,7 @@ public sealed class ActorSystem : IActorSystem, IActorSystemInternal
     /// <inheritdoc/>
     public Actor? FindActor(Guid uid)
     {
-        if (_registry.TryGet(uid, out var actor))
+        if (_registry.TryGet(uid, out Actor? actor))
             return actor;
         return null;
     }
@@ -259,4 +203,60 @@ public sealed class ActorSystem : IActorSystem, IActorSystemInternal
             return _idleTcs.Task;
         }
     }
+
+    /// <summary>
+    /// Пустая реализация <see cref="ILogger"/>, используемая по умолчанию. Все вызовы игнорируются.
+    /// </summary>
+    /// <remarks>
+    /// Default no-op logger. Ignores all calls.
+    /// </remarks>
+    private sealed class NullLogger : ILogger
+    {
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public bool IsEnabled(LogLevel logLevel) => false;
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+        }
+    }
+
+    /// <summary>
+    /// Пустая реализация <see cref="ITimeService"/>, используемая по умолчанию.
+    /// Предоставляет реальное время через <see cref="DateTime.UtcNow"/>, но не обрабатывает таймауты.
+    /// </summary>
+    /// <remarks>
+    /// Default no-op time service. Provides real UTC time but does not handle timeouts.
+    /// </remarks>
+    private sealed class NullTimeService : ITimeService
+    {
+        public DateTime UtcNow => DateTime.UtcNow;
+        public void Register(DateTime deadline, TimeoutCallback callback) { }
+        public void Register(TimeSpan timeout, TimeoutCallback callback) { }
+        public void Unregister(TimeoutCallback callback) { }
+    }
+
+    /// <summary>
+    /// Null-реализация метрик. Все вызовы игнорируются.
+    /// Используется по умолчанию, если потребитель не установил свою реализацию.
+    /// </summary>
+    /// <remarks>
+    /// Default no-op metrics. Used when no custom implementation is provided.
+    /// </remarks>
+    private sealed class NullMetrics : IActorSystemMetrics
+    {
+        public Meter? Meter => null;
+
+        public void MessageSent() { }
+        public void MessageDropped() { }
+        public void ActorCreated() { }
+        public void ActorDestroyed() { }
+        public void ActorCountChanged(int count) { }
+    }
+}
+
+internal interface IActorSystemInternal
+{
+    void IncrementActivity();
+    void DecrementActivity();
+    Task WaitAllIdleAsync();
 }

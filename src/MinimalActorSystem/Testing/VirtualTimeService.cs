@@ -128,8 +128,8 @@ public sealed class VirtualTimeService(ActorSystem system) : ITimeService, IDisp
     /// </remarks>
     private void FireTimeouts()
     {
-        var fired = _registry.FireTimeouts(_currentTime);
-        foreach (var callback in fired)
+        List<TimeoutCallback> fired = _registry.FireTimeouts(_currentTime);
+        foreach (TimeoutCallback callback in fired)
         {
             _system.Send(new TimeServiceLetter(
                 SystemUids.TimeService, callback.ActorUid, callback));
@@ -144,9 +144,9 @@ public sealed class VirtualTimeService(ActorSystem system) : ITimeService, IDisp
     /// </remarks>
     private void FireSubscribersSync()
     {
-        foreach (var sub in _subscribers)
+        foreach (IVirtualTimeSubscriber sub in _subscribers)
         {
-            var task = sub.OnTimeStep(_currentTime);
+            ValueTask task = sub.OnTimeStep(_currentTime);
             if (!task.IsCompletedSuccessfully)
             {
                 // В синхронном режиме подписчики должны возвращать завершённый ValueTask
@@ -178,7 +178,7 @@ public sealed class VirtualTimeService(ActorSystem system) : ITimeService, IDisp
 
         try
         {
-            foreach (var sub in _subscribers)
+            foreach (IVirtualTimeSubscriber sub in _subscribers)
             {
                 ValueTask task = sub.OnTimeStep(_currentTime);
                 if (!task.IsCompletedSuccessfully)

@@ -16,12 +16,12 @@ public sealed class FirstAvailableStrategy : INodeSelectionStrategy
         if (availableNodes == null || availableNodes.Length == 0)
             return null;
 
-        foreach (var node in availableNodes)
+        foreach (string node in availableNodes)
         {
             if (node == currentNodeName)
                 continue;
 
-            var nodeInfo = nodeRegistry.GetNodeInfo(node);
+            NodeInfo? nodeInfo = nodeRegistry.GetNodeInfo(node);
             if (nodeInfo != null && nodeInfo.Status == NodeStatus.Active)
             {
                 return node;
@@ -44,7 +44,7 @@ public sealed class FirstAvailableStrategy : INodeSelectionStrategy
 /// <param name="pendingQueue">Очередь отложенных сообщений для получения информации о нагрузке.</param>
 public sealed class LeastLoadedStrategy(IPendingMessageQueue pendingQueue) : INodeSelectionStrategy
 {
-    private readonly IPendingMessageQueue _pendingQueue = pendingQueue 
+    private readonly IPendingMessageQueue _pendingQueue = pendingQueue
         ?? throw new ArgumentNullException(nameof(pendingQueue));
 
     /// <inheritdoc/>
@@ -54,18 +54,18 @@ public sealed class LeastLoadedStrategy(IPendingMessageQueue pendingQueue) : INo
             return null;
 
         string? selectedNode = null;
-        var minLoad = int.MaxValue;
+        int minLoad = int.MaxValue;
 
-        foreach (var node in availableNodes)
+        foreach (string node in availableNodes)
         {
             if (node == currentNodeName)
                 continue;
 
-            var nodeInfo = nodeRegistry.GetNodeInfo(node);
+            NodeInfo? nodeInfo = nodeRegistry.GetNodeInfo(node);
             if (nodeInfo == null || nodeInfo.Status != NodeStatus.Active)
                 continue;
 
-            var load = _pendingQueue.GetQueuedCountForNode(node);
+            int load = _pendingQueue.GetQueuedCountForNode(node);
             if (load < minLoad)
             {
                 minLoad = load;
@@ -94,18 +94,17 @@ public sealed class RoundRobinStrategy : INodeSelectionStrategy
         if (availableNodes == null || availableNodes.Length == 0)
             return null;
 
-        var activeNodes = availableNodes
+        string[] activeNodes = [.. availableNodes
             .Where(node =>
                 node != currentNodeName &&
-                nodeRegistry.GetNodeInfo(node)?.Status == NodeStatus.Active)
-            .ToArray();
+                nodeRegistry.GetNodeInfo(node)?.Status == NodeStatus.Active)];
 
         if (activeNodes.Length == 0)
             return availableNodes.FirstOrDefault(n => n != currentNodeName);
 
         lock (_lock)
         {
-            var selected = activeNodes[_currentIndex % activeNodes.Length];
+            string selected = activeNodes[_currentIndex % activeNodes.Length];
             _currentIndex++;
             return selected;
         }

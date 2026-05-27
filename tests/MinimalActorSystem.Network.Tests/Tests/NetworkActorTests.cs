@@ -1,21 +1,17 @@
-﻿using System.Collections.Concurrent;
-using MinimalActorSystem.Network.TestTopology;
-using MinimalActorSystem.Network.Tests.Actors;
+﻿using MinimalActorSystem.Network.Tests.Actors;
 using MinimalActorSystem.Network.Tests.Fakes;
+using MinimalActorSystem.Network.TestTopology;
+using System.Collections.Concurrent;
+using System.Reflection;
 
 namespace MinimalActorSystem.Network.Tests;
 
 /// <summary>
 /// Тесты для NetworkActor с использованием фейковых компонентов.
 /// </summary>
-public sealed class NetworkActorTests
+public sealed class NetworkActorTests(ITestOutputHelper output)
 {
-    private readonly ITestOutputHelper _output;
-
-    public NetworkActorTests(ITestOutputHelper output)
-    {
-        _output = output;
-    }
+    private readonly ITestOutputHelper _output = output;
 
     /// <summary>
     /// Проверка: NetworkActor отправляет письмо на удалённый узел через транспорт.
@@ -26,15 +22,15 @@ public sealed class NetworkActorTests
         _output.WriteLine("Test 001: NetworkActor sends letter to remote node via transport");
 
         // Arrange
-        var registry = new ConcurrentDictionary<string, FakeNetworkTransport>();
-        var topologyAssembly = typeof(TestTopology.ComputePayload).Assembly;
+        ConcurrentDictionary<string, FakeNetworkTransport> registry = new();
+        Assembly topologyAssembly = typeof(TestTopology.ComputePayload).Assembly;
 
         // Создаём систему отправителя
-        var senderSystem = SystemFactory.CreateSystem(_output);
-        var senderTransport = new FakeNetworkTransport(registry, senderSystem);
-        var senderRouter = new FakeRouterClient(senderSystem);
+        ActorSystem senderSystem = SystemFactory.CreateSystem(_output);
+        FakeNetworkTransport senderTransport = new(registry, senderSystem);
+        FakeRouterClient senderRouter = new(senderSystem);
 
-        var senderActor = new TestNetworkActor(senderSystem, new[] { "http://router:8080" });
+        TestNetworkActor senderActor = new(senderSystem, ["http://router:8080"]);
         senderSystem.RegisterActor(senderActor);
         await senderActor.InitializeAsync("SenderNode", "http://sender:8080", senderTransport, senderRouter, topologyAssembly);
 
@@ -42,11 +38,11 @@ public sealed class NetworkActorTests
         senderActor.AddOutboundRoute<ComputePayload>("ComputeNode");
 
         // Создаём систему получателя
-        var receiverSystem = SystemFactory.CreateSystem(_output);
-        var receiverTransport = new FakeNetworkTransport(registry, receiverSystem);
-        var receiverRouter = new FakeRouterClient(receiverSystem);
+        ActorSystem receiverSystem = SystemFactory.CreateSystem(_output);
+        FakeNetworkTransport receiverTransport = new(registry, receiverSystem);
+        FakeRouterClient receiverRouter = new(receiverSystem);
 
-        var receiverActor = new TestNetworkActor(receiverSystem, new[] { "http://router:8080" });
+        TestNetworkActor receiverActor = new(receiverSystem, ["http://router:8080"]);
         receiverSystem.RegisterActor(receiverActor);
         await receiverActor.InitializeAsync("ComputeNode", "http://compute:8080", receiverTransport, receiverRouter, topologyAssembly);
 
@@ -54,8 +50,8 @@ public sealed class NetworkActorTests
         await senderRouter.AddNodeForTestingAsync("ComputeNode", "http://compute:8080");
 
         // Создаём актора-получателя для проверки доставки
-        var receiverUid = Guid.NewGuid();
-        var testReceiver = new TestReceiverActor(receiverSystem, receiverUid, "TestReceiver");
+        Guid receiverUid = Guid.NewGuid();
+        TestReceiverActor testReceiver = new(receiverSystem, receiverUid, "TestReceiver");
         receiverSystem.RegisterActor(testReceiver);
 
         // Настройка входящего маршрута
@@ -65,8 +61,8 @@ public sealed class NetworkActorTests
         await Task.Delay(200);
 
         // Создаём письмо с Payload
-        var payload = new ComputePayload { Number = 42, Operation = "square" };
-        var letter = new ComputeLetter(SystemUids.System, SystemUids.Network)
+        ComputePayload payload = new() { Number = 42, Operation = "square" };
+        ComputeLetter letter = new(SystemUids.System, SystemUids.Network)
         {
             Payload = payload
         };
@@ -78,7 +74,7 @@ public sealed class NetworkActorTests
         _output.WriteLine($"Send result: {sendResult}");
 
         // Assert
-        var received = await testReceiver.FirstLetterReceived.WaitAsync(TimeSpan.FromSeconds(5));
+        IPayloadLetter received = await testReceiver.FirstLetterReceived.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.NotNull(received);
         Assert.IsType<ComputePayload>(received.Payload);
         Assert.Equal(42, ((ComputePayload)received.Payload).Number);
@@ -102,18 +98,18 @@ public sealed class NetworkActorTests
         _output.WriteLine("Test 002: NetworkActor delivers letter locally when destination is current node");
 
         // Arrange
-        var system = SystemFactory.CreateSystem(_output);
-        var registry = new ConcurrentDictionary<string, FakeNetworkTransport>();
-        var topologyAssembly = typeof(TestTopology.ComputePayload).Assembly;
+        ActorSystem system = SystemFactory.CreateSystem(_output);
+        ConcurrentDictionary<string, FakeNetworkTransport> registry = new();
+        Assembly topologyAssembly = typeof(TestTopology.ComputePayload).Assembly;
 
-        var transport = new FakeNetworkTransport(registry, system);
-        var router = new FakeRouterClient(system);
+        FakeNetworkTransport transport = new(registry, system);
+        FakeRouterClient router = new(system);
 
-        var receiverUid = Guid.NewGuid();
-        var testReceiver = new TestReceiverActor(system, receiverUid, "TestReceiver");
+        Guid receiverUid = Guid.NewGuid();
+        TestReceiverActor testReceiver = new(system, receiverUid, "TestReceiver");
         system.RegisterActor(testReceiver);
 
-        var networkActor = new TestNetworkActor(system, new[] { "http://router:8080" });
+        TestNetworkActor networkActor = new(system, ["http://router:8080"]);
         system.RegisterActor(networkActor);
 
         await networkActor.InitializeAsync("LocalNode", "http://local:8080", transport, router, topologyAssembly);
@@ -122,8 +118,8 @@ public sealed class NetworkActorTests
         networkActor.AddOutboundRoute<ComputePayload>("LocalNode");
         networkActor.AddInboundRoute<ComputePayload>(receiverUid);
 
-        var payload = new ComputePayload { Number = 100, Operation = "double" };
-        var letter = new ComputeLetter(SystemUids.System, SystemUids.Network)
+        ComputePayload payload = new() { Number = 100, Operation = "double" };
+        ComputeLetter letter = new(SystemUids.System, SystemUids.Network)
         {
             Payload = payload
         };
@@ -132,7 +128,7 @@ public sealed class NetworkActorTests
         system.Send(letter);
 
         // Assert
-        var received = await testReceiver.FirstLetterReceived.WaitAsync(TimeSpan.FromSeconds(5));
+        IPayloadLetter received = await testReceiver.FirstLetterReceived.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.NotNull(received);
         Assert.Equal(100, ((ComputePayload)received.Payload).Number);
 
@@ -151,22 +147,22 @@ public sealed class NetworkActorTests
         _output.WriteLine("Test 003: NetworkActor queues letter when destination node is unknown");
 
         // Arrange
-        var system = SystemFactory.CreateSystem(_output);
-        var registry = new ConcurrentDictionary<string, FakeNetworkTransport>();
-        var topologyAssembly = typeof(TestTopology.ComputePayload).Assembly;
+        ActorSystem system = SystemFactory.CreateSystem(_output);
+        ConcurrentDictionary<string, FakeNetworkTransport> registry = new();
+        Assembly topologyAssembly = typeof(TestTopology.ComputePayload).Assembly;
 
-        var transport = new FakeNetworkTransport(registry, system);
-        var router = new FakeRouterClient(system);
+        FakeNetworkTransport transport = new(registry, system);
+        FakeRouterClient router = new(system);
 
-        var networkActor = new TestNetworkActor(system, new[] { "http://router:8080" });
+        TestNetworkActor networkActor = new(system, ["http://router:8080"]);
         system.RegisterActor(networkActor);
         await networkActor.InitializeAsync("SenderNode", "http://sender:8080", transport, router, topologyAssembly);
 
         // Настройка маршрута на неизвестный узел
         networkActor.AddOutboundRoute<ComputePayload>("UnknownNode");
 
-        var payload = new ComputePayload { Number = 42, Operation = "square" };
-        var letter = new ComputeLetter(SystemUids.System, SystemUids.Network)
+        ComputePayload payload = new() { Number = 42, Operation = "square" };
+        ComputeLetter letter = new(SystemUids.System, SystemUids.Network)
         {
             Payload = payload
         };
@@ -193,22 +189,22 @@ public sealed class NetworkActorTests
         _output.WriteLine("Test 004: CancelPendingLetter cancels letter sending");
 
         // Arrange
-        var system = SystemFactory.CreateSystem(_output);
-        var registry = new ConcurrentDictionary<string, FakeNetworkTransport>();
-        var topologyAssembly = typeof(TestTopology.ComputePayload).Assembly;
+        ActorSystem system = SystemFactory.CreateSystem(_output);
+        ConcurrentDictionary<string, FakeNetworkTransport> registry = new();
+        Assembly topologyAssembly = typeof(TestTopology.ComputePayload).Assembly;
 
-        var transport = new FakeNetworkTransport(registry, system);
-        var router = new FakeRouterClient(system);
+        FakeNetworkTransport transport = new(registry, system);
+        FakeRouterClient router = new(system);
 
-        var networkActor = new TestNetworkActor(system, new[] { "http://router:8080" });
+        TestNetworkActor networkActor = new(system, ["http://router:8080"]);
         system.RegisterActor(networkActor);
         await networkActor.InitializeAsync("SenderNode", "http://sender:8080", transport, router, topologyAssembly);
 
         // Настройка маршрута на неизвестный узел (письмо попадёт в очередь)
         networkActor.AddOutboundRoute<ComputePayload>("UnknownNode");
 
-        var payload = new ComputePayload { Number = 42, Operation = "square" };
-        var letter = new ComputeLetter(SystemUids.System, SystemUids.Network)
+        ComputePayload payload = new() { Number = 42, Operation = "square" };
+        ComputeLetter letter = new(SystemUids.System, SystemUids.Network)
         {
             Payload = payload
         };

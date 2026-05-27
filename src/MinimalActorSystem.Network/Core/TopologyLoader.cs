@@ -63,16 +63,16 @@ public sealed class TopologyLoader
     /// </summary>
     private IReadOnlyList<string> LoadRouterAddresses()
     {
-        var addresses = new List<string>();
+        List<string> addresses = [];
 
         // Вариант 1: поиск статического класса с константами
-        var routerClass = _assembly.GetTypes()
+        Type routerClass = _assembly.GetTypes()
             .FirstOrDefault(t => t.Name == "RouterAddresses" || t.Name == "TestRouterAddresses");
 
         if (routerClass != null)
         {
-            var fields = routerClass.GetFields(BindingFlags.Public | BindingFlags.Static);
-            foreach (var field in fields)
+            FieldInfo[] fields = routerClass.GetFields(BindingFlags.Public | BindingFlags.Static);
+            foreach (FieldInfo? field in fields)
             {
                 if (field.FieldType == typeof(string) && field.GetValue(null) is string address)
                 {
@@ -90,15 +90,15 @@ public sealed class TopologyLoader
     /// </summary>
     private IReadOnlyList<string> LoadNodeNames()
     {
-        var names = new List<string>();
+        List<string> names = [];
 
-        var nodeClass = _assembly.GetTypes()
+        Type nodeClass = _assembly.GetTypes()
             .FirstOrDefault(t => t.Name == "NodeNames" || t.Name == "TestNodeNames");
 
         if (nodeClass != null)
         {
-            var fields = nodeClass.GetFields(BindingFlags.Public | BindingFlags.Static);
-            foreach (var field in fields)
+            FieldInfo[] fields = nodeClass.GetFields(BindingFlags.Public | BindingFlags.Static);
+            foreach (FieldInfo? field in fields)
             {
                 if (field.FieldType == typeof(string) && field.GetValue(null) is string name)
                 {
@@ -115,11 +115,11 @@ public sealed class TopologyLoader
     /// </summary>
     private Dictionary<Type, string[]> LoadDestinationNodeRoutes()
     {
-        var routes = new Dictionary<Type, string[]>();
+        Dictionary<Type, string[]> routes = [];
 
-        foreach (var type in _assembly.GetTypes())
+        foreach (Type? type in _assembly.GetTypes())
         {
-            var attributes = type.GetCustomAttributes<DestinationNodeAttribute>();
+            IEnumerable<DestinationNodeAttribute> attributes = type.GetCustomAttributes<DestinationNodeAttribute>();
             var nodeNames = attributes.Select(a => a.NodeName).ToArray();
             if (nodeNames.Length > 0)
             {

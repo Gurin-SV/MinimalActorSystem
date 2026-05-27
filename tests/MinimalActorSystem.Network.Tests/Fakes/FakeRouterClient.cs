@@ -1,5 +1,5 @@
-﻿using System.Collections.Concurrent;
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
+using System.Collections.Concurrent;
 
 namespace MinimalActorSystem.Network.Tests.Fakes;
 
@@ -58,7 +58,7 @@ public sealed class FakeRouterClient(IActorSystem system) : IRouterClient
 
         await SimulateNetworkDelay(cancellationToken);
 
-        var isNew = !_nodes.ContainsKey(nodeName);
+        bool isNew = !_nodes.ContainsKey(nodeName);
         _nodes[nodeName] = nodeAddress;
 
         LogDebug($"Узел зарегистрирован: '{nodeName}' -> '{nodeAddress}' (новый: {isNew})");
@@ -79,7 +79,7 @@ public sealed class FakeRouterClient(IActorSystem system) : IRouterClient
 
         await SimulateNetworkDelay(cancellationToken);
 
-        if (_nodes.TryGetValue(nodeName, out var address))
+        if (_nodes.TryGetValue(nodeName, out string? address))
         {
             LogDebug($"Разрешение имени: '{nodeName}' -> '{address}'");
             return address;
@@ -151,7 +151,7 @@ public sealed class FakeRouterClient(IActorSystem system) : IRouterClient
     /// <param name="nodeAddress">Сетевой адрес узла.</param>
     public async Task AddNodeForTestingAsync(string nodeName, string nodeAddress)
     {
-        var isNew = !_nodes.ContainsKey(nodeName);
+        bool isNew = !_nodes.ContainsKey(nodeName);
         _nodes[nodeName] = nodeAddress;
         LogDebug($"Узел добавлен вручную для теста: '{nodeName}' -> '{nodeAddress}' (новый: {isNew})");
 

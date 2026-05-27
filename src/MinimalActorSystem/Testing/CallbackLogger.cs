@@ -37,9 +37,9 @@ public sealed class CallbackLogger(IActorSystem system, Action<string> writeLine
         if (!IsEnabled(logLevel))
             return;
 
-        var message = formatter(state, exception);
+        string message = formatter(state, exception);
         var timestamp = _system.TimeService.UtcNow.ToLocalTime();
-        var line = $"{timestamp.ConvertToString()} {sw.ElapsedMilliseconds:D4} [{logLevel}] [{Environment.CurrentManagedThreadId}] {message}";
+        string line = $"{timestamp.ConvertToString()} {sw.ElapsedMilliseconds:D4} [{logLevel}] [{Environment.CurrentManagedThreadId}] {message}";
 
         if (exception != null)
         {

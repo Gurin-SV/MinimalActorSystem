@@ -64,20 +64,20 @@ public sealed class SystemTimeService : ITimeService, IDisposable
         {
             _registry.ApplyPendingOps();
 
-            var now = UtcNow;
-            var fired = _registry.FireTimeouts(now);
+            DateTime now = UtcNow;
+            List<TimeoutCallback> fired = _registry.FireTimeouts(now);
 
-            foreach (var callback in fired)
+            foreach (TimeoutCallback callback in fired)
             {
-                var letter = new TimeServiceLetter(SystemUids.TimeService, callback.ActorUid, callback);
+                TimeServiceLetter letter = new TimeServiceLetter(SystemUids.TimeService, callback.ActorUid, callback);
                 _system.Send(letter);
             }
 
-            var nextDeadline = _registry.GetNextDeadline();
+            DateTime? nextDeadline = _registry.GetNextDeadline();
 
             if (nextDeadline.HasValue && nextDeadline.Value > now)
             {
-                var delay = nextDeadline.Value - now;
+                TimeSpan delay = nextDeadline.Value - now;
                 if (delay > TimeSpan.FromMilliseconds(maxDelayMs))
                     delay = TimeSpan.FromMilliseconds(maxDelayMs);
 

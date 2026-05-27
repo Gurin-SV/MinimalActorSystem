@@ -36,7 +36,7 @@ public static class DateTimeUtils
     /// </remarks>
     public static DateTime AsUtc(this string s)
     {
-        var local = DateTime.ParseExact(s, DateTimeFormat, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal);
+        DateTime local = DateTime.ParseExact(s, DateTimeFormat, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal);
         var utcValue = local.Subtract(LocalOffset);
         return new DateTime(utcValue.Ticks, DateTimeKind.Utc);
     }

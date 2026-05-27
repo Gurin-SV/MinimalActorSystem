@@ -7,7 +7,7 @@ namespace MinimalActorSystem.Network.Tests;
 /// </summary>
 public sealed class NetworkLetterTests
 {
-    private readonly IMessageSerializer _serializer = new JsonMessageSerializer();
+    private readonly JsonMessageSerializer _serializer = new();
 
     /// <summary>
     /// Проверка: Create создаёт NetworkLetter, Serialize/Deserialize сохраняют все свойства.
@@ -16,10 +16,10 @@ public sealed class NetworkLetterTests
     public void NetworkLetterTests_001()
     {
         // Arrange
-        var localId = Guid.NewGuid();
-        var originalPayload = new ComputePayload { Number = 42, Operation = "square" };
+        Guid localId = Guid.NewGuid();
+        ComputePayload originalPayload = new() { Number = 42, Operation = "square" };
 
-        var original = NetworkLetter.Create(
+        NetworkLetter original = NetworkLetter.Create(
             TestNodeNames.ComputeNode,
             TestNodeNames.TestNode,
             originalPayload,
@@ -28,7 +28,7 @@ public sealed class NetworkLetterTests
             localId);
 
         // Act
-        var serialized = _serializer.Serialize(original);
+        string serialized = _serializer.Serialize(original);
         var deserialized = _serializer.Deserialize(serialized);
 
         // Assert
@@ -51,7 +51,7 @@ public sealed class NetworkLetterTests
     public void NetworkLetterTests_002()
     {
         // Arrange
-        var invalidData = "not a valid network message";
+        string invalidData = "not a valid network message";
 
         // Act
         var result = _serializer.Deserialize(invalidData);
@@ -67,7 +67,7 @@ public sealed class NetworkLetterTests
     public void NetworkLetterTests_003()
     {
         // Arrange
-        var dataWithoutSeparator = "SomeDataWithoutNullSeparator";
+        string dataWithoutSeparator = "SomeDataWithoutNullSeparator";
 
         // Act
         var result = _serializer.Deserialize(dataWithoutSeparator);
@@ -83,7 +83,7 @@ public sealed class NetworkLetterTests
     public void NetworkLetterTests_004()
     {
         // Arrange
-        var unknownTypeData = "Unknown.Type.Name, UnknownAssembly\0{}";
+        string unknownTypeData = "Unknown.Type.Name, UnknownAssembly\0{}";
 
         // Act
         var result = _serializer.Deserialize(unknownTypeData);
@@ -99,9 +99,9 @@ public sealed class NetworkLetterTests
     public void NetworkLetterTests_005()
     {
         // Arrange
-        var payload = new SimpleTestPayload { Text = "hello", Counter = 10 };
+        SimpleTestPayload payload = new() { Text = "hello", Counter = 10 };
 
-        var letter = NetworkLetter.Create(
+        NetworkLetter letter = NetworkLetter.Create(
             TestNodeNames.ComputeNode,
             TestNodeNames.TestNode,
             payload,
@@ -110,10 +110,10 @@ public sealed class NetworkLetterTests
             Guid.NewGuid());
 
         // Act
-        var serialized = _serializer.Serialize(letter);
+        string serialized = _serializer.Serialize(letter);
 
         // Assert
-        var expectedPrefix = typeof(NetworkLetter).AssemblyQualifiedName;
+        string? expectedPrefix = typeof(NetworkLetter).AssemblyQualifiedName;
         Assert.NotNull(expectedPrefix);
         Assert.StartsWith(expectedPrefix + "\0", serialized);
     }
@@ -127,9 +127,9 @@ public sealed class NetworkLetterTests
         // Arrange
         var expectedPayloadType = typeof(StoreDataPayload);
         var expectedLetterType = typeof(StoreDataLetter);
-        var payload = new StoreDataPayload { Key = "test", Value = "data" };
+        StoreDataPayload payload = new() { Key = "test", Value = "data" };
 
-        var letter = NetworkLetter.Create(
+        NetworkLetter letter = NetworkLetter.Create(
             TestNodeNames.StorageNode,
             TestNodeNames.TestNode,
             payload,
@@ -149,9 +149,9 @@ public sealed class NetworkLetterTests
     public void NetworkLetterTests_007()
     {
         // Arrange
-        var payload = new SimpleTestPayload { Text = "test", Counter = 1 };
+        SimpleTestPayload payload = new() { Text = "test", Counter = 1 };
 
-        var original = NetworkLetter.Create(
+        NetworkLetter original = NetworkLetter.Create(
             "",
             "",
             payload,
@@ -160,7 +160,7 @@ public sealed class NetworkLetterTests
             Guid.Empty);
 
         // Act
-        var serialized = _serializer.Serialize(original);
+        string serialized = _serializer.Serialize(original);
         var deserialized = _serializer.Deserialize(serialized);
 
         // Assert

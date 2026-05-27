@@ -81,8 +81,8 @@ public sealed class ActorSystemTests(ITestOutputHelper output)
     [Fact]
     public void ActorSystemTests_001()
     {
-        var settings = new Settings();
-        var system = SystemFactory.CreateSystem(_output, settings);
+        Settings settings = new();
+        ActorSystem system = SystemFactory.CreateSystem(_output, settings);
 
         Assert.Same(settings, system.Settings);
     }
@@ -93,7 +93,7 @@ public sealed class ActorSystemTests(ITestOutputHelper output)
     [Fact]
     public void ActorSystemTests_002()
     {
-        var system = SystemFactory.CreateSystem(_output);
+        ActorSystem system = SystemFactory.CreateSystem(_output);
         system.RegisterActor(new FakeActor(system, Guid.NewGuid(), "test"));
 
         Assert.Equal(1, system.ActorCount);
@@ -105,7 +105,7 @@ public sealed class ActorSystemTests(ITestOutputHelper output)
     [Fact]
     public async Task ActorSystemTests_003()
     {
-        var system = SystemFactory.CreateSystem(_output);
+        ActorSystem system = SystemFactory.CreateSystem(_output);
         Guid uid = Guid.NewGuid();
         system.RegisterActor(new FakeActor(system, uid, "test"));
         system.UnregisterActor(uid);
@@ -120,12 +120,12 @@ public sealed class ActorSystemTests(ITestOutputHelper output)
     [Fact]
     public async Task ActorSystemTests_004()
     {
-        var system = SystemFactory.CreateSystem(_output);
-        var received = new List<Letter>();
-        var tcs = new TaskCompletionSource<bool>();
-        var actor = new TestActor(system, Guid.NewGuid(), "test", received, tcs);
+        ActorSystem system = SystemFactory.CreateSystem(_output);
+        List<Letter> received = [];
+        TaskCompletionSource<bool> tcs = new();
+        TestActor actor = new(system, Guid.NewGuid(), "test", received, tcs);
         system.RegisterActor(actor);
-        var letter = new TestLetter(SystemUids.System, actor.Uid);
+        TestLetter letter = new(SystemUids.System, actor.Uid);
 
         system.Send(letter);
 
@@ -143,7 +143,7 @@ public sealed class ActorSystemTests(ITestOutputHelper output)
     [Fact]
     public void ActorSystemTests_005()
     {
-        var system = SystemFactory.CreateSystem(_output);
+        ActorSystem system = SystemFactory.CreateSystem(_output);
 
         // Не должно быть исключения
         system.Send(new TestLetter(SystemUids.System, Guid.NewGuid()));
@@ -155,12 +155,12 @@ public sealed class ActorSystemTests(ITestOutputHelper output)
     [Fact]
     public void ActorSystemTests_006()
     {
-        var settings = new Settings { TimeServiceModes = TimeServiceModes.Sync };
-        var system = SystemFactory.CreateSystem(_output, settings);
-        var received = new List<Letter>();
-        var actor = new TestActor(system, Guid.NewGuid(), "test", received);
+        Settings settings = new() { TimeServiceModes = TimeServiceModes.Sync };
+        ActorSystem system = SystemFactory.CreateSystem(_output, settings);
+        List<Letter> received = [];
+        TestActor actor = new(system, Guid.NewGuid(), "test", received);
         system.RegisterActor(actor);
-        var letter = new TestLetter(SystemUids.System, actor.Uid);
+        TestLetter letter = new(SystemUids.System, actor.Uid);
 
         system.Send(letter);
 
@@ -174,9 +174,9 @@ public sealed class ActorSystemTests(ITestOutputHelper output)
     [Fact]
     public async Task ActorSystemTests_007()
     {
-        var system = SystemFactory.CreateSystem(_output);
-        var modelReady = new TaskCompletionSource<bool>();
-        var modelActor = new TestModelActor(system, modelReady);
+        ActorSystem system = SystemFactory.CreateSystem(_output);
+        TaskCompletionSource<bool> modelReady = new();
+        TestModelActor modelActor = new(system, modelReady);
         system.RegisterActor(modelActor);
         system.Send(new InitializeLetter(SystemUids.System, SystemUids.Model));
         await modelReady.Task.WaitAsync(TimeSpan.FromSeconds(5));
@@ -191,9 +191,9 @@ public sealed class ActorSystemTests(ITestOutputHelper output)
     [Fact]
     public async Task ActorSystemTests_008()
     {
-        var system = SystemFactory.CreateSystem(_output);
-        var shutdownTcs = new TaskCompletionSource<bool>();
-        var actor = new TestActorWithShutdown(system, Guid.NewGuid(), "test", shutdownTcs);
+        ActorSystem system = SystemFactory.CreateSystem(_output);
+        TaskCompletionSource<bool> shutdownTcs = new();
+        TestActorWithShutdown actor = new(system, Guid.NewGuid(), "test", shutdownTcs);
         system.RegisterActor(actor);
 
         system.Shutdown();
@@ -208,9 +208,9 @@ public sealed class ActorSystemTests(ITestOutputHelper output)
     [Fact]
     public async Task ActorSystemTests_009()
     {
-        var system = SystemFactory.CreateSystem(_output);
-        var shutdownTcs = new TaskCompletionSource<bool>();
-        var actor = new TestActorWithShutdown(system, Guid.NewGuid(), "test", shutdownTcs);
+        ActorSystem system = SystemFactory.CreateSystem(_output);
+        TaskCompletionSource<bool> shutdownTcs = new();
+        TestActorWithShutdown actor = new(system, Guid.NewGuid(), "test", shutdownTcs);
         system.RegisterActor(actor);
 
         system.Panic();
@@ -226,13 +226,13 @@ public sealed class ActorSystemTests(ITestOutputHelper output)
     [Fact]
     public void ActorSystemTests_010()
     {
-        var system = SystemFactory.CreateSystem(_output);
-        var uid = Guid.NewGuid();
-        var actor = new FakeActor(system, uid, "test");
+        ActorSystem system = SystemFactory.CreateSystem(_output);
+        Guid uid = Guid.NewGuid();
+        FakeActor actor = new(system, uid, "test");
         system.RegisterActor(actor);
 
-        var found = system.FindActor(uid);
-        var notFound = system.FindActor(Guid.NewGuid());
+        Actor? found = system.FindActor(uid);
+        Actor? notFound = system.FindActor(Guid.NewGuid());
 
         Assert.Same(actor, found);
         Assert.Null(notFound);
@@ -244,13 +244,13 @@ public sealed class ActorSystemTests(ITestOutputHelper output)
     [Fact]
     public void ActorSystemTests_011()
     {
-        var system = SystemFactory.CreateSystem(_output);
-        var actor1 = new FakeActor(system, Guid.NewGuid(), "test1");
-        var actor2 = new FakeActor(system, Guid.NewGuid(), "test2");
+        ActorSystem system = SystemFactory.CreateSystem(_output);
+        FakeActor actor1 = new(system, Guid.NewGuid(), "test1");
+        FakeActor actor2 = new(system, Guid.NewGuid(), "test2");
         system.RegisterActor(actor1);
         system.RegisterActor(actor2);
 
-        var actors = system.GetAllActors();
+        List<Actor> actors = system.GetAllActors();
 
         Assert.Equal(2, actors.Count);
         Assert.Contains(actor1, actors);
@@ -263,9 +263,9 @@ public sealed class ActorSystemTests(ITestOutputHelper output)
     [Fact]
     public void ActorSystemTests_012()
     {
-        var system = SystemFactory.CreateSystem(_output);
-        var uid = Guid.NewGuid();
-        var actor = new FakeActor(system, uid, "test-actor-name");
+        ActorSystem system = SystemFactory.CreateSystem(_output);
+        Guid uid = Guid.NewGuid();
+        FakeActor actor = new(system, uid, "test-actor-name");
         system.RegisterActor(actor);
 
         var name = system.GetActorName(uid);
@@ -281,10 +281,10 @@ public sealed class ActorSystemTests(ITestOutputHelper output)
     [Fact]
     public async Task ActorSystemTests_013()
     {
-        var system = SystemFactory.CreateSystem(_output);
-        var actor = new FakeActor(system, Guid.NewGuid(), "test");
+        ActorSystem system = SystemFactory.CreateSystem(_output);
+        FakeActor actor = new(system, Guid.NewGuid(), "test");
         system.RegisterActor(actor);
-        var letter = new TestLetter(SystemUids.System, actor.Uid);
+        TestLetter letter = new(SystemUids.System, actor.Uid);
 
         system.Shutdown();
         await system.WaitForShutdownAsync();
@@ -299,10 +299,10 @@ public sealed class ActorSystemTests(ITestOutputHelper output)
     [Fact]
     public async Task ActorSystemTests_014()
     {
-        var system = SystemFactory.CreateSystem(_output);
-        var started = new TaskCompletionSource<bool>();
-        var actor = new BlockingActor(system, Guid.NewGuid(), "blocking", started);
-        var letter = new TestLetter(SystemUids.System, actor.Uid);
+        ActorSystem system = SystemFactory.CreateSystem(_output);
+        TaskCompletionSource<bool> started = new();
+        BlockingActor actor = new(system, Guid.NewGuid(), "blocking", started);
+        TestLetter letter = new(SystemUids.System, actor.Uid);
 
         system.RegisterActor(actor);
         system.Send(letter);
@@ -311,9 +311,9 @@ public sealed class ActorSystemTests(ITestOutputHelper output)
 
         system.Shutdown();
 
-        var shutdownTask = system.WaitForShutdownAsync();
-        var timeout = Task.Delay(TimeSpan.FromSeconds(2));
-        var completed = await Task.WhenAny(shutdownTask, timeout);
+        Task shutdownTask = system.WaitForShutdownAsync();
+        Task timeout = Task.Delay(TimeSpan.FromSeconds(2));
+        Task completed = await Task.WhenAny(shutdownTask, timeout);
 
         // Блокирующий актор должен завершиться из-за отмены токена
         Assert.Equal(shutdownTask, completed);

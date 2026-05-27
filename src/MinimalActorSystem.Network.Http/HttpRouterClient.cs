@@ -1,10 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Net.Http;
+﻿using Microsoft.Extensions.Logging;
 using System.Net.Http.Json;
-using System.Threading;
-using System.Threading.Tasks;
-using Microsoft.Extensions.Logging;
 
 namespace MinimalActorSystem.Network.Http;
 
@@ -23,8 +18,7 @@ public sealed class HttpRouterClient(
 {
     private readonly IHttpClientFactory _httpClientFactory = httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory));
     private readonly ILogger _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-    private readonly List<string> _routerAddresses = new(routerAddresses ?? throw new ArgumentNullException(nameof(routerAddresses)));
-    private readonly object _lock = new();
+    private readonly List<string> _routerAddresses = [.. routerAddresses ?? throw new ArgumentNullException(nameof(routerAddresses))];
     private Func<string, string, Task>? _onNodeDiscovered;
     private CancellationTokenSource? _pollingCts;
     private Task? _pollingTask;
@@ -34,20 +28,19 @@ public sealed class HttpRouterClient(
 
     private void CheckDisposed()
     {
-        if (_disposed)
-            throw new ObjectDisposedException(nameof(HttpRouterClient));
+        ObjectDisposedException.ThrowIf(_disposed, this);
     }
 
     private async Task<T?> TrySendToRouterAsync<T>(
         Func<string, HttpClient, Task<T?>> sendAction,
         CancellationToken cancellationToken) where T : class
     {
-        foreach (var routerAddress in _routerAddresses)
+        foreach (string routerAddress in _routerAddresses)
         {
             try
             {
-                var httpClient = _httpClientFactory.CreateClient();
-                var result = await sendAction(routerAddress, httpClient);
+                HttpClient httpClient = _httpClientFactory.CreateClient();
+                T? result = await sendAction(routerAddress, httpClient);
                 if (result != null)
                     return result;
             }
@@ -80,10 +73,10 @@ public sealed class HttpRouterClient(
             NodeAddress = nodeAddress
         };
 
-        var result = await TrySendToRouterAsync<RegisterNodeResponse>(async (routerAddress, httpClient) =>
+        RegisterNodeResponse? result = await TrySendToRouterAsync<RegisterNodeResponse>(async (routerAddress, httpClient) =>
         {
-            var url = $"{routerAddress}/api/router/register";
-            var response = await httpClient.PostAsJsonAsync(url, request, cancellationToken);
+            string url = $"{routerAddress}/api/router/register";
+            HttpResponseMessage response = await httpClient.PostAsJsonAsync(url, request, cancellationToken);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -113,10 +106,10 @@ public sealed class HttpRouterClient(
 
         var request = new ResolveNodeRequest { NodeName = nodeName };
 
-        var result = await TrySendToRouterAsync<ResolveNodeResponse>(async (routerAddress, httpClient) =>
+        ResolveNodeResponse? result = await TrySendToRouterAsync<ResolveNodeResponse>(async (routerAddress, httpClient) =>
         {
-            var url = $"{routerAddress}/api/router/resolve";
-            var response = await httpClient.PostAsJsonAsync(url, request, cancellationToken);
+            string url = $"{routerAddress}/api/router/resolve";
+            HttpResponseMessage response = await httpClient.PostAsJsonAsync(url, request, cancellationToken);
 
             if (!response.IsSuccessStatusCode)
                 return null;
@@ -139,10 +132,10 @@ public sealed class HttpRouterClient(
     {
         CheckDisposed();
 
-        var result = await TrySendToRouterAsync<GetAllNodesResponse>(async (routerAddress, httpClient) =>
+        GetAllNodesResponse? result = await TrySendToRouterAsync<GetAllNodesResponse>(async (routerAddress, httpClient) =>
         {
-            var url = $"{routerAddress}/api/router/nodes";
-            var response = await httpClient.GetAsync(url, cancellationToken);
+            string url = $"{routerAddress}/api/router/nodes";
+            HttpResponseMessage response = await httpClient.GetAsync(url, cancellationToken);
 
             if (!response.IsSuccessStatusCode)
                 return null;
@@ -200,9 +193,9 @@ public sealed class HttpRouterClient(
             {
                 await Task.Delay(pollingInterval, cancellationToken);
 
-                var currentNodes = await GetAllNodesAsync(cancellationToken);
+                IReadOnlyDictionary<string, string> currentNodes = await GetAllNodesAsync(cancellationToken);
 
-                foreach (var node in currentNodes)
+                foreach (KeyValuePair<string, string> node in currentNodes)
                 {
                     if (!lastKnownNodes.ContainsKey(node.Key) && _onNodeDiscovered != null)
                     {

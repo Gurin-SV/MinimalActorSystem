@@ -32,8 +32,8 @@ public sealed class PendingMessageQueueTests(ITestOutputHelper output)
         _output.WriteLine("Test 001: Enqueue adds message to queue");
 
         // Arrange
-        var queue = new PendingMessageQueue();
-        var message = CreateTestMessage("NodeA");
+        PendingMessageQueue queue = new();
+        PendingMessage message = CreateTestMessage("NodeA");
 
         // Act
         queue.Enqueue(message);
@@ -53,10 +53,10 @@ public sealed class PendingMessageQueueTests(ITestOutputHelper output)
         _output.WriteLine("Test 002: Enqueue adds multiple messages for different nodes");
 
         // Arrange
-        var queue = new PendingMessageQueue();
-        var message1 = CreateTestMessage("NodeA");
-        var message2 = CreateTestMessage("NodeA");
-        var message3 = CreateTestMessage("NodeB");
+        PendingMessageQueue queue = new();
+        PendingMessage message1 = CreateTestMessage("NodeA");
+        PendingMessage message2 = CreateTestMessage("NodeA");
+        PendingMessage message3 = CreateTestMessage("NodeB");
 
         // Act
         queue.Enqueue(message1);
@@ -78,17 +78,17 @@ public sealed class PendingMessageQueueTests(ITestOutputHelper output)
         _output.WriteLine("Test 003: DequeueForNode retrieves all messages for a node");
 
         // Arrange
-        var queue = new PendingMessageQueue();
-        var message1 = CreateTestMessage("NodeA");
-        var message2 = CreateTestMessage("NodeA");
-        var message3 = CreateTestMessage("NodeB");
+        PendingMessageQueue queue = new();
+        PendingMessage message1 = CreateTestMessage("NodeA");
+        PendingMessage message2 = CreateTestMessage("NodeA");
+        PendingMessage message3 = CreateTestMessage("NodeB");
 
         queue.Enqueue(message1);
         queue.Enqueue(message2);
         queue.Enqueue(message3);
 
         // Act
-        var messages = queue.DequeueForNode("NodeA");
+        IReadOnlyList<PendingMessage> messages = queue.DequeueForNode("NodeA");
 
         // Assert
         Assert.Equal(2, messages.Count);
@@ -108,12 +108,12 @@ public sealed class PendingMessageQueueTests(ITestOutputHelper output)
         _output.WriteLine("Test 004: DequeueForNode returns empty list when no messages");
 
         // Arrange
-        var queue = new PendingMessageQueue();
-        var message = CreateTestMessage("NodeA");
+        PendingMessageQueue queue = new();
+        PendingMessage message = CreateTestMessage("NodeA");
         queue.Enqueue(message);
 
         // Act
-        var messages = queue.DequeueForNode("NonExistentNode");
+        IReadOnlyList<PendingMessage> messages = queue.DequeueForNode("NonExistentNode");
 
         // Assert
         Assert.Empty(messages);
@@ -129,8 +129,8 @@ public sealed class PendingMessageQueueTests(ITestOutputHelper output)
         _output.WriteLine("Test 005: Remove removes message by id");
 
         // Arrange
-        var queue = new PendingMessageQueue();
-        var message = CreateTestMessage("NodeA");
+        PendingMessageQueue queue = new();
+        PendingMessage message = CreateTestMessage("NodeA");
         queue.Enqueue(message);
 
         // Act
@@ -152,7 +152,7 @@ public sealed class PendingMessageQueueTests(ITestOutputHelper output)
         _output.WriteLine("Test 006: Remove returns false for non-existent message");
 
         // Arrange
-        var queue = new PendingMessageQueue();
+        PendingMessageQueue queue = new();
 
         // Act
         var removed = queue.Remove(Guid.NewGuid());
@@ -171,12 +171,12 @@ public sealed class PendingMessageQueueTests(ITestOutputHelper output)
         _output.WriteLine("Test 007: Get retrieves message by id");
 
         // Arrange
-        var queue = new PendingMessageQueue();
-        var message = CreateTestMessage("NodeA");
+        PendingMessageQueue queue = new();
+        PendingMessage message = CreateTestMessage("NodeA");
         queue.Enqueue(message);
 
         // Act
-        var retrieved = queue.Get(message.LocalMessageId);
+        PendingMessage? retrieved = queue.Get(message.LocalMessageId);
 
         // Assert
         Assert.NotNull(retrieved);
@@ -193,10 +193,10 @@ public sealed class PendingMessageQueueTests(ITestOutputHelper output)
         _output.WriteLine("Test 008: Get returns null for non-existent message");
 
         // Arrange
-        var queue = new PendingMessageQueue();
+        PendingMessageQueue queue = new();
 
         // Act
-        var retrieved = queue.Get(Guid.NewGuid());
+        PendingMessage? retrieved = queue.Get(Guid.NewGuid());
 
         // Assert
         Assert.Null(retrieved);
@@ -211,8 +211,8 @@ public sealed class PendingMessageQueueTests(ITestOutputHelper output)
         _output.WriteLine("Test 009: Contains checks message existence");
 
         // Arrange
-        var queue = new PendingMessageQueue();
-        var message = CreateTestMessage("NodeA");
+        PendingMessageQueue queue = new();
+        PendingMessage message = CreateTestMessage("NodeA");
         queue.Enqueue(message);
 
         // Act & Assert
@@ -229,7 +229,7 @@ public sealed class PendingMessageQueueTests(ITestOutputHelper output)
         _output.WriteLine("Test 010: GetQueuedCountForNode returns pending count for node");
 
         // Arrange
-        var queue = new PendingMessageQueue();
+        PendingMessageQueue queue = new();
         queue.Enqueue(CreateTestMessage("NodeA"));
         queue.Enqueue(CreateTestMessage("NodeA"));
         queue.Enqueue(CreateTestMessage("NodeB"));
@@ -254,7 +254,7 @@ public sealed class PendingMessageQueueTests(ITestOutputHelper output)
         _output.WriteLine("Test 011: Clear empties the queue");
 
         // Arrange
-        var queue = new PendingMessageQueue();
+        PendingMessageQueue queue = new();
         queue.Enqueue(CreateTestMessage("NodeA"));
         queue.Enqueue(CreateTestMessage("NodeA"));
         queue.Enqueue(CreateTestMessage("NodeB"));
@@ -278,11 +278,11 @@ public sealed class PendingMessageQueueTests(ITestOutputHelper output)
         _output.WriteLine("Test 012: Messages preserve all properties");
 
         // Arrange
-        var queue = new PendingMessageQueue();
-        var localId = Guid.NewGuid();
-        var createdAt = DateTime.UtcNow;
+        PendingMessageQueue queue = new();
+        Guid localId = Guid.NewGuid();
+        DateTime createdAt = DateTime.UtcNow;
 
-        var message = new PendingMessage(localId, "DestinationNode")
+        PendingMessage message = new(localId, "DestinationNode")
         {
             Payload = new object(),
             PayloadType = typeof(string),
@@ -295,7 +295,7 @@ public sealed class PendingMessageQueueTests(ITestOutputHelper output)
 
         // Act
         queue.Enqueue(message);
-        var retrieved = queue.Get(localId);
+        PendingMessage? retrieved = queue.Get(localId);
 
         // Assert
         Assert.NotNull(retrieved);

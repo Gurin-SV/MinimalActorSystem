@@ -45,9 +45,9 @@ public sealed class VirtualTimeServiceTests(ITestOutputHelper output)
 
         public void Register(int callbackId, TimeSpan timeout)
         {
-            var callback = new TimeoutCallback(Uid, callbackId, () =>
+            TimeoutCallback callback = new(Uid, callbackId, () =>
             {
-                CallbackCounts.TryGetValue(callbackId, out var count);
+                CallbackCounts.TryGetValue(callbackId, out int count);
                 CallbackCounts[callbackId] = count + 1;
                 CallbackTimes[callbackId] = System.TimeService.UtcNow;
             });
@@ -135,10 +135,10 @@ public sealed class VirtualTimeServiceTests(ITestOutputHelper output)
     {
         var mode = synchronousProcessing ? TimeServiceModes.Sync : TimeServiceModes.Async;
         var system = SystemFactory.CreateSystem(_output, new Settings { TimeServiceModes = mode });
-        var timeService = new VirtualTimeService(system);
+        VirtualTimeService timeService = new(system);
         system.TimeService = timeService;
 
-        var actor = new SingleTimerTestActor(system, Guid.NewGuid(), "timer-test");
+        SingleTimerTestActor actor = new(system, Guid.NewGuid(), "timer-test");
         system.RegisterActor(actor);
 
         timeService.SetTime(StartTime);
@@ -166,10 +166,10 @@ public sealed class VirtualTimeServiceTests(ITestOutputHelper output)
     {
         var mode = synchronousProcessing ? TimeServiceModes.Sync : TimeServiceModes.Async;
         var system = SystemFactory.CreateSystem(_output, new Settings { TimeServiceModes = mode });
-        var timeService = new VirtualTimeService(system);
+        VirtualTimeService timeService = new(system);
         system.TimeService = timeService;
 
-        var actor = new SingleTimerTestActor(system, Guid.NewGuid(), "timer-test");
+        SingleTimerTestActor actor = new(system, Guid.NewGuid(), "timer-test");
         system.RegisterActor(actor);
 
         var deadline = "01.01.2024 00:00:07".AsUtc();
@@ -198,10 +198,10 @@ public sealed class VirtualTimeServiceTests(ITestOutputHelper output)
     {
         var mode = synchronousProcessing ? TimeServiceModes.Sync : TimeServiceModes.Async;
         var system = SystemFactory.CreateSystem(_output, new Settings { TimeServiceModes = mode });
-        var timeService = new VirtualTimeService(system);
+        VirtualTimeService timeService = new(system);
         system.TimeService = timeService;
 
-        var actor = new SingleTimerTestActor(system, Guid.NewGuid(), "timer-test");
+        SingleTimerTestActor actor = new(system, Guid.NewGuid(), "timer-test");
         system.RegisterActor(actor);
 
         timeService.SetTime(StartTime);
@@ -230,10 +230,10 @@ public sealed class VirtualTimeServiceTests(ITestOutputHelper output)
     {
         var mode = synchronousProcessing ? TimeServiceModes.Sync : TimeServiceModes.Async;
         var system = SystemFactory.CreateSystem(_output, new Settings { TimeServiceModes = mode });
-        var timeService = new VirtualTimeService(system);
+        VirtualTimeService timeService = new(system);
         system.TimeService = timeService;
 
-        var actor = new SingleTimerTestActor(system, Guid.NewGuid(), "timer-test");
+        SingleTimerTestActor actor = new(system, Guid.NewGuid(), "timer-test");
         system.RegisterActor(actor);
 
         timeService.SetTime(StartTime);
@@ -261,10 +261,10 @@ public sealed class VirtualTimeServiceTests(ITestOutputHelper output)
     {
         var mode = synchronousProcessing ? TimeServiceModes.Sync : TimeServiceModes.Async;
         var system = SystemFactory.CreateSystem(_output, new Settings { TimeServiceModes = mode });
-        var timeService = new VirtualTimeService(system);
+        VirtualTimeService timeService = new(system);
         system.TimeService = timeService;
 
-        var actor = new MultiTimerTestActor(system, Guid.NewGuid(), "multi-timer");
+        MultiTimerTestActor actor = new(system, Guid.NewGuid(), "multi-timer");
         system.RegisterActor(actor);
 
         timeService.SetTime(StartTime);
@@ -300,10 +300,10 @@ public sealed class VirtualTimeServiceTests(ITestOutputHelper output)
     {
         var mode = synchronousProcessing ? TimeServiceModes.Sync : TimeServiceModes.Async;
         var system = SystemFactory.CreateSystem(_output, new Settings { TimeServiceModes = mode });
-        var timeService = new VirtualTimeService(system);
+        VirtualTimeService timeService = new(system);
         system.TimeService = timeService;
 
-        var actor = new RescheduleTestActor(system, Guid.NewGuid(), "reschedule-test");
+        RescheduleTestActor actor = new(system, Guid.NewGuid(), "reschedule-test");
         system.RegisterActor(actor);
 
         timeService.SetTime(StartTime);
@@ -332,10 +332,10 @@ public sealed class VirtualTimeServiceTests(ITestOutputHelper output)
     {
         var mode = synchronousProcessing ? TimeServiceModes.Sync : TimeServiceModes.Async;
         var system = SystemFactory.CreateSystem(_output, new Settings { TimeServiceModes = mode });
-        var timeService = new VirtualTimeService(system);
+        VirtualTimeService timeService = new(system);
         system.TimeService = timeService;
 
-        var actor = new SingleTimerTestActor(system, Guid.NewGuid(), "past-deadline-test");
+        SingleTimerTestActor actor = new(system, Guid.NewGuid(), "past-deadline-test");
         system.RegisterActor(actor);
 
         var currentTime = "01.01.2024 00:00:10".AsUtc();
@@ -366,7 +366,7 @@ public sealed class VirtualTimeServiceTests(ITestOutputHelper output)
     {
         var mode = synchronousProcessing ? TimeServiceModes.Sync : TimeServiceModes.Async;
         var system = SystemFactory.CreateSystem(_output, new Settings { TimeServiceModes = mode });
-        var timeService = new VirtualTimeService(system);
+        VirtualTimeService timeService = new(system);
         system.TimeService = timeService;
 
         timeService.SetTime(StartTime);
@@ -393,10 +393,10 @@ public sealed class VirtualTimeServiceTests(ITestOutputHelper output)
     {
         var mode = synchronousProcessing ? TimeServiceModes.Sync : TimeServiceModes.Async;
         var system = SystemFactory.CreateSystem(_output, new Settings { TimeServiceModes = mode });
-        var timeService = new VirtualTimeService(system);
+        VirtualTimeService timeService = new(system);
         system.TimeService = timeService;
 
-        var subscriber = new SubscriberTestActor(system, Guid.NewGuid(), "subscriber");
+        SubscriberTestActor subscriber = new(system, Guid.NewGuid(), "subscriber");
         system.RegisterActor(subscriber);
         timeService.Subscribe(subscriber);
 
@@ -433,10 +433,10 @@ public sealed class VirtualTimeServiceTests(ITestOutputHelper output)
     {
         var mode = synchronousProcessing ? TimeServiceModes.Sync : TimeServiceModes.Async;
         var system = SystemFactory.CreateSystem(_output, new Settings { TimeServiceModes = mode });
-        var timeService = new VirtualTimeService(system);
+        VirtualTimeService timeService = new(system);
         system.TimeService = timeService;
 
-        var actor = new MultiTimerTestActor(system, Guid.NewGuid(), "simultaneous-test");
+        MultiTimerTestActor actor = new(system, Guid.NewGuid(), "simultaneous-test");
         system.RegisterActor(actor);
 
         timeService.SetTime(StartTime);
@@ -471,10 +471,10 @@ public sealed class VirtualTimeServiceTests(ITestOutputHelper output)
     {
         var mode = synchronousProcessing ? TimeServiceModes.Sync : TimeServiceModes.Async;
         var system = SystemFactory.CreateSystem(_output, new Settings { TimeServiceModes = mode });
-        var timeService = new VirtualTimeService(system);
+        VirtualTimeService timeService = new(system);
         system.TimeService = timeService;
 
-        var actor = new SingleTimerTestActor(system, Guid.NewGuid(), "shutdown-test");
+        SingleTimerTestActor actor = new(system, Guid.NewGuid(), "shutdown-test");
         system.RegisterActor(actor);
 
         timeService.SetTime(StartTime);

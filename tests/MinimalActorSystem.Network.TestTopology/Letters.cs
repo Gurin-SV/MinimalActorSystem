@@ -6,10 +6,8 @@
 /// <remarks>
 /// Letter for sending ComputePayload.
 /// </remarks>
-public sealed class ComputeLetter : Letter, IPayloadLetter
+public sealed class ComputeLetter(Guid sender, Guid receiver) : Letter(sender, receiver), IPayloadLetter
 {
-    public ComputeLetter(Guid sender, Guid receiver) : base(sender, receiver) { }
-
     public object Payload { get; set; } = null!;
 
     public Type PayloadType => typeof(ComputePayload);
@@ -21,10 +19,8 @@ public sealed class ComputeLetter : Letter, IPayloadLetter
 /// <remarks>
 /// Letter for sending ComputeResultPayload.
 /// </remarks>
-public sealed class ComputeResultLetter : Letter, IPayloadLetter
+public sealed class ComputeResultLetter(Guid sender, Guid receiver) : Letter(sender, receiver), IPayloadLetter
 {
-    public ComputeResultLetter(Guid sender, Guid receiver) : base(sender, receiver) { }
-
     public object Payload { get; set; } = null!;
 
     public Type PayloadType => typeof(ComputeResultPayload);
@@ -36,10 +32,8 @@ public sealed class ComputeResultLetter : Letter, IPayloadLetter
 /// <remarks>
 /// Letter for sending StoreDataPayload.
 /// </remarks>
-public sealed class StoreDataLetter : Letter, IPayloadLetter
+public sealed class StoreDataLetter(Guid sender, Guid receiver) : Letter(sender, receiver), IPayloadLetter
 {
-    public StoreDataLetter(Guid sender, Guid receiver) : base(sender, receiver) { }
-
     public object Payload { get; set; } = null!;
 
     public Type PayloadType => typeof(StoreDataPayload);
@@ -51,10 +45,8 @@ public sealed class StoreDataLetter : Letter, IPayloadLetter
 /// <remarks>
 /// Letter for sending SimpleTestPayload.
 /// </remarks>
-public sealed class SimpleTestLetter : Letter, IPayloadLetter
+public sealed class SimpleTestLetter(Guid sender, Guid receiver) : Letter(sender, receiver), IPayloadLetter
 {
-    public SimpleTestLetter(Guid sender, Guid receiver) : base(sender, receiver) { }
-
     public object Payload { get; set; } = null!;
 
     public Type PayloadType => typeof(SimpleTestPayload);

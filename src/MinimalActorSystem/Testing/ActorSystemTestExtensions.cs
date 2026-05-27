@@ -39,7 +39,7 @@ public static class ActorSystemTestExtensions
             Directory.CreateDirectory(TestFileLoggerDirectory);
         }
 
-        var filePath = Path.Combine(TestFileLoggerDirectory, $"{testMethodName}.log");
+        string filePath = Path.Combine(TestFileLoggerDirectory, $"{testMethodName}.log");
         var provider = new FileLoggerProvider(filePath, system, minLevel);
         var logger = provider.CreateLogger(string.Empty);
         system.Logger = logger;

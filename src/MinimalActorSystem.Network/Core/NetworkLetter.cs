@@ -140,7 +140,7 @@ public sealed class NetworkLetter(
         Type letterType,
         Guid localLetterId)
     {
-        var payloadJson = JsonSerializer.Serialize(payload, JsonOptions);
+        string payloadJson = JsonSerializer.Serialize(payload, JsonOptions);
 
         return new NetworkLetter(
             destinationNodeName,

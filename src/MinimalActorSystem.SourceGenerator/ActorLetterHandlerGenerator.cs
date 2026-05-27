@@ -36,15 +36,15 @@ public class ActorLetterHandlerGenerator : ISourceGenerator
         if (context.SyntaxContextReceiver is not SyntaxReceiver receiver)
             return;
 
-        foreach (var classDecl in receiver.Candidates)
+        foreach (ClassDeclarationSyntax classDecl in receiver.Candidates)
         {
-            var model = context.Compilation.GetSemanticModel(classDecl.SyntaxTree);
+            SemanticModel model = context.Compilation.GetSemanticModel(classDecl.SyntaxTree);
             if (model.GetDeclaredSymbol(classDecl) is not INamedTypeSymbol classSymbol)
                 continue;
 
             var handlers = new List<(string TypeName, string MethodName)>();
 
-            foreach (var member in classSymbol.GetMembers())
+            foreach (ISymbol member in classSymbol.GetMembers())
             {
                 if (member is not IMethodSymbol method)
                     continue;
@@ -55,7 +55,7 @@ public class ActorLetterHandlerGenerator : ISourceGenerator
                 if (method.Parameters.Length != 1)
                     continue;
 
-                var paramType = method.Parameters[0].Type;
+                ITypeSymbol paramType = method.Parameters[0].Type;
                 if (paramType is not INamedTypeSymbol namedType)
                     continue;
                 if (!namedType.IsSealed)
@@ -91,7 +91,7 @@ public class ActorLetterHandlerGenerator : ISourceGenerator
     /// </remarks>
     private static bool InheritsFromLetter(INamedTypeSymbol type)
     {
-        var baseType = type.BaseType;
+        INamedTypeSymbol baseType = type.BaseType;
         while (baseType != null)
         {
             if (baseType.ToDisplayString() == "MinimalActorSystem.Letter")
@@ -138,7 +138,7 @@ public class ActorLetterHandlerGenerator : ISourceGenerator
         sb.AppendLine($"{indent}        switch (letter)");
         sb.AppendLine($"{indent}        {{");
 
-        foreach (var (typeName, methodName) in handlers)
+        foreach ((string typeName, string methodName) in handlers)
         {
             sb.AppendLine($"{indent}            case {typeName} msg:");
             sb.AppendLine($"{indent}                return {methodName}(msg);");

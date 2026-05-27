@@ -10,8 +10,8 @@ public sealed class TimeoutCallbackTests
     [Fact]
     public void TimeoutCallbackTests_001()
     {
-        var cb1 = new TimeoutCallback(ActorUid, 1, () => { });
-        var cb2 = new TimeoutCallback(ActorUid, 1, () => { });
+        TimeoutCallback cb1 = new(ActorUid, 1, () => { });
+        TimeoutCallback cb2 = new(ActorUid, 1, () => { });
 
         Assert.Equal(cb1, cb2);
         Assert.True(cb1 == cb2);
@@ -23,8 +23,8 @@ public sealed class TimeoutCallbackTests
     [Fact]
     public void TimeoutCallbackTests_002()
     {
-        var cb1 = new TimeoutCallback(ActorUid, 1, () => { });
-        var cb2 = new TimeoutCallback(Guid.NewGuid(), 1, () => { });
+        TimeoutCallback cb1 = new(ActorUid, 1, () => { });
+        TimeoutCallback cb2 = new(Guid.NewGuid(), 1, () => { });
 
         Assert.NotEqual(cb1, cb2);
         Assert.False(cb1 == cb2);
@@ -36,8 +36,8 @@ public sealed class TimeoutCallbackTests
     [Fact]
     public void TimeoutCallbackTests_003()
     {
-        var cb1 = new TimeoutCallback(ActorUid, 1, () => { });
-        var cb2 = new TimeoutCallback(ActorUid, 2, () => { });
+        TimeoutCallback cb1 = new(ActorUid, 1, () => { });
+        TimeoutCallback cb2 = new(ActorUid, 2, () => { });
 
         Assert.NotEqual(cb1, cb2);
         Assert.False(cb1 == cb2);
@@ -49,8 +49,8 @@ public sealed class TimeoutCallbackTests
     [Fact]
     public void TimeoutCallbackTests_004()
     {
-        var cb1 = new TimeoutCallback(ActorUid, 42, () => { });
-        var cb2 = new TimeoutCallback(ActorUid, 42, () => { });
+        TimeoutCallback cb1 = new(ActorUid, 42, () => { });
+        TimeoutCallback cb2 = new(ActorUid, 42, () => { });
 
         Assert.Equal(cb1.GetHashCode(), cb2.GetHashCode());
     }
@@ -61,8 +61,8 @@ public sealed class TimeoutCallbackTests
     [Fact]
     public void TimeoutCallbackTests_005()
     {
-        var invoked = false;
-        var cb = new TimeoutCallback(ActorUid, 1, () => invoked = true);
+        bool invoked = false;
+        TimeoutCallback cb = new(ActorUid, 1, () => invoked = true);
 
         cb.Action();
 
@@ -75,7 +75,7 @@ public sealed class TimeoutCallbackTests
     [Fact]
     public void TimeoutCallbackTests_006()
     {
-        var cb = new TimeoutCallback(ActorUid, 1, () => { });
+        TimeoutCallback cb = new(ActorUid, 1, () => { });
 
         Assert.False(cb.Equals(null));
     }
@@ -86,8 +86,8 @@ public sealed class TimeoutCallbackTests
     [Fact]
     public void TimeoutCallbackTests_007()
     {
-        var cb = new TimeoutCallback(ActorUid, 1, () => { });
-        var notCallback = "some string";
+        TimeoutCallback cb = new(ActorUid, 1, () => { });
+        string notCallback = "some string";
 
         Assert.False(cb.Equals(notCallback));
     }
@@ -98,8 +98,8 @@ public sealed class TimeoutCallbackTests
     [Fact]
     public void TimeoutCallbackTests_008()
     {
-        var cb1 = new TimeoutCallback(ActorUid, 1, () => { });
-        var cb2 = new TimeoutCallback(ActorUid, 1, () => Console.WriteLine("different"));
+        TimeoutCallback cb1 = new(ActorUid, 1, () => { });
+        TimeoutCallback cb2 = new(ActorUid, 1, () => Console.WriteLine("different"));
 
         Assert.Equal(cb1, cb2);
         Assert.True(cb1 == cb2);
@@ -111,9 +111,9 @@ public sealed class TimeoutCallbackTests
     [Fact]
     public void TimeoutCallbackTests_009()
     {
-        var cb1 = new TimeoutCallback(ActorUid, 1, () => { });
-        var cb2 = new TimeoutCallback(ActorUid, 1, () => { });
-        var cb3 = new TimeoutCallback(ActorUid, 2, () => { });
+        TimeoutCallback cb1 = new(ActorUid, 1, () => { });
+        TimeoutCallback cb2 = new(ActorUid, 1, () => { });
+        TimeoutCallback cb3 = new(ActorUid, 2, () => { });
 
         Assert.False(cb1 != cb2); // одинаковые — не должны быть не равны
         Assert.True(cb1 != cb3);  // разные — должны быть не равны
@@ -125,9 +125,9 @@ public sealed class TimeoutCallbackTests
     [Fact]
     public void TimeoutCallbackTests_010()
     {
-        var cb = new TimeoutCallback(ActorUid, 42, () => { });
-        var firstHash = cb.GetHashCode();
-        var secondHash = cb.GetHashCode();
+        TimeoutCallback cb = new(ActorUid, 42, () => { });
+        int firstHash = cb.GetHashCode();
+        int secondHash = cb.GetHashCode();
 
         Assert.Equal(firstHash, secondHash);
     }

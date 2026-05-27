@@ -1,6 +1,6 @@
-﻿using System.Linq;
+﻿using Microsoft.Extensions.Logging;
+using System.Linq;
 using System.Reflection;
-using Microsoft.Extensions.Logging;
 
 namespace MinimalActorSystem.Network;
 
@@ -96,8 +96,8 @@ public abstract class NetworkActor : Actor
 
         await _routerClient.RegisterNodeAsync(nodeName, nodeAddress);
 
-        var allNodes = await _routerClient.GetAllNodesAsync();
-        foreach (var node in allNodes)
+        IReadOnlyDictionary<string, string> allNodes = await _routerClient.GetAllNodesAsync();
+        foreach (KeyValuePair<string, string> node in allNodes)
         {
             _nodeRegistry.RegisterNode(node.Key, node.Value);
             _nodeRegistry.SetNodeStatus(node.Key, NodeStatus.Active);
@@ -108,7 +108,7 @@ public abstract class NetworkActor : Actor
 
         // Автоматическая загрузка исходящих маршрутов из атрибутов Topology
         var topologyLoader = new TopologyLoader(topologyAssembly);
-        foreach (var route in topologyLoader.DestinationNodeRoutes)
+        foreach (KeyValuePair<Type, string[]> route in topologyLoader.DestinationNodeRoutes)
         {
             if (!OutboundRoutes.ContainsKey(route.Key))
             {
@@ -175,11 +175,11 @@ public abstract class NetworkActor : Actor
     /// </summary>
     protected void RegisterInboundRoutesFromHandlers()
     {
-        var methods = GetType().GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+        MethodInfo[] methods = GetType().GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
 
-        foreach (var method in methods)
+        foreach (MethodInfo? method in methods)
         {
-            var attribute = method.GetCustomAttribute<HandlesPayloadAttribute>();
+            HandlesPayloadAttribute attribute = method.GetCustomAttribute<HandlesPayloadAttribute>();
             if (attribute == null)
                 continue;
 
@@ -202,11 +202,11 @@ public abstract class NetworkActor : Actor
             }
         }
 
-        var properties = GetType().GetProperties(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+        PropertyInfo[] properties = GetType().GetProperties(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
 
-        foreach (var property in properties)
+        foreach (PropertyInfo? property in properties)
         {
-            var attribute = property.GetCustomAttribute<HandlesPayloadAttribute>();
+            HandlesPayloadAttribute attribute = property.GetCustomAttribute<HandlesPayloadAttribute>();
             if (attribute == null)
                 continue;
 
@@ -257,7 +257,7 @@ public abstract class NetworkActor : Actor
     /// </summary>
     private async Task HandleOutgoingLetter(IPayloadLetter payloadLetter)
     {
-        var payloadType = payloadLetter.PayloadType;
+        Type payloadType = payloadLetter.PayloadType;
 
         if (!OutboundRoutes.TryGetValue(payloadType, out var destinationNodes) || destinationNodes.Length == 0)
         {
@@ -372,9 +372,9 @@ public abstract class NetworkActor : Actor
     /// </summary>
     private async Task DeliverLocally(PendingMessage pendingMessage)
     {
-        var payloadType = pendingMessage.PayloadType;
+        Type payloadType = pendingMessage.PayloadType;
 
-        if (!InboundRoutes.TryGetValue(payloadType, out var targetActorUid))
+        if (!InboundRoutes.TryGetValue(payloadType, out Guid targetActorUid))
         {
             System.Logger.LogWarning("No inbound route for Payload type {PayloadType}", payloadType.Name);
             return;
@@ -407,7 +407,7 @@ public abstract class NetworkActor : Actor
 
         System.Logger.LogDebug("Received network message from node {SourceNode}", sourceNodeName);
 
-        var networkLetter = _serializer.Deserialize(serializedMessage);
+        NetworkLetter? networkLetter = _serializer.Deserialize(serializedMessage);
         if (networkLetter == null)
         {
             System.Logger.LogWarning("Failed to deserialize network message");
@@ -433,8 +433,8 @@ public abstract class NetworkActor : Actor
         object payload;
         try
         {
-            var method = typeof(NetworkLetter).GetMethod(nameof(NetworkLetter.GetPayload));
-            var genericMethod = method!.MakeGenericMethod(payloadType);
+            MethodInfo method = typeof(NetworkLetter).GetMethod(nameof(NetworkLetter.GetPayload));
+            MethodInfo genericMethod = method!.MakeGenericMethod(payloadType);
             payload = genericMethod.Invoke(networkLetter, null)!;
         }
         catch (Exception ex)
@@ -489,7 +489,7 @@ public abstract class NetworkActor : Actor
     /// </summary>
     private async Task FlushPendingLettersForNode(string nodeName)
     {
-        var lettersToSend = _pendingQueue.DequeueForNode(nodeName);
+        IReadOnlyList<PendingMessage> lettersToSend = _pendingQueue.DequeueForNode(nodeName);
 
         if (!lettersToSend.Any())
         {
@@ -498,7 +498,7 @@ public abstract class NetworkActor : Actor
 
         System.Logger.LogInformation("Sending {Count} pending letters for node {Node}", lettersToSend.Count, nodeName);
 
-        foreach (var letter in lettersToSend)
+        foreach (PendingMessage letter in lettersToSend)
         {
             await SendLetter(letter);
         }

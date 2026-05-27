@@ -1,5 +1,5 @@
-﻿using System.Reflection;
-using MinimalActorSystem.Network.TestTopology;
+﻿using MinimalActorSystem.Network.TestTopology;
+using System.Reflection;
 
 namespace MinimalActorSystem.Network.Tests;
 
@@ -20,7 +20,7 @@ public sealed class TopologyLoaderTests(ITestOutputHelper output)
         _output.WriteLine("Test 001: Constructor saves assembly");
 
         // Act
-        var loader = new TopologyLoader(_topologyAssembly);
+        TopologyLoader loader = new(_topologyAssembly);
 
         // Assert
         Assert.Same(_topologyAssembly, loader.Assembly);
@@ -48,13 +48,13 @@ public sealed class TopologyLoaderTests(ITestOutputHelper output)
         _output.WriteLine("Test 003: DestinationNodeRoutes loads routes from attributes");
 
         // Act
-        var loader = new TopologyLoader(_topologyAssembly);
-        var routes = loader.DestinationNodeRoutes;
+        TopologyLoader loader = new(_topologyAssembly);
+        IReadOnlyDictionary<Type, string[]> routes = loader.DestinationNodeRoutes;
 
         // Assert
         Assert.NotEmpty(routes);
 
-        foreach (var route in routes)
+        foreach (KeyValuePair<Type, string[]> route in routes)
         {
             _output.WriteLine($"Payload: {route.Key.Name}, Nodes: {string.Join(", ", route.Value)}");
         }
@@ -75,8 +75,8 @@ public sealed class TopologyLoaderTests(ITestOutputHelper output)
         _output.WriteLine("Test 004: RouterAddresses loads router addresses");
 
         // Act
-        var loader = new TopologyLoader(_topologyAssembly);
-        var addresses = loader.RouterAddresses;
+        TopologyLoader loader = new(_topologyAssembly);
+        IReadOnlyList<string> addresses = loader.RouterAddresses;
 
         // Assert
         Assert.NotEmpty(addresses);
@@ -99,8 +99,8 @@ public sealed class TopologyLoaderTests(ITestOutputHelper output)
         _output.WriteLine("Test 005: NodeNames loads node names");
 
         // Act
-        var loader = new TopologyLoader(_topologyAssembly);
-        var nodeNames = loader.NodeNames;
+        TopologyLoader loader = new(_topologyAssembly);
+        IReadOnlyList<string> nodeNames = loader.NodeNames;
 
         // Assert
         Assert.NotEmpty(nodeNames);
@@ -125,7 +125,7 @@ public sealed class TopologyLoaderTests(ITestOutputHelper output)
         _output.WriteLine("Test 006: GetDestinationNodesForPayload returns routes for Payload");
 
         // Arrange
-        var loader = new TopologyLoader(_topologyAssembly);
+        TopologyLoader loader = new(_topologyAssembly);
 
         // Act
         var computeNodes = loader.GetDestinationNodesForPayload(typeof(ComputePayload));
@@ -156,10 +156,10 @@ public sealed class TopologyLoaderTests(ITestOutputHelper output)
         _output.WriteLine("Test 007: GetPayloadTypes returns all types with DestinationNode attribute");
 
         // Arrange
-        var loader = new TopologyLoader(_topologyAssembly);
+        TopologyLoader loader = new(_topologyAssembly);
 
         // Act
-        var payloadTypes = loader.GetPayloadTypes();
+        IReadOnlyList<Type> payloadTypes = loader.GetPayloadTypes();
 
         // Assert
         Assert.Equal(3, payloadTypes.Count); // ComputePayload, ComputeResultPayload, StoreDataPayload
@@ -167,7 +167,7 @@ public sealed class TopologyLoaderTests(ITestOutputHelper output)
         Assert.Contains(payloadTypes, t => t == typeof(ComputeResultPayload));
         Assert.Contains(payloadTypes, t => t == typeof(StoreDataPayload));
 
-        foreach (var type in payloadTypes)
+        foreach (Type type in payloadTypes)
         {
             _output.WriteLine($"Payload type with DestinationNode: {type.Name}");
         }

@@ -48,7 +48,7 @@ public class ElementRule
     /// </remarks>
     public ElementRule WithProperties(params string[] names)
     {
-        foreach (var name in names)
+        foreach (string name in names)
             _properties.Add(name);
         return this;
     }
@@ -81,7 +81,7 @@ public class ElementRule
     /// </remarks>
     public ElementRule WithRequired(params string[] names)
     {
-        foreach (var name in names)
+        foreach (string name in names)
         {
             _properties.Add(name);
             _required.Add(name);
@@ -115,7 +115,7 @@ public class ElementRule
     /// </remarks>
     public ElementRule WithGroupElements(params string[] names)
     {
-        foreach (var name in names)
+        foreach (string name in names)
             _groupElements.Add(name);
         return this;
     }

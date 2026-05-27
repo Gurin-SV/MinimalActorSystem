@@ -52,7 +52,7 @@ public abstract class CompiledModelActor(IActorSystem system, int queueCapacity 
             case InitializeLetter:
                 try
                 {
-                    var model = CompileModel();
+                    CompiledModel model = CompileModel();
                     Build(model);
                 }
                 catch (Exception ex)
@@ -89,9 +89,9 @@ public abstract class CompiledModelActor(IActorSystem system, int queueCapacity 
     private void Build(CompiledModel model)
     {
         // 1. Создать все объекты
-        foreach (var uid in model.Uids)
+        foreach (Guid uid in model.Uids)
         {
-            var element = model.FindElement(uid);
+            ElementConfig? element = model.FindElement(uid);
             if (element == null)
                 continue;
 
@@ -103,7 +103,7 @@ public abstract class CompiledModelActor(IActorSystem system, int queueCapacity 
         OnAfterCreate(model);
 
         // 3. Зарегистрировать акторы
-        foreach (var uid in model.Uids)
+        foreach (Guid uid in model.Uids)
         {
             if (_objects[uid] is Actor actor)
             {

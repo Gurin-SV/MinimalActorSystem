@@ -24,7 +24,7 @@ public static class NetworkTestSystemFactory
     public static ActorSystem CreateNetworkSystem(ITestOutputHelper output, Settings? settings = null,
         LogLevel minLevel = LogLevel.Trace)
     {
-        var system = new ActorSystem(settings ?? new Settings());
+        ActorSystem system = new(settings ?? new Settings());
         system.CreateTestLogger(output.WriteLine, minLevel);
         return system;
     }
@@ -42,7 +42,7 @@ public static class NetworkTestSystemFactory
     public static ActorSystem CreateNetworkSystemWithFileLogging(string testMethodName,
         Settings? settings = null, LogLevel minLevel = LogLevel.Trace)
     {
-        var system = new ActorSystem(settings ?? new Settings());
+        ActorSystem system = new(settings ?? new Settings());
         system.CreateTestFileLogger(minLevel, testMethodName);
         return system;
     }
@@ -53,7 +53,7 @@ public static class NetworkTestSystemFactory
     public static ActorSystem CreateNetworkSystemWithRealTime(ITestOutputHelper output,
         Settings? settings = null, LogLevel minLevel = LogLevel.Trace)
     {
-        var system = new ActorSystem(settings ?? new Settings());
+        ActorSystem system = new(settings ?? new Settings());
         system.CreateTestLogger(output.WriteLine, minLevel);
         system.TimeService = new SystemTimeService(system);
         return system;

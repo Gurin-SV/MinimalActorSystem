@@ -55,9 +55,9 @@ public sealed class PingPongTests(ITestOutputHelper output)
 
         protected override void OnBuildModel()
         {
-            var pong = new PongActor(System, Guid.NewGuid(), "pong");
+            PongActor pong = new(System, Guid.NewGuid(), "pong");
             _pongUid = pong.Uid;
-            var ping = new PingActor(System, Guid.NewGuid(), "ping", done);
+            PingActor ping = new(System, Guid.NewGuid(), "ping", done);
 
             Create(pong);
             Create(ping);
@@ -129,19 +129,19 @@ public sealed class PingPongTests(ITestOutputHelper output)
     [Fact]
     public async Task PingPongTests_001()
     {
-        var system = SystemFactory.CreateSystem(_output);
+        ActorSystem system = SystemFactory.CreateSystem(_output);
 
-        var done = new TaskCompletionSource<bool>();
-        var modelReady = new TaskCompletionSource<bool>();
-        var model = new PingPongModelActor(system, done, modelReady);
+        TaskCompletionSource<bool> done = new();
+        TaskCompletionSource<bool> modelReady = new();
+        PingPongModelActor model = new(system, done, modelReady);
         system.RegisterActor(model);
         system.Send(new InitializeLetter(SystemUids.System, SystemUids.Model));
 
         await modelReady.Task.WaitAsync(TimeSpan.FromSeconds(1));
         model.StartPing();
 
-        var timeout = Task.Delay(TimeSpan.FromSeconds(1));
-        var completed = await Task.WhenAny(done.Task, timeout);
+        Task timeout = Task.Delay(TimeSpan.FromSeconds(1));
+        Task completed = await Task.WhenAny(done.Task, timeout);
         if (completed == timeout)
             Assert.Fail("Timeout waiting for Pong");
 
@@ -158,15 +158,15 @@ public sealed class PingPongTests(ITestOutputHelper output)
     [Fact]
     public async Task PingPongTests_002()
     {
-        var settings = new Settings
+        Settings settings = new()
         {
             TimeServiceModes = TimeServiceModes.Sync
         };
-        var system = SystemFactory.CreateSystem(_output, settings);
+        ActorSystem system = SystemFactory.CreateSystem(_output, settings);
 
-        var done = new TaskCompletionSource<bool>();
-        var modelReady = new TaskCompletionSource<bool>();
-        var model = new PingPongModelActor(system, done, modelReady);
+        TaskCompletionSource<bool> done = new();
+        TaskCompletionSource<bool> modelReady = new();
+        PingPongModelActor model = new(system, done, modelReady);
         system.RegisterActor(model);
         system.Send(new InitializeLetter(SystemUids.System, SystemUids.Model));
 
@@ -188,23 +188,23 @@ public sealed class PingPongTests(ITestOutputHelper output)
     [Fact]
     public async Task PingPongTests_003()
     {
-        var settings = new Settings
+        Settings settings = new()
         {
             TimeServiceModes = TimeServiceModes.Async
         };
-        var system = SystemFactory.CreateSystem(_output, settings);
+        ActorSystem system = SystemFactory.CreateSystem(_output, settings);
 
-        var done = new TaskCompletionSource<bool>();
-        var modelReady = new TaskCompletionSource<bool>();
-        var model = new PingPongModelActor(system, done, modelReady);
+        TaskCompletionSource<bool> done = new();
+        TaskCompletionSource<bool> modelReady = new();
+        PingPongModelActor model = new(system, done, modelReady);
         system.RegisterActor(model);
         system.Send(new InitializeLetter(SystemUids.System, SystemUids.Model));
 
         await modelReady.Task.WaitAsync(TimeSpan.FromSeconds(1));
         model.StartPing();
 
-        var timeout = Task.Delay(TimeSpan.FromSeconds(1));
-        var completed = await Task.WhenAny(done.Task, timeout);
+        Task timeout = Task.Delay(TimeSpan.FromSeconds(1));
+        Task completed = await Task.WhenAny(done.Task, timeout);
         if (completed == timeout)
             Assert.Fail("Timeout waiting for Pong");
 
@@ -221,26 +221,26 @@ public sealed class PingPongTests(ITestOutputHelper output)
     [Fact]
     public async Task PingPongTests_004()
     {
-        var system = SystemFactory.CreateSystem(_output);
+        ActorSystem system = SystemFactory.CreateSystem(_output);
 
-        var done = new TaskCompletionSource<bool>();
-        var modelReady = new TaskCompletionSource<bool>();
-        var model = new PingPongModelActor(system, done, modelReady);
+        TaskCompletionSource<bool> done = new();
+        TaskCompletionSource<bool> modelReady = new();
+        PingPongModelActor model = new(system, done, modelReady);
         system.RegisterActor(model);
         system.Send(new InitializeLetter(SystemUids.System, SystemUids.Model));
 
         await modelReady.Task.WaitAsync(TimeSpan.FromSeconds(1));
         model.StartPing();
 
-        var timeout = Task.Delay(TimeSpan.FromSeconds(1));
-        var completed = await Task.WhenAny(done.Task, timeout);
+        Task timeout = Task.Delay(TimeSpan.FromSeconds(1));
+        Task completed = await Task.WhenAny(done.Task, timeout);
         if (completed == timeout)
             Assert.Fail("Timeout waiting for Pong");
 
         system.Shutdown();
-        var shutdownTask = system.WaitForShutdownAsync();
-        var shutdownTimeout = Task.Delay(TimeSpan.FromSeconds(2));
-        var shutdownCompleted = await Task.WhenAny(shutdownTask, shutdownTimeout);
+        Task shutdownTask = system.WaitForShutdownAsync();
+        Task shutdownTimeout = Task.Delay(TimeSpan.FromSeconds(2));
+        Task shutdownCompleted = await Task.WhenAny(shutdownTask, shutdownTimeout);
 
         Assert.Equal(shutdownTask, shutdownCompleted);
         Assert.False(system.IsPanic);
@@ -252,19 +252,19 @@ public sealed class PingPongTests(ITestOutputHelper output)
     [Fact]
     public async Task PingPongTests_005()
     {
-        var system = SystemFactory.CreateSystem(_output);
+        ActorSystem system = SystemFactory.CreateSystem(_output);
 
-        var done = new TaskCompletionSource<bool>();
-        var modelReady = new TaskCompletionSource<bool>();
-        var model = new PingPongModelActor(system, done, modelReady);
+        TaskCompletionSource<bool> done = new();
+        TaskCompletionSource<bool> modelReady = new();
+        PingPongModelActor model = new(system, done, modelReady);
         system.RegisterActor(model);
         system.Send(new InitializeLetter(SystemUids.System, SystemUids.Model));
 
         await modelReady.Task.WaitAsync(TimeSpan.FromSeconds(1));
         model.StartPing();
 
-        var timeout = Task.Delay(TimeSpan.FromSeconds(1));
-        var completed = await Task.WhenAny(done.Task, timeout);
+        Task timeout = Task.Delay(TimeSpan.FromSeconds(1));
+        Task completed = await Task.WhenAny(done.Task, timeout);
         if (completed == timeout)
             Assert.Fail("Timeout waiting for Pong");
 
@@ -280,24 +280,24 @@ public sealed class PingPongTests(ITestOutputHelper output)
     [Fact]
     public async Task PingPongTests_006()
     {
-        var system = SystemFactory.CreateSystem(_output);
+        ActorSystem system = SystemFactory.CreateSystem(_output);
 
         const int expectedExchanges = 5;
-        var done = new TaskCompletionSource<bool>();
+        TaskCompletionSource<bool> done = new();
 
-        var pongUid = Guid.NewGuid();
-        var pingUid = Guid.NewGuid();
+        Guid pongUid = Guid.NewGuid();
+        Guid pingUid = Guid.NewGuid();
 
-        var pong = new MultiExchangePongActor(system, pongUid, "multi-pong");
-        var ping = new MultiExchangePingActor(system, pingUid, "multi-ping", pongUid, expectedExchanges, done);
+        MultiExchangePongActor pong = new(system, pongUid, "multi-pong");
+        MultiExchangePingActor ping = new(system, pingUid, "multi-ping", pongUid, expectedExchanges, done);
 
         system.RegisterActor(pong);
         system.RegisterActor(ping);
 
         system.Send(new StartPingLetter(SystemUids.System, pingUid, pongUid));
 
-        var timeout = Task.Delay(TimeSpan.FromSeconds(2));
-        var completed = await Task.WhenAny(done.Task, timeout);
+        Task timeout = Task.Delay(TimeSpan.FromSeconds(2));
+        Task completed = await Task.WhenAny(done.Task, timeout);
         if (completed == timeout)
             Assert.Fail("Timeout waiting for multiple ping-pong exchanges");
 

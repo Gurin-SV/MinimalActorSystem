@@ -85,7 +85,7 @@ public class ElementConfig
     public bool TryGetInt32(string name, out int value)
     {
         value = 0;
-        if (!_properties.TryGetValue(name, out var str))
+        if (!_properties.TryGetValue(name, out string? str))
             return false;
 
         if (TryParseNumber(str, out value))
@@ -108,7 +108,7 @@ public class ElementConfig
     public bool TryGetInt64(string name, out long value)
     {
         value = 0;
-        if (!_properties.TryGetValue(name, out var str))
+        if (!_properties.TryGetValue(name, out string? str))
             return false;
 
         if (TryParseNumber(str, out value))
@@ -133,7 +133,7 @@ public class ElementConfig
     public bool TryGetDouble(string name, out double value)
     {
         value = 0.0;
-        if (!_properties.TryGetValue(name, out var str))
+        if (!_properties.TryGetValue(name, out string? str))
             return false;
 
         if (TryParseNumber(str, out value))
@@ -154,7 +154,7 @@ public class ElementConfig
     public bool TryGetBoolean(string name, out bool value)
     {
         value = false;
-        return _properties.TryGetValue(name, out var str) && bool.TryParse(str, out value);
+        return _properties.TryGetValue(name, out string? str) && bool.TryParse(str, out value);
     }
 
     /// <summary>
@@ -169,7 +169,7 @@ public class ElementConfig
     public bool TryGetGuid(string name, out Guid value)
     {
         value = Guid.Empty;
-        return _properties.TryGetValue(name, out var str) && Guid.TryParse(str, out value);
+        return _properties.TryGetValue(name, out string? str) && Guid.TryParse(str, out value);
     }
 
     /// <summary>
@@ -185,7 +185,7 @@ public class ElementConfig
     public bool TryGetEnum<T>(string name, out T value) where T : struct, Enum
     {
         value = default;
-        return _properties.TryGetValue(name, out var str) && Enum.TryParse(str, true, out value);
+        return _properties.TryGetValue(name, out string? str) && Enum.TryParse(str, true, out value);
     }
 
     /// <summary>

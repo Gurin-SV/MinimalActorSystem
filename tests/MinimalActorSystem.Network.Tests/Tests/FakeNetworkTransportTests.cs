@@ -18,7 +18,7 @@ public sealed class FakeNetworkTransportExtraTests(ITestOutputHelper output)
         _output.WriteLine("Test 001: SendAsync handles cancellation");
 
         // Arrange
-        var system = SystemFactory.CreateSystem(_output);
+        ActorSystem system = SystemFactory.CreateSystem(_output);
         var registry = new ConcurrentDictionary<string, FakeNetworkTransport>();
         var cts = new CancellationTokenSource();
 
@@ -54,7 +54,7 @@ public sealed class FakeNetworkTransportExtraTests(ITestOutputHelper output)
         _output.WriteLine("Test 002: RegisterNodeAsync throws on empty node name");
 
         // Arrange
-        var system = SystemFactory.CreateSystem(_output);
+        ActorSystem system = SystemFactory.CreateSystem(_output);
         var registry = new ConcurrentDictionary<string, FakeNetworkTransport>();
         using var transport = new FakeNetworkTransport(registry, system);
 
@@ -77,7 +77,7 @@ public sealed class FakeNetworkTransportExtraTests(ITestOutputHelper output)
         _output.WriteLine("Test 003: SetMessageHandler throws on null handler");
 
         // Arrange
-        var system = SystemFactory.CreateSystem(_output);
+        ActorSystem system = SystemFactory.CreateSystem(_output);
         var registry = new ConcurrentDictionary<string, FakeNetworkTransport>();
         using var transport = new FakeNetworkTransport(registry, system);
 
@@ -97,7 +97,7 @@ public sealed class FakeNetworkTransportExtraTests(ITestOutputHelper output)
         _output.WriteLine("Test 004: Multiple registration of same node updates registry");
 
         // Arrange
-        var system = SystemFactory.CreateSystem(_output);
+        ActorSystem system = SystemFactory.CreateSystem(_output);
         var registry = new ConcurrentDictionary<string, FakeNetworkTransport>();
 
         using var transport = new FakeNetworkTransport(registry, system);
@@ -123,7 +123,7 @@ public sealed class FakeNetworkTransportExtraTests(ITestOutputHelper output)
         _output.WriteLine("Test 005: SendAsync after Dispose throws ObjectDisposedException");
 
         // Arrange
-        var system = SystemFactory.CreateSystem(_output);
+        ActorSystem system = SystemFactory.CreateSystem(_output);
         var registry = new ConcurrentDictionary<string, FakeNetworkTransport>();
 
         var transport = new FakeNetworkTransport(registry, system);
@@ -148,7 +148,7 @@ public sealed class FakeNetworkTransportExtraTests(ITestOutputHelper output)
         _output.WriteLine("Test 006: SendAsync throws on empty node name");
 
         // Arrange
-        var system = SystemFactory.CreateSystem(_output);
+        ActorSystem system = SystemFactory.CreateSystem(_output);
         var registry = new ConcurrentDictionary<string, FakeNetworkTransport>();
         using var transport = new FakeNetworkTransport(registry, system);
         await transport.RegisterNodeAsync("Sender");
@@ -172,7 +172,7 @@ public sealed class FakeNetworkTransportExtraTests(ITestOutputHelper output)
         _output.WriteLine("Test 007: Multiple registration of same node name does not create duplicates");
 
         // Arrange
-        var system = SystemFactory.CreateSystem(_output);
+        ActorSystem system = SystemFactory.CreateSystem(_output);
         var registry = new ConcurrentDictionary<string, FakeNetworkTransport>();
 
         using var transport1 = new FakeNetworkTransport(registry, system);

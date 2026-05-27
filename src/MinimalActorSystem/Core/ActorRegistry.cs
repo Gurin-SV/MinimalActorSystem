@@ -11,10 +11,6 @@ namespace MinimalActorSystem;
 /// </remarks>
 internal sealed class ActorRegistry
 {
-    private readonly ConcurrentDictionary<Guid, Actor> _actors = [];
-    private readonly object _emptyLock = new();
-    private TaskCompletionSource<bool>? _emptyTcs;
-
     /// <summary>
     /// Текущее количество зарегистрированных акторов.
     /// </summary>
@@ -28,6 +24,10 @@ internal sealed class ActorRegistry
     {
         _actors[actor.Uid] = actor;
     }
+
+    private readonly ConcurrentDictionary<Guid, Actor> _actors = [];
+    private readonly object _emptyLock = new();
+    private TaskCompletionSource<bool>? _emptyTcs;
 
     /// <summary>
     /// Удаляет актор из реестра по идентификатору.
@@ -76,7 +76,7 @@ internal sealed class ActorRegistry
     /// </remarks>
     public string GetName(Guid uid)
     {
-        if (_actors.TryGetValue(uid, out var actor))
+        if (_actors.TryGetValue(uid, out Actor? actor))
             return actor.Name;
         if (uid == SystemUids.System)
             return "System";

@@ -16,7 +16,7 @@ public sealed class LoggerTests(ITestOutputHelper output)
     public void LoggerTests_001()
     {
         ActorSystemExtensions.FileLoggerDirectory = Path.GetTempPath();
-        var system = new ActorSystem(new Settings());
+        ActorSystem system = new(new Settings());
         system.CreateTestFileLogger();
 
         system.Logger.LogInformation("Test message 1");
@@ -31,7 +31,7 @@ public sealed class LoggerTests(ITestOutputHelper output)
         {
             Assert.True(File.Exists(fileLogger.FilePath), "Log file should exist");
 
-            var lines = File.ReadAllLines(fileLogger.FilePath);
+            string[] lines = File.ReadAllLines(fileLogger.FilePath);
             Assert.Equal(3, lines.Length);
             Assert.Contains("Information", lines[0]);
             Assert.Contains("Warning", lines[1]);
@@ -72,11 +72,11 @@ public sealed class LoggerTests(ITestOutputHelper output)
     [Fact]
     public void LoggerTests_004()
     {
-        var tempFile = Path.GetTempFileName();
+        string tempFile = Path.GetTempFileName();
         try
         {
-            var system = new ActorSystem(new Settings());
-            var provider = new FileLoggerProvider(tempFile, system, LogLevel.Warning);
+            ActorSystem system = new(new Settings());
+            FileLoggerProvider provider = new(tempFile, system, LogLevel.Warning);
             system.Logger = provider.CreateLogger(string.Empty);
 
             system.Logger.LogTrace("Trace message - should be ignored");
@@ -88,7 +88,7 @@ public sealed class LoggerTests(ITestOutputHelper output)
             if (system.Logger is FileLogger fileLogger)
                 fileLogger.Dispose();
 
-            var lines = File.ReadAllLines(tempFile);
+            string[] lines = File.ReadAllLines(tempFile);
             Assert.Equal(2, lines.Length);
             Assert.Contains("Warning", lines[0]);
             Assert.Contains("Error", lines[1]);
@@ -106,12 +106,12 @@ public sealed class LoggerTests(ITestOutputHelper output)
     [Fact]
     public void LoggerTests_005()
     {
-        var testDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        string testDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
         ActorSystemTestExtensions.TestFileLoggerDirectory = testDir;
 
         try
         {
-            var system = new ActorSystem(new Settings());
+            ActorSystem system = new(new Settings());
             system.CreateTestFileLogger(minLevel: LogLevel.Information);
 
             system.Logger.LogInformation("Test message");
@@ -122,7 +122,7 @@ public sealed class LoggerTests(ITestOutputHelper output)
             Assert.True(Directory.Exists(testDir), "Log directory should be created");
 
             // Ожидаемое имя файла формируется из имени тестового метода (CallerMemberName)
-            var expectedFilePath = Path.Combine(testDir, "LoggerTests_005.log");
+            string expectedFilePath = Path.Combine(testDir, "LoggerTests_005.log");
             Assert.True(File.Exists(expectedFilePath), $"Log file should exist at {expectedFilePath}");
         }
         finally
@@ -138,11 +138,11 @@ public sealed class LoggerTests(ITestOutputHelper output)
     [Fact]
     public void LoggerTests_006()
     {
-        var loggedLines = new List<string>();
-        var system = new ActorSystem(new Settings());
+        List<string> loggedLines = [];
+        ActorSystem system = new(new Settings());
         system.CreateTestLogger(loggedLines.Add, LogLevel.Trace);
 
-        var exception = new InvalidOperationException("Test exception");
+        InvalidOperationException exception = new("Test exception");
         system.Logger.LogError(exception, "Error with exception");
 
         Assert.Single(loggedLines);
@@ -156,11 +156,11 @@ public sealed class LoggerTests(ITestOutputHelper output)
     [Fact]
     public void LoggerTests_007()
     {
-        var tempFile = Path.GetTempFileName();
+        string tempFile = Path.GetTempFileName();
         try
         {
-            var system = new ActorSystem(new Settings());
-            var provider = new FileLoggerProvider(tempFile, system, LogLevel.Trace);
+            ActorSystem system = new(new Settings());
+            FileLoggerProvider provider = new(tempFile, system, LogLevel.Trace);
 
             var logger1 = provider.CreateLogger("Category1");
             var logger2 = provider.CreateLogger("Category2");
@@ -180,11 +180,11 @@ public sealed class LoggerTests(ITestOutputHelper output)
     [Fact]
     public void LoggerTests_008()
     {
-        var tempFile = Path.GetTempFileName();
+        string tempFile = Path.GetTempFileName();
         try
         {
-            var system = new ActorSystem(new Settings());
-            var logger = new FileLogger(system, tempFile, LogLevel.Trace);
+            ActorSystem system = new(new Settings());
+            FileLogger logger = new(system, tempFile, LogLevel.Trace);
 
             for (int i = 0; i < 10; i++)
             {
@@ -193,7 +193,7 @@ public sealed class LoggerTests(ITestOutputHelper output)
 
             logger.Dispose();
 
-            var lines = File.ReadAllLines(tempFile);
+            string[] lines = File.ReadAllLines(tempFile);
             Assert.Equal(10, lines.Length);
             for (int i = 0; i < 10; i++)
             {

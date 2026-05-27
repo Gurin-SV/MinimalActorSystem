@@ -1,5 +1,5 @@
-﻿using System.Collections.Concurrent;
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
+using System.Collections.Concurrent;
 
 namespace MinimalActorSystem.Network.Tests.Fakes;
 
@@ -88,7 +88,7 @@ public sealed class FakeNetworkTransport(
             throw new InvalidOperationException($"Node {CurrentNodeName} is not registered");
         }
 
-        if (!_nodeRegistry.TryGetValue(nodeName, out var targetTransport))
+        if (!_nodeRegistry.TryGetValue(nodeName, out FakeNetworkTransport? targetTransport))
         {
             LogWarning($"Node '{nodeName}' not found in registry");
             throw new InvalidOperationException($"Node {nodeName} not found");

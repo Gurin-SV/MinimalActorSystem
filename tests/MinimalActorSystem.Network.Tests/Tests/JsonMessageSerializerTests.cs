@@ -8,13 +8,13 @@ namespace MinimalActorSystem.Network.Tests;
 public sealed class JsonMessageSerializerTests(ITestOutputHelper output)
 {
     private readonly ITestOutputHelper _output = output;
-    private readonly JsonMessageSerializer _serializer = new JsonMessageSerializer();
+    private readonly JsonMessageSerializer _serializer = new();
 
     #region Test Helpers
 
     private static NetworkLetter CreateTestNetworkLetter()
     {
-        var payload = new ComputePayload { Number = 42, Operation = "square" };
+        ComputePayload payload = new() { Number = 42, Operation = "square" };
 
         return NetworkLetter.Create(
             TestNodeNames.ComputeNode,
@@ -36,11 +36,11 @@ public sealed class JsonMessageSerializerTests(ITestOutputHelper output)
         _output.WriteLine("Test 001: Serialize and Deserialize preserve all properties");
 
         // Arrange
-        var original = CreateTestNetworkLetter();
+        NetworkLetter original = CreateTestNetworkLetter();
 
         // Act
         var serialized = _serializer.Serialize(original);
-        var deserialized = _serializer.Deserialize(serialized);
+        NetworkLetter? deserialized = _serializer.Deserialize(serialized);
 
         // Assert
         Assert.NotNull(deserialized);
@@ -65,7 +65,7 @@ public sealed class JsonMessageSerializerTests(ITestOutputHelper output)
         _output.WriteLine("Test 002: Deserialize returns null for invalid data");
 
         // Act
-        var result = _serializer.Deserialize("not a valid message");
+        NetworkLetter? result = _serializer.Deserialize("not a valid message");
 
         // Assert
         Assert.Null(result);
@@ -81,7 +81,7 @@ public sealed class JsonMessageSerializerTests(ITestOutputHelper output)
         _output.WriteLine("Test 003: Deserialize returns null for string without separator");
 
         // Act
-        var result = _serializer.Deserialize("SomeDataWithoutNullSeparator");
+        NetworkLetter? result = _serializer.Deserialize("SomeDataWithoutNullSeparator");
 
         // Assert
         Assert.Null(result);
@@ -100,7 +100,7 @@ public sealed class JsonMessageSerializerTests(ITestOutputHelper output)
         var unknownTypeData = "Unknown.Type.Name, UnknownAssembly\0{}";
 
         // Act
-        var result = _serializer.Deserialize(unknownTypeData);
+        NetworkLetter? result = _serializer.Deserialize(unknownTypeData);
 
         // Assert
         Assert.Null(result);
@@ -116,7 +116,7 @@ public sealed class JsonMessageSerializerTests(ITestOutputHelper output)
         _output.WriteLine("Test 005: Serialize generates string with NetworkLetter AssemblyQualifiedName prefix");
 
         // Arrange
-        var letter = CreateTestNetworkLetter();
+        NetworkLetter letter = CreateTestNetworkLetter();
 
         // Act
         var serialized = _serializer.Serialize(letter);
@@ -139,9 +139,9 @@ public sealed class JsonMessageSerializerTests(ITestOutputHelper output)
         _output.WriteLine("Test 006: Serialize and deserialize with empty strings");
 
         // Arrange
-        var payload = new SimpleTestPayload { Text = "test", Counter = 1 };
+        SimpleTestPayload payload = new() { Text = "test", Counter = 1 };
 
-        var original = NetworkLetter.Create(
+        NetworkLetter original = NetworkLetter.Create(
             "",
             "",
             payload,
@@ -151,7 +151,7 @@ public sealed class JsonMessageSerializerTests(ITestOutputHelper output)
 
         // Act
         var serialized = _serializer.Serialize(original);
-        var deserialized = _serializer.Deserialize(serialized);
+        NetworkLetter? deserialized = _serializer.Deserialize(serialized);
 
         // Assert
         Assert.NotNull(deserialized);
@@ -159,7 +159,7 @@ public sealed class JsonMessageSerializerTests(ITestOutputHelper output)
         Assert.Equal("", deserialized.SourceNodeName);
         Assert.Equal(Guid.Empty, deserialized.LocalLetterId);
 
-        var restoredPayload = deserialized.GetPayload<SimpleTestPayload>();
+        SimpleTestPayload restoredPayload = deserialized.GetPayload<SimpleTestPayload>();
         Assert.Equal("test", restoredPayload.Text);
         Assert.Equal(1, restoredPayload.Counter);
 
@@ -175,13 +175,13 @@ public sealed class JsonMessageSerializerTests(ITestOutputHelper output)
         _output.WriteLine("Test 007: Multiple serializations and deserializations");
 
         // Arrange
-        var original = CreateTestNetworkLetter();
+        NetworkLetter original = CreateTestNetworkLetter();
 
         // Act
         var serialized1 = _serializer.Serialize(original);
-        var deserialized1 = _serializer.Deserialize(serialized1);
+        NetworkLetter? deserialized1 = _serializer.Deserialize(serialized1);
         var serialized2 = _serializer.Serialize(deserialized1!);
-        var deserialized2 = _serializer.Deserialize(serialized2);
+        NetworkLetter? deserialized2 = _serializer.Deserialize(serialized2);
 
         // Assert
         Assert.NotNull(deserialized1);

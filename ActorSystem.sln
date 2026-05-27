@@ -1,18 +1,8 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.14.37111.16
+# Visual Studio Version 18
+VisualStudioVersion = 18.6.11819.183 stable
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Элементы решения", "Элементы решения", "{754FC069-D67B-A9D7-50A1-8D1CA196D8F1}"
-	ProjectSection(SolutionItems) = preProject
-		.gitattributes = .gitattributes
-		.gitignore = .gitignore
-		build_nuget.bat = build_nuget.bat
-		LICENSE = LICENSE
-		README.md = README.md
-		run_benchmark.bat = run_benchmark.bat
-	EndProjectSection
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MinimalActorSystem", "src\MinimalActorSystem\MinimalActorSystem.csproj", "{F6E85EAE-3269-D544-6390-15DA0F54B749}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MinimalActorSystem.SourceGenerator", "src\MinimalActorSystem.SourceGenerator\MinimalActorSystem.SourceGenerator.csproj", "{BEDB338A-C62B-CCF0-C6A6-99CE86AC6C58}"
@@ -51,6 +41,17 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "en", "en", "{EF4DB81F-B6F5-
 		docs\en\SourceGenerator.md = docs\en\SourceGenerator.md
 		docs\en\TipsAndTricks.md = docs\en\TipsAndTricks.md
 		docs\en\Tutorials.md = docs\en\Tutorials.md
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{0524FC12-1CDC-4DE3-9651-F821C07F1CB1}"
+	ProjectSection(SolutionItems) = preProject
+		.editorconfig = .editorconfig
+		.gitattributes = .gitattributes
+		.gitignore = .gitignore
+		build_nuget.bat = build_nuget.bat
+		LICENSE = LICENSE
+		README.md = README.md
+		run_benchmark.bat = run_benchmark.bat
 	EndProjectSection
 EndProject
 Global

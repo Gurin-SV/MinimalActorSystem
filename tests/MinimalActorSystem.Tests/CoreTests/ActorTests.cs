@@ -45,7 +45,7 @@ public sealed class ActorTests(ITestOutputHelper output)
 
         protected override ValueTask OnLetter(Letter letter)
         {
-            var ex = new InvalidOperationException("test error");
+            InvalidOperationException ex = new("test error");
             _errors.Add(ex);
             throw ex;
         }
@@ -73,10 +73,10 @@ public sealed class ActorTests(ITestOutputHelper output)
     [Fact]
     public void ActorTests_001()
     {
-        var uid = Guid.NewGuid();
-        var system = SystemFactory.CreateSystem(_output);
+        Guid uid = Guid.NewGuid();
+        ActorSystem system = SystemFactory.CreateSystem(_output);
 
-        var actor = new FakeActor(system, uid, "test-actor");
+        FakeActor actor = new(system, uid, "test-actor");
 
         Assert.Equal(uid, actor.Uid);
         Assert.Equal("test-actor", actor.Name);
@@ -89,9 +89,9 @@ public sealed class ActorTests(ITestOutputHelper output)
     [Fact]
     public void ActorTests_002()
     {
-        var system = SystemFactory.CreateSystem(_output);
-        var actor = new FakeActor(system, Guid.NewGuid(), "test");
-        var letter = new TestLetter(Guid.NewGuid(), actor.Uid);
+        ActorSystem system = SystemFactory.CreateSystem(_output);
+        FakeActor actor = new(system, Guid.NewGuid(), "test");
+        TestLetter letter = new(Guid.NewGuid(), actor.Uid);
 
         var result = actor.TryEnqueue(letter);
 
@@ -105,14 +105,14 @@ public sealed class ActorTests(ITestOutputHelper output)
     [Fact]
     public async Task ActorTests_003()
     {
-        var system = SystemFactory.CreateSystem(_output);
-        var received = new List<Letter>();
-        var actor = new TestActor(system, Guid.NewGuid(), "test", received);
-        var letter = new TestLetter(Guid.NewGuid(), actor.Uid);
+        ActorSystem system = SystemFactory.CreateSystem(_output);
+        List<Letter> received = [];
+        TestActor actor = new(system, Guid.NewGuid(), "test", received);
+        TestLetter letter = new(Guid.NewGuid(), actor.Uid);
 
         actor.TryEnqueue(letter);
-        var cts = new CancellationTokenSource();
-        var task = actor.RunAsync(cts.Token);
+        CancellationTokenSource cts = new();
+        Task task = actor.RunAsync(cts.Token);
 
         await Task.Delay(1);
         cts.Cancel();
@@ -128,9 +128,9 @@ public sealed class ActorTests(ITestOutputHelper output)
     [Fact]
     public async Task ActorTests_004()
     {
-        var system = SystemFactory.CreateSystem(_output);
-        var actor = new FakeActor(system, Guid.NewGuid(), "test");
-        var cts = new CancellationTokenSource();
+        ActorSystem system = SystemFactory.CreateSystem(_output);
+        FakeActor actor = new(system, Guid.NewGuid(), "test");
+        CancellationTokenSource cts = new();
 
         cts.Cancel();
         await actor.RunAsync(cts.Token);
@@ -142,11 +142,11 @@ public sealed class ActorTests(ITestOutputHelper output)
     [Fact]
     public async Task ActorTests_005()
     {
-        var system = SystemFactory.CreateSystem(_output);
-        var actor = new TestActorWithShutdown(system, Guid.NewGuid(), "test");
+        ActorSystem system = SystemFactory.CreateSystem(_output);
+        TestActorWithShutdown actor = new(system, Guid.NewGuid(), "test");
         system.RegisterActor(actor);
 
-        var cts = new CancellationTokenSource();
+        CancellationTokenSource cts = new();
         cts.Cancel();
         await actor.RunAsync(cts.Token);
 
@@ -160,10 +160,10 @@ public sealed class ActorTests(ITestOutputHelper output)
     [Fact]
     public void ActorTests_006()
     {
-        var system = SystemFactory.CreateSystem(_output);
-        var received = new List<Letter>();
-        var actor = new TestActor(system, Guid.NewGuid(), "test", received);
-        var letter = new TestLetter(Guid.NewGuid(), actor.Uid);
+        ActorSystem system = SystemFactory.CreateSystem(_output);
+        List<Letter> received = [];
+        TestActor actor = new(system, Guid.NewGuid(), "test", received);
+        TestLetter letter = new(Guid.NewGuid(), actor.Uid);
 
         actor.HandleSynchronously(letter);
 
@@ -177,10 +177,10 @@ public sealed class ActorTests(ITestOutputHelper output)
     [Fact]
     public void ActorTests_007()
     {
-        var system = SystemFactory.CreateSystem(_output);
-        var actor = new FakeActor(system, Guid.NewGuid(), "test", queueCapacity: 1);
-        var letter1 = new TestLetter(Guid.NewGuid(), actor.Uid);
-        var letter2 = new TestLetter(Guid.NewGuid(), actor.Uid);
+        ActorSystem system = SystemFactory.CreateSystem(_output);
+        FakeActor actor = new(system, Guid.NewGuid(), "test", queueCapacity: 1);
+        TestLetter letter1 = new(Guid.NewGuid(), actor.Uid);
+        TestLetter letter2 = new(Guid.NewGuid(), actor.Uid);
 
         var result1 = actor.TryEnqueue(letter1);
         var result2 = actor.TryEnqueue(letter2);
@@ -198,9 +198,9 @@ public sealed class ActorTests(ITestOutputHelper output)
     [Fact]
     public void ActorTests_008()
     {
-        var system = SystemFactory.CreateSystem(_output);
-        var actor1 = new FakeActor(system, Guid.NewGuid(), "default");
-        var actor2 = new FakeActor(system, Guid.NewGuid(), "custom", queueCapacity: 512);
+        ActorSystem system = SystemFactory.CreateSystem(_output);
+        FakeActor actor1 = new(system, Guid.NewGuid(), "default");
+        FakeActor actor2 = new(system, Guid.NewGuid(), "custom", queueCapacity: 512);
 
         Assert.Equal(Actor.DefaultQueueCapacity, actor1.QueueCapacity);
         Assert.Equal(512, actor2.QueueCapacity);
@@ -212,7 +212,7 @@ public sealed class ActorTests(ITestOutputHelper output)
     [Fact]
     public void ActorTests_009()
     {
-        var system = SystemFactory.CreateSystem(_output);
+        ActorSystem system = SystemFactory.CreateSystem(_output);
 
         Assert.Throws<ArgumentOutOfRangeException>(() =>
             new FakeActor(system, Guid.Empty, "invalid"));
@@ -224,8 +224,8 @@ public sealed class ActorTests(ITestOutputHelper output)
     [Fact]
     public void ActorTests_010()
     {
-        var system = SystemFactory.CreateSystem(_output);
-        var uid = Guid.NewGuid();
+        ActorSystem system = SystemFactory.CreateSystem(_output);
+        Guid uid = Guid.NewGuid();
 
         Assert.Throws<ArgumentOutOfRangeException>(() =>
             new FakeActor(system, uid, "zero", queueCapacity: 0));
@@ -240,10 +240,10 @@ public sealed class ActorTests(ITestOutputHelper output)
     [Fact]
     public async Task ActorTests_011()
     {
-        var system = SystemFactory.CreateSystem(_output);
-        var errors = new List<Exception>();
-        var actor = new ThrowingActor(system, Guid.NewGuid(), "throwing", errors);
-        var letter = new TestLetter(Guid.NewGuid(), actor.Uid);
+        ActorSystem system = SystemFactory.CreateSystem(_output);
+        List<Exception> errors = [];
+        ThrowingActor actor = new(system, Guid.NewGuid(), "throwing", errors);
+        TestLetter letter = new(Guid.NewGuid(), actor.Uid);
 
         system.RegisterActor(actor);
         system.Send(letter);
@@ -262,11 +262,11 @@ public sealed class ActorTests(ITestOutputHelper output)
     [Fact]
     public async Task ActorTests_012()
     {
-        var system = SystemFactory.CreateSystem(_output);
-        var started = new TaskCompletionSource<bool>();
-        var actor = new SlowActor(system, Guid.NewGuid(), "slow", started);
-        var letter = new TestLetter(Guid.NewGuid(), actor.Uid);
-        var shutdownLetter = new ShutdownLetter(SystemUids.System, actor.Uid);
+        ActorSystem system = SystemFactory.CreateSystem(_output);
+        TaskCompletionSource<bool> started = new();
+        SlowActor actor = new(system, Guid.NewGuid(), "slow", started);
+        TestLetter letter = new(Guid.NewGuid(), actor.Uid);
+        ShutdownLetter shutdownLetter = new(SystemUids.System, actor.Uid);
 
         system.RegisterActor(actor);
         system.Send(letter);

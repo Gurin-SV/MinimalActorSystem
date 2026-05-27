@@ -1,9 +1,5 @@
-﻿using System;
-using System.Net.Http;
+﻿using Microsoft.Extensions.Logging;
 using System.Net.Http.Json;
-using System.Threading;
-using System.Threading.Tasks;
-using Microsoft.Extensions.Logging;
 
 namespace MinimalActorSystem.Network.Http;
 
@@ -134,13 +130,13 @@ public sealed class HttpNetworkTransport(
         if (_nodeName == null)
             throw new InvalidOperationException("Node must be registered before sending messages");
 
-        var request = new SendMessageRequest
+        SendMessageRequest request = new()
         {
             SourceNodeName = _nodeName,
             SerializedMessage = serializedMessage
         };
 
-        var targetUrl = $"{nodeName}/api/message";
+        string targetUrl = $"{nodeName}/api/message";
 
         _logger.LogDebug("HttpNetworkTransport: sending message to node '{NodeName}'", nodeName);
 

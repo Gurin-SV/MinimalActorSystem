@@ -1,4 +1,6 @@
-﻿namespace MinimalActorSystem.Tests.Core;
+﻿using System.Reflection;
+
+namespace MinimalActorSystem.Tests.Core;
 
 public sealed class LetterTests
 {
@@ -19,7 +21,7 @@ public sealed class LetterTests
     [Fact]
     public void LetterTests_001()
     {
-        var letter = new TestLetter(Sender, Receiver);
+        TestLetter letter = new(Sender, Receiver);
 
         Assert.Equal(Sender, letter.Sender);
         Assert.Equal(Receiver, letter.Receiver);
@@ -31,9 +33,9 @@ public sealed class LetterTests
     [Fact]
     public void LetterTests_002()
     {
-        var letter = new TestLetter(Sender, Receiver);
-        var newSender = Guid.NewGuid();
-        var newReceiver = Guid.NewGuid();
+        TestLetter letter = new(Sender, Receiver);
+        Guid newSender = Guid.NewGuid();
+        Guid newReceiver = Guid.NewGuid();
 
         letter.Sender = newSender;
         letter.Receiver = newReceiver;
@@ -48,8 +50,8 @@ public sealed class LetterTests
     [Fact]
     public void LetterTests_003()
     {
-        var callback = new TimeoutCallback(Receiver, 1, () => { });
-        var letter = new TimeServiceLetter(Sender, Receiver, callback);
+        TimeoutCallback callback = new(Receiver, 1, () => { });
+        TimeServiceLetter letter = new(Sender, Receiver, callback);
 
         Assert.Equal(Sender, letter.Sender);
         Assert.Equal(Receiver, letter.Receiver);
@@ -62,7 +64,7 @@ public sealed class LetterTests
     [Fact]
     public void LetterTests_004()
     {
-        var letter = new ShutdownLetter(Sender, Receiver);
+        ShutdownLetter letter = new(Sender, Receiver);
 
         Assert.Equal(Sender, letter.Sender);
         Assert.Equal(Receiver, letter.Receiver);
@@ -74,7 +76,7 @@ public sealed class LetterTests
     [Fact]
     public void LetterTests_005()
     {
-        var letter = new InitializeLetter(Sender, Receiver);
+        InitializeLetter letter = new(Sender, Receiver);
 
         Assert.Equal(Sender, letter.Sender);
         Assert.Equal(Receiver, letter.Receiver);
@@ -87,9 +89,9 @@ public sealed class LetterTests
     [Fact]
     public void LetterTests_006()
     {
-        var timeLetter = new TimeServiceLetter(Sender, Receiver, new TimeoutCallback(Receiver, 1, () => { }));
-        var shutdownLetter = new ShutdownLetter(Sender, Receiver);
-        var initLetter = new InitializeLetter(Sender, Receiver);
+        TimeServiceLetter timeLetter = new(Sender, Receiver, new TimeoutCallback(Receiver, 1, () => { }));
+        ShutdownLetter shutdownLetter = new(Sender, Receiver);
+        InitializeLetter initLetter = new(Sender, Receiver);
 
         Assert.NotSame(timeLetter, shutdownLetter);
         Assert.NotSame(timeLetter, initLetter);
@@ -102,11 +104,11 @@ public sealed class LetterTests
     [Fact]
     public void LetterTests_007()
     {
-        var callback = new TimeoutCallback(Receiver, 1, () => { });
-        var letter = new TimeServiceLetter(Sender, Receiver, callback);
+        TimeoutCallback callback = new(Receiver, 1, () => { });
+        TimeServiceLetter letter = new(Sender, Receiver, callback);
 
         // Проверяем, что свойство Callback не имеет сеттера (компиляция проверит, но добавим runtime-проверку)
-        var property = typeof(TimeServiceLetter).GetProperty(nameof(TimeServiceLetter.Callback));
+        PropertyInfo? property = typeof(TimeServiceLetter).GetProperty(nameof(TimeServiceLetter.Callback));
         Assert.NotNull(property);
         Assert.Null(property.GetSetMethod()); // Нет публичного сеттера
     }
@@ -118,11 +120,11 @@ public sealed class LetterTests
     [Fact]
     public void LetterTests_008()
     {
-        var letter = new TestLetter(Sender, Receiver);
+        TestLetter letter = new(Sender, Receiver);
 
         // Эмулируем получение письма и отправку ответа обратно с переставленными ролями
-        var originalSender = letter.Sender;
-        var originalReceiver = letter.Receiver;
+        Guid originalSender = letter.Sender;
+        Guid originalReceiver = letter.Receiver;
 
         letter.Sender = originalReceiver;
         letter.Receiver = originalSender;

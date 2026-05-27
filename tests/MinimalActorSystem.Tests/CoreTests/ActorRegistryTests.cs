@@ -22,7 +22,7 @@ public sealed class ActorRegistryTests(ITestOutputHelper output)
     [Fact]
     public void ActorRegistryTests_001()
     {
-        var system = SystemFactory.CreateSystem(_output);
+        ActorSystem system = SystemFactory.CreateSystem(_output);
 
         var actor = new FakeActor(system, Guid.NewGuid(), "test");
         system.RegisterActor(actor);
@@ -36,7 +36,7 @@ public sealed class ActorRegistryTests(ITestOutputHelper output)
     [Fact]
     public void ActorRegistryTests_002()
     {
-        var system = SystemFactory.CreateSystem(_output);
+        ActorSystem system = SystemFactory.CreateSystem(_output);
 
         var actor = new FakeActor(system, Guid.NewGuid(), "test");
         system.RegisterActor(actor);
@@ -51,11 +51,11 @@ public sealed class ActorRegistryTests(ITestOutputHelper output)
     [Fact]
     public void ActorRegistryTests_003()
     {
-        var system = SystemFactory.CreateSystem(_output);
+        ActorSystem system = SystemFactory.CreateSystem(_output);
 
         var actor = new FakeActor(system, Guid.NewGuid(), "test");
         system.RegisterActor(actor);
-        var found = system.FindActor(actor.Uid);
+        Actor? found = system.FindActor(actor.Uid);
 
         Assert.Same(actor, found);
     }
@@ -66,9 +66,9 @@ public sealed class ActorRegistryTests(ITestOutputHelper output)
     [Fact]
     public void ActorRegistryTests_004()
     {
-        var system = SystemFactory.CreateSystem(_output);
+        ActorSystem system = SystemFactory.CreateSystem(_output);
 
-        var found = system.FindActor(Guid.NewGuid());
+        Actor? found = system.FindActor(Guid.NewGuid());
 
         Assert.Null(found);
     }
@@ -79,7 +79,7 @@ public sealed class ActorRegistryTests(ITestOutputHelper output)
     [Fact]
     public void ActorRegistryTests_005()
     {
-        var system = SystemFactory.CreateSystem(_output);
+        ActorSystem system = SystemFactory.CreateSystem(_output);
 
         var actor = new FakeActor(system, Guid.NewGuid(), "test-actor");
         system.RegisterActor(actor);
@@ -94,7 +94,7 @@ public sealed class ActorRegistryTests(ITestOutputHelper output)
     [Fact]
     public void ActorRegistryTests_006()
     {
-        var system = SystemFactory.CreateSystem(_output);
+        ActorSystem system = SystemFactory.CreateSystem(_output);
 
         var uid = Guid.NewGuid();
         var name = system.GetActorName(uid);
@@ -108,13 +108,13 @@ public sealed class ActorRegistryTests(ITestOutputHelper output)
     [Fact]
     public void ActorRegistryTests_007()
     {
-        var system = SystemFactory.CreateSystem(_output);
+        ActorSystem system = SystemFactory.CreateSystem(_output);
 
         var actor1 = new FakeActor(system, Guid.NewGuid(), "a1");
         var actor2 = new FakeActor(system, Guid.NewGuid(), "a2");
         system.RegisterActor(actor1);
         system.RegisterActor(actor2);
-        var all = system.GetAllActors();
+        List<Actor> all = system.GetAllActors();
 
         Assert.Contains(actor1, all);
         Assert.Contains(actor2, all);
@@ -127,7 +127,7 @@ public sealed class ActorRegistryTests(ITestOutputHelper output)
     [Fact]
     public void ActorRegistryTests_008()
     {
-        var system = SystemFactory.CreateSystem(_output);
+        ActorSystem system = SystemFactory.CreateSystem(_output);
 
         var name = system.GetActorName(SystemUids.System);
 
@@ -140,7 +140,7 @@ public sealed class ActorRegistryTests(ITestOutputHelper output)
     [Fact]
     public void ActorRegistryTests_009()
     {
-        var system = SystemFactory.CreateSystem(_output);
+        ActorSystem system = SystemFactory.CreateSystem(_output);
 
         var name = system.GetActorName(SystemUids.TimeService);
 
@@ -153,7 +153,7 @@ public sealed class ActorRegistryTests(ITestOutputHelper output)
     [Fact]
     public void ActorRegistryTests_010()
     {
-        var system = SystemFactory.CreateSystem(_output);
+        ActorSystem system = SystemFactory.CreateSystem(_output);
 
         Assert.Equal(0, system.ActorCount);
 
@@ -179,10 +179,10 @@ public sealed class ActorRegistryTests(ITestOutputHelper output)
     [Fact]
     public async Task ActorRegistryTests_011()
     {
-        var system = SystemFactory.CreateSystem(_output);
+        ActorSystem system = SystemFactory.CreateSystem(_output);
 
-        var waitTask = system.WaitForShutdownAsync();
-        var completedTask = await Task.WhenAny(waitTask, Task.Delay(100));
+        Task waitTask = system.WaitForShutdownAsync();
+        Task completedTask = await Task.WhenAny(waitTask, Task.Delay(100));
 
         Assert.Equal(waitTask, completedTask);
     }
@@ -193,7 +193,7 @@ public sealed class ActorRegistryTests(ITestOutputHelper output)
     [Fact]
     public async Task ActorRegistryTests_012()
     {
-        var system = SystemFactory.CreateSystem(_output);
+        ActorSystem system = SystemFactory.CreateSystem(_output);
 
         var actor1 = new FakeActor(system, Guid.NewGuid(), "a1");
         var actor2 = new FakeActor(system, Guid.NewGuid(), "a2");
@@ -201,10 +201,10 @@ public sealed class ActorRegistryTests(ITestOutputHelper output)
         system.RegisterActor(actor1);
         system.RegisterActor(actor2);
 
-        var waitTask = system.WaitForShutdownAsync();
+        Task waitTask = system.WaitForShutdownAsync();
 
         // Задача не должна быть завершена, пока есть акторы
-        var completedTask = await Task.WhenAny(waitTask, Task.Delay(100));
+        Task completedTask = await Task.WhenAny(waitTask, Task.Delay(100));
         Assert.NotEqual(waitTask, completedTask);
 
         // Удаляем акторов

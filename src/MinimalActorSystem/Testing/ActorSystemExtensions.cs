@@ -36,7 +36,7 @@ public static class ActorSystemExtensions
             Directory.CreateDirectory(FileLoggerDirectory);
         }
 
-        var filePath = Path.Combine(FileLoggerDirectory, $"{fileNameWithoutExtension}.log");
+        string filePath = Path.Combine(FileLoggerDirectory, $"{fileNameWithoutExtension}.log");
         var provider = new FileLoggerProvider(filePath, system, minLevel);
         var logger = provider.CreateLogger(string.Empty);
         system.Logger = logger;

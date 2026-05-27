@@ -41,9 +41,9 @@ public sealed class ActorLetterHandlerGeneratorTests
     [Fact]
     public void ActorLetterHandlerGeneratorTests_001()
     {
-        var settings = new Settings { TimeServiceModes = TimeServiceModes.Sync };
-        var system = new ActorSystem(settings);
-        var actor = new TestGeneratedActor(system, Guid.NewGuid(), "test");
+        Settings settings = new() { TimeServiceModes = TimeServiceModes.Sync };
+        ActorSystem system = new(settings);
+        TestGeneratedActor actor = new(system, Guid.NewGuid(), "test");
         system.RegisterActor(actor);
 
         system.Send(new PingGeneratedLetter(SystemUids.System, actor.Uid, 42));
@@ -58,9 +58,9 @@ public sealed class ActorLetterHandlerGeneratorTests
     [Fact]
     public void ActorLetterHandlerGeneratorTests_002()
     {
-        var settings = new Settings { TimeServiceModes = TimeServiceModes.Sync };
-        var system = new ActorSystem(settings);
-        var actor = new TestGeneratedActor(system, Guid.NewGuid(), "test");
+        Settings settings = new() { TimeServiceModes = TimeServiceModes.Sync };
+        ActorSystem system = new(settings);
+        TestGeneratedActor actor = new(system, Guid.NewGuid(), "test");
         system.RegisterActor(actor);
 
         system.Send(new PongGeneratedLetter(SystemUids.System, actor.Uid, 7));
@@ -75,9 +75,9 @@ public sealed class ActorLetterHandlerGeneratorTests
     [Fact]
     public void ActorLetterHandlerGeneratorTests_003()
     {
-        var settings = new Settings { TimeServiceModes = TimeServiceModes.Sync };
-        var system = new ActorSystem(settings);
-        var actor = new TestGeneratedActor(system, Guid.NewGuid(), "test");
+        Settings settings = new() { TimeServiceModes = TimeServiceModes.Sync };
+        ActorSystem system = new(settings);
+        TestGeneratedActor actor = new(system, Guid.NewGuid(), "test");
         system.RegisterActor(actor);
 
         system.Send(new ShutdownLetter(SystemUids.System, actor.Uid));

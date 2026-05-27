@@ -22,8 +22,8 @@ public sealed class JsonMessageSerializer : IMessageSerializer
         if (letter == null)
             throw new ArgumentNullException(nameof(letter));
 
-        var typeName = typeof(NetworkLetter).AssemblyQualifiedName;
-        var json = JsonSerializer.Serialize(letter, JsonOptions);
+        string typeName = typeof(NetworkLetter).AssemblyQualifiedName;
+        string json = JsonSerializer.Serialize(letter, JsonOptions);
         return $"{typeName}\0{json}";
     }
 
@@ -33,12 +33,12 @@ public sealed class JsonMessageSerializer : IMessageSerializer
         if (string.IsNullOrEmpty(data))
             return null;
 
-        var separatorIndex = data.IndexOf('\0');
+        int separatorIndex = data.IndexOf('\0');
         if (separatorIndex == -1)
             return null;
 
-        var typeName = data[..separatorIndex];
-        var json = data[(separatorIndex + 1)..];
+        string typeName = data[..separatorIndex];
+        string json = data[(separatorIndex + 1)..];
 
         var type = Type.GetType(typeName);
         if (type == null || type != typeof(NetworkLetter))

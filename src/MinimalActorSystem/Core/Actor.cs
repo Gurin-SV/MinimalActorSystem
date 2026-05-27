@@ -10,8 +10,6 @@
 /// </remarks>
 public abstract class Actor
 {
-    private readonly Channel<Letter> _channel;
-
     /// <summary>
     /// Размер очереди сообщений по умолчанию.
     /// </summary>
@@ -43,6 +41,8 @@ public abstract class Actor
     /// </summary>
     public int QueueSize => _channel.Reader.Count;
 
+    private readonly Channel<Letter> _channel;
+
     /// <summary>
     /// Создаёт актор с указанными параметрами и инициализирует очередь сообщений.
     /// </summary>
@@ -62,7 +62,7 @@ public abstract class Actor
         Name = name;
         QueueCapacity = queueCapacity;
 
-        var options = new BoundedChannelOptions(queueCapacity)
+        BoundedChannelOptions options = new(queueCapacity)
         {
             FullMode = BoundedChannelFullMode.DropWrite,
             SingleWriter = false,
@@ -104,7 +104,7 @@ public abstract class Actor
         {
             while (!ct.IsCancellationRequested)
             {
-                var letter = await _channel.Reader.ReadAsync(ct);
+                Letter letter = await _channel.Reader.ReadAsync(ct);
                 if (letter is ShutdownLetter)
                 {
                     break;
@@ -112,7 +112,7 @@ public abstract class Actor
 
                 try
                 {
-                    var task = OnLetter(letter);
+                    ValueTask task = OnLetter(letter);
                     if (!task.IsCompletedSuccessfully)
                         await task;
                 }
@@ -154,7 +154,7 @@ public abstract class Actor
     {
         try
         {
-            var task = OnLetter(letter);
+            ValueTask task = OnLetter(letter);
             if (!task.IsCompletedSuccessfully)
                 task.AsTask().GetAwaiter().GetResult();
         }

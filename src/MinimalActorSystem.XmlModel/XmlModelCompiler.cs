@@ -64,9 +64,9 @@ public class XmlModelCompiler(string uidAttributeName = "Uid")
         _warnings.Clear();
         _errors.Clear();
 
-        using var stringReader = new StringReader(xml);
-        using var xmlReader = XmlReader.Create(stringReader);
-        var model = new CompiledModel();
+        using StringReader stringReader = new(xml);
+        using XmlReader xmlReader = XmlReader.Create(stringReader);
+        CompiledModel model = new();
 
         xmlReader.MoveToContent();
 
@@ -95,8 +95,8 @@ public class XmlModelCompiler(string uidAttributeName = "Uid")
     /// </summary>
     private void CompileElement(XmlReader reader, CompiledModel model)
     {
-        var elementName = reader.Name;
-        var rule = _rules.TryGetValue(elementName, out var r) ? r : ElementRule.Default;
+        string elementName = reader.Name;
+        ElementRule rule = _rules.TryGetValue(elementName, out ElementRule? r) ? r : ElementRule.Default;
 
         // Если это группирующий элемент — обрабатываем его детей
         if (rule.IsGroupElement(elementName))
@@ -105,7 +105,7 @@ public class XmlModelCompiler(string uidAttributeName = "Uid")
             return;
         }
 
-        var uid = ReadUid(reader);
+        Guid? uid = ReadUid(reader);
         if (uid == null)
         {
             _warnings.Add($"Element '{elementName}': missing Uid attribute. Element skipped.");
@@ -113,7 +113,7 @@ public class XmlModelCompiler(string uidAttributeName = "Uid")
             return;
         }
 
-        var element = new ElementConfig
+        ElementConfig element = new()
         {
             Uid = uid.Value,
             ElementType = elementName
@@ -128,9 +128,7 @@ public class XmlModelCompiler(string uidAttributeName = "Uid")
         }
         reader.MoveToElement();
 
-        var missingRequired = rule.GetRequired()
-            .Where(req => !element.HasProperty(req))
-            .ToList();
+        List<string> missingRequired = [.. rule.GetRequired().Where(req => !element.HasProperty(req))];
 
         if (missingRequired.Count > 0)
         {
@@ -156,7 +154,7 @@ public class XmlModelCompiler(string uidAttributeName = "Uid")
                 case XmlNodeType.Text:
                 case XmlNodeType.CDATA:
                 case XmlNodeType.SignificantWhitespace:
-                    var text = reader.ReadContentAsString().Trim();
+                    string text = reader.ReadContentAsString().Trim();
                     if (!string.IsNullOrEmpty(text))
                     {
                         element.AddProperty(elementName, text);
@@ -170,7 +168,7 @@ public class XmlModelCompiler(string uidAttributeName = "Uid")
                     }
                     else if (IsTextProperty(reader))
                     {
-                        var (Name, Text) = ReadTextProperty(reader);
+                        (string? Name, string? Text) = ReadTextProperty(reader);
                         element.AddProperty(Name, Text);
                     }
                     else
@@ -230,9 +228,9 @@ public class XmlModelCompiler(string uidAttributeName = "Uid")
     /// </summary>
     private static (string Name, string Text) ReadTextProperty(XmlReader reader)
     {
-        var name = reader.Name;
+        string name = reader.Name;
         reader.ReadStartElement();
-        var text = reader.ReadContentAsString().Trim();
+        string text = reader.ReadContentAsString().Trim();
         reader.ReadEndElement();
         return (name, text);
     }
@@ -242,8 +240,8 @@ public class XmlModelCompiler(string uidAttributeName = "Uid")
     /// </summary>
     private Guid? ReadUid(XmlReader reader)
     {
-        var uidAttr = reader.GetAttribute(_uidAttributeName);
-        return !string.IsNullOrEmpty(uidAttr) && Guid.TryParse(uidAttr, out var uid) ? uid : null;
+        string uidAttr = reader.GetAttribute(_uidAttributeName);
+        return !string.IsNullOrEmpty(uidAttr) && Guid.TryParse(uidAttr, out Guid uid) ? uid : null;
     }
 
     /// <summary>

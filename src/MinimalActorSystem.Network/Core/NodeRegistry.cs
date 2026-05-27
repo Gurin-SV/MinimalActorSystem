@@ -28,7 +28,7 @@ public sealed class NodeRegistry
     /// <returns>true, если узел новый, false если обновлён существующий.</returns>
     public bool RegisterNode(string nodeName, string nodeAddress)
     {
-        var isNew = !_nodes.ContainsKey(nodeName);
+        bool isNew = !_nodes.ContainsKey(nodeName);
         _nodes[nodeName] = new NodeInfo(nodeName, nodeAddress);
         return isNew;
     }

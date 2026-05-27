@@ -37,7 +37,7 @@ public class CompiledModelTests(ITestOutputHelper output)
 
         protected override CompiledModel CompileModel()
         {
-            var compiler = new XmlModelCompiler();
+            XmlModelCompiler compiler = new();
             return compiler.Compile(_xml);
         }
 
@@ -45,8 +45,8 @@ public class CompiledModelTests(ITestOutputHelper output)
         {
             return element.ElementType switch
             {
-                "Sensor" => new TestSensorActor(System, element.Uid, element.TryGetString("Name", out var n) ? n : ""),
-                "Storage" => new TestStorage { Path = element.TryGetString("Path", out var p) ? p : "" },
+                "Sensor" => new TestSensorActor(System, element.Uid, element.TryGetString("Name", out string? n) ? n : ""),
+                "Storage" => new TestStorage { Path = element.TryGetString("Path", out string? p) ? p : "" },
                 _ => throw new ArgumentException($"Unknown type: {element.ElementType}")
             };
         }
@@ -86,11 +86,11 @@ public class CompiledModelTests(ITestOutputHelper output)
             </Aggregator>
         </Root>";
 
-        var compiler = new XmlModelCompiler()
+        XmlModelCompiler compiler = new XmlModelCompiler()
             .AddRule("Aggregator", new ElementRule()
                 .WithGroupElement("Source"));
 
-        var model = compiler.Compile(xml);
+        CompiledModel model = compiler.Compile(xml);
 
         // Sensor, Aggregator, SensorRef (Source пропущен, PollInterval без Uid пропущен)
         model.Count.Should().Be(3);
@@ -114,15 +114,15 @@ public class CompiledModelTests(ITestOutputHelper output)
             </Sensor>
         </Root>";
 
-        var compiler = new XmlModelCompiler();
-        var model = compiler.Compile(xml);
+        XmlModelCompiler compiler = new();
+        CompiledModel model = compiler.Compile(xml);
 
         model.Count.Should().Be(1);
 
-        var sensor = model.FindElement(Guid.Parse("00000000-0000-0000-0000-000000000001"));
+        ElementConfig? sensor = model.FindElement(Guid.Parse("00000000-0000-0000-0000-000000000001"));
         sensor.Should().NotBeNull();
         sensor!.HasProperty("PollInterval").Should().BeTrue();
-        sensor.TryGetString("PollInterval", out var value).Should().BeTrue();
+        sensor.TryGetString("PollInterval", out string? value).Should().BeTrue();
         value.Should().Be("1000");
     }
 
@@ -138,17 +138,17 @@ public class CompiledModelTests(ITestOutputHelper output)
             <Config Uid=""00000000-0000-0000-0000-000000000001"" Host=""localhost"" Port=""8080"" Timeout=""30"" />
         </Root>";
 
-        var compiler = new XmlModelCompiler();
-        var model = compiler.Compile(xml);
+        XmlModelCompiler compiler = new();
+        CompiledModel model = compiler.Compile(xml);
 
-        var config = model.FindElement(Guid.Parse("00000000-0000-0000-0000-000000000001"));
+        ElementConfig? config = model.FindElement(Guid.Parse("00000000-0000-0000-0000-000000000001"));
         config.Should().NotBeNull();
         config!.HasProperty("Host").Should().BeTrue();
-        config.TryGetString("Host", out var host).Should().BeTrue();
+        config.TryGetString("Host", out string? host).Should().BeTrue();
         host.Should().Be("localhost");
-        config.TryGetString("Port", out var port).Should().BeTrue();
+        config.TryGetString("Port", out string? port).Should().BeTrue();
         port.Should().Be("8080");
-        config.TryGetString("Timeout", out var timeout).Should().BeTrue();
+        config.TryGetString("Timeout", out string? timeout).Should().BeTrue();
         timeout.Should().Be("30");
     }
 
@@ -165,13 +165,13 @@ public class CompiledModelTests(ITestOutputHelper output)
             <WithoutUid Name=""Авто"" />
         </Root>";
 
-        var compiler = new XmlModelCompiler();
-        var model = compiler.Compile(xml);
+        XmlModelCompiler compiler = new();
+        CompiledModel model = compiler.Compile(xml);
 
         model.Count.Should().Be(1);
-        var withUid = model.FindElement(Guid.Parse("00000000-0000-0000-0000-000000000001"));
+        ElementConfig? withUid = model.FindElement(Guid.Parse("00000000-0000-0000-0000-000000000001"));
         withUid.Should().NotBeNull();
-        withUid!.TryGetString("Name", out var name).Should().BeTrue();
+        withUid!.TryGetString("Name", out string? name).Should().BeTrue();
         name.Should().Be("Явный");
 
         compiler.Warnings.Should().HaveCount(1);
@@ -195,15 +195,15 @@ public class CompiledModelTests(ITestOutputHelper output)
             </Consumer>
         </Root>";
 
-        var compiler = new XmlModelCompiler()
+        XmlModelCompiler compiler = new XmlModelCompiler()
             .AddRule("Consumer", new ElementRule()
                 .WithGroupElement("Source"));
 
-        var model = compiler.Compile(xml);
+        CompiledModel model = compiler.Compile(xml);
 
         // Shared и Consumer — по одному разу
         model.Count.Should().Be(2);
-        var sharedCount = model.Uids.Count(uid => uid == Guid.Parse("00000000-0000-0000-0000-000000000001"));
+        int sharedCount = model.Uids.Count(uid => uid == Guid.Parse("00000000-0000-0000-0000-000000000001"));
         sharedCount.Should().Be(1);
         model.FindElement(Guid.Parse("00000000-0000-0000-0000-000000000002")).Should().NotBeNull();
     }
@@ -221,19 +221,19 @@ public class CompiledModelTests(ITestOutputHelper output)
             <Sensor Uid=""00000000-0000-0000-0000-000000000002"" Name=""Датчик"" />
         </Root>";
 
-        var compiler = new XmlModelCompiler();
-        var model = compiler.Compile(xml);
+        XmlModelCompiler compiler = new();
+        CompiledModel model = compiler.Compile(xml);
 
         model.Count.Should().Be(2);
 
-        var aggregator = model.FindElement(Guid.Parse("00000000-0000-0000-0000-000000000001"));
+        ElementConfig? aggregator = model.FindElement(Guid.Parse("00000000-0000-0000-0000-000000000001"));
         aggregator.Should().NotBeNull();
-        aggregator!.TryGetString("Source", out var source).Should().BeTrue();
+        aggregator!.TryGetString("Source", out string? source).Should().BeTrue();
         source.Should().Be("00000000-0000-0000-0000-000000000002");
 
-        var sensor = model.FindElement(Guid.Parse("00000000-0000-0000-0000-000000000002"));
+        ElementConfig? sensor = model.FindElement(Guid.Parse("00000000-0000-0000-0000-000000000002"));
         sensor.Should().NotBeNull();
-        sensor!.TryGetString("Name", out var name).Should().BeTrue();
+        sensor!.TryGetString("Name", out string? name).Should().BeTrue();
         name.Should().Be("Датчик");
     }
 
@@ -251,19 +251,19 @@ public class CompiledModelTests(ITestOutputHelper output)
             </Aggregator>
         </Root>";
 
-        var compiler = new XmlModelCompiler();
-        var model = compiler.Compile(xml);
+        XmlModelCompiler compiler = new();
+        CompiledModel model = compiler.Compile(xml);
 
         model.Count.Should().Be(2);
 
-        var sensor = model.FindElement(Guid.Parse("00000000-0000-0000-0000-000000000002"));
+        ElementConfig? sensor = model.FindElement(Guid.Parse("00000000-0000-0000-0000-000000000002"));
         sensor.Should().NotBeNull();
-        sensor!.TryGetString("Name", out var name).Should().BeTrue();
+        sensor!.TryGetString("Name", out string? name).Should().BeTrue();
         name.Should().Be("Датчик");
 
-        var aggregator = model.FindElement(Guid.Parse("00000000-0000-0000-0000-000000000001"));
+        ElementConfig? aggregator = model.FindElement(Guid.Parse("00000000-0000-0000-0000-000000000001"));
         aggregator.Should().NotBeNull();
-        aggregator!.TryGetString("Source", out var source).Should().BeTrue();
+        aggregator!.TryGetString("Source", out string? source).Should().BeTrue();
         source.Should().Be("00000000-0000-0000-0000-000000000002");
     }
 
@@ -280,8 +280,8 @@ public class CompiledModelTests(ITestOutputHelper output)
                 <Sensor Uid=""00000000-0000-0000-0000-000000000001"" Name=""С Uid"" />
             </Root>";
 
-        var compiler = new XmlModelCompiler();
-        var model = compiler.Compile(xml);
+        XmlModelCompiler compiler = new();
+        CompiledModel model = compiler.Compile(xml);
 
         model.Count.Should().Be(1);
         model.FindElement(Guid.Parse("00000000-0000-0000-0000-000000000001")).Should().NotBeNull();
@@ -306,21 +306,21 @@ public class CompiledModelTests(ITestOutputHelper output)
             </Config>
         </Root>";
 
-        var compiler = new XmlModelCompiler();
-        var model = compiler.Compile(xml);
+        XmlModelCompiler compiler = new();
+        CompiledModel model = compiler.Compile(xml);
 
         model.Count.Should().Be(2);
 
-        var config = model.FindElement(Guid.Parse("00000000-0000-0000-0000-000000000001"));
+        ElementConfig? config = model.FindElement(Guid.Parse("00000000-0000-0000-0000-000000000001"));
         config.Should().NotBeNull();
-        config!.TryGetString("Host", out var host).Should().BeTrue();
+        config!.TryGetString("Host", out string? host).Should().BeTrue();
         host.Should().Be("localhost");
-        config.TryGetString("Port", out var port).Should().BeTrue();
+        config.TryGetString("Port", out string? port).Should().BeTrue();
         port.Should().Be("8080");
 
-        var database = model.FindElement(Guid.Parse("00000000-0000-0000-0000-000000000002"));
+        ElementConfig? database = model.FindElement(Guid.Parse("00000000-0000-0000-0000-000000000002"));
         database.Should().NotBeNull();
-        database!.TryGetString("Name", out var name).Should().BeTrue();
+        database!.TryGetString("Name", out string? name).Should().BeTrue();
         name.Should().Be("MainDB");
     }
 
@@ -348,46 +348,46 @@ public class CompiledModelTests(ITestOutputHelper output)
                 Mode=""Fast"" />
         </Root>";
 
-        var compiler = new XmlModelCompiler();
-        var model = compiler.Compile(xml);
+        XmlModelCompiler compiler = new();
+        CompiledModel model = compiler.Compile(xml);
 
-        var config = model.FindElement(Guid.Parse("00000000-0000-0000-0000-000000000001"));
+        ElementConfig? config = model.FindElement(Guid.Parse("00000000-0000-0000-0000-000000000001"));
         config.Should().NotBeNull();
 
-        config!.TryGetString("Name", out var name).Should().BeTrue();
+        config!.TryGetString("Name", out string? name).Should().BeTrue();
         name.Should().Be("Тест");
 
-        config.TryGetInt32("MaxCount", out var maxCount).Should().BeTrue();
+        config.TryGetInt32("MaxCount", out int maxCount).Should().BeTrue();
         maxCount.Should().Be(100);
 
-        config.TryGetInt32("HexCount", out var hexCount).Should().BeTrue();
+        config.TryGetInt32("HexCount", out int hexCount).Should().BeTrue();
         hexCount.Should().Be(255);
 
-        config.TryGetInt32("BinCount", out var binCount).Should().BeTrue();
+        config.TryGetInt32("BinCount", out int binCount).Should().BeTrue();
         binCount.Should().Be(10);
 
-        config.TryGetInt32("OctCount", out var octCount).Should().BeTrue();
+        config.TryGetInt32("OctCount", out int octCount).Should().BeTrue();
         octCount.Should().Be(63);
 
-        config.TryGetInt64("Total", out var total).Should().BeTrue();
+        config.TryGetInt64("Total", out long total).Should().BeTrue();
         total.Should().Be(9999999999L);
 
-        config.TryGetInt64("HexTotal", out var hexTotal).Should().BeTrue();
+        config.TryGetInt64("HexTotal", out long hexTotal).Should().BeTrue();
         hexTotal.Should().Be(0xFFFFFFFFL);
 
-        config.TryGetDouble("Factor", out var factor).Should().BeTrue();
+        config.TryGetDouble("Factor", out double factor).Should().BeTrue();
         factor.Should().BeApproximately(3.14, 0.001);
 
-        config.TryGetBoolean("Enabled", out var enabled).Should().BeTrue();
+        config.TryGetBoolean("Enabled", out bool enabled).Should().BeTrue();
         enabled.Should().BeTrue();
 
-        config.TryGetBoolean("Disabled", out var disabled).Should().BeTrue();
+        config.TryGetBoolean("Disabled", out bool disabled).Should().BeTrue();
         disabled.Should().BeFalse();
 
-        config.TryGetGuid("SourceId", out var sourceId).Should().BeTrue();
+        config.TryGetGuid("SourceId", out Guid sourceId).Should().BeTrue();
         sourceId.Should().Be(Guid.Parse("00000000-0000-0000-0000-000000000002"));
 
-        config.TryGetEnum<TestMode>("Mode", out var mode).Should().BeTrue();
+        config.TryGetEnum<TestMode>("Mode", out TestMode mode).Should().BeTrue();
         mode.Should().Be(TestMode.Fast);
     }
 
@@ -405,9 +405,9 @@ public class CompiledModelTests(ITestOutputHelper output)
             <Storage Uid=""00000000-0000-0000-0000-000000000012"" Path=""/data"" />
         </Root>";
 
-        var settings = new Settings { TimeServiceModes = TimeServiceModes.Sync };
-        var system = new ActorSystem(settings);
-        var modelActor = new TestCompiledModelActor(system, xml);
+        Settings settings = new() { TimeServiceModes = TimeServiceModes.Sync };
+        ActorSystem system = new(settings);
+        TestCompiledModelActor modelActor = new(system, xml);
         system.RegisterActor(modelActor);
 
         system.Send(new InitializeLetter(SystemUids.System, SystemUids.Model));
@@ -420,7 +420,7 @@ public class CompiledModelTests(ITestOutputHelper output)
         system.FindActor(Guid.Parse("00000000-0000-0000-0000-000000000012")).Should().BeNull();
 
         modelActor.HasObject(Guid.Parse("00000000-0000-0000-0000-000000000012")).Should().BeTrue();
-        var storage = modelActor.GetObject<TestStorage>(Guid.Parse("00000000-0000-0000-0000-000000000012"));
+        TestStorage storage = modelActor.GetObject<TestStorage>(Guid.Parse("00000000-0000-0000-0000-000000000012"));
         storage.Path.Should().Be("/data");
     }
 
@@ -439,13 +439,13 @@ public class CompiledModelTests(ITestOutputHelper output)
                 Timeout=""30"" />
     </Root>";
 
-        var compiler = new XmlModelCompiler()
+        XmlModelCompiler compiler = new XmlModelCompiler()
             .AddRule("Config", new ElementRule().WithProperties("Host", "Port"));
 
-        var model = compiler.Compile(xml);
+        CompiledModel model = compiler.Compile(xml);
 
         model.Count.Should().Be(1);
-        var config = model.FindElement(Guid.Parse("00000000-0000-0000-0000-000000000001"));
+        ElementConfig? config = model.FindElement(Guid.Parse("00000000-0000-0000-0000-000000000001"));
         config.Should().NotBeNull();
 
         config!.HasProperty("Host").Should().BeTrue();
@@ -469,12 +469,12 @@ public class CompiledModelTests(ITestOutputHelper output)
                   ConnectionString=""Server=backup"" />
     </Root>";
 
-        var compiler = new XmlModelCompiler()
+        XmlModelCompiler compiler = new XmlModelCompiler()
             .AddRule("Database", new ElementRule()
                 .WithProperties("Name")
                 .WithRequired("ConnectionString"));
 
-        var model = compiler.Compile(xml);
+        CompiledModel model = compiler.Compile(xml);
 
         model.Count.Should().Be(1);
         model.FindElement(Guid.Parse("00000000-0000-0000-0000-000000000001")).Should().BeNull();
@@ -499,14 +499,14 @@ public class CompiledModelTests(ITestOutputHelper output)
                  Version=""v2"" />
     </Root>";
 
-        var compiler = new XmlModelCompiler()
+        XmlModelCompiler compiler = new XmlModelCompiler()
             .AddRule("Service", new ElementRule()
                 .WithRequired("Endpoint"));
 
-        var model = compiler.Compile(xml);
+        CompiledModel model = compiler.Compile(xml);
 
         model.Count.Should().Be(1);
-        var service = model.FindElement(Guid.Parse("00000000-0000-0000-0000-000000000001"));
+        ElementConfig? service = model.FindElement(Guid.Parse("00000000-0000-0000-0000-000000000001"));
         service.Should().NotBeNull();
 
         service!.HasProperty("Endpoint").Should().BeTrue();
@@ -528,15 +528,15 @@ public class CompiledModelTests(ITestOutputHelper output)
                 Debug=""true"" />
     </Root>";
 
-        var compiler = new XmlModelCompiler()
+        XmlModelCompiler compiler = new XmlModelCompiler()
             .AddRule("Worker", new ElementRule()
                 .WithProperties("Name", "Threads")
                 .WithRequired("Name"));
 
-        var model = compiler.Compile(xml);
+        CompiledModel model = compiler.Compile(xml);
 
         model.Count.Should().Be(1);
-        var worker = model.FindElement(Guid.Parse("00000000-0000-0000-0000-000000000001"));
+        ElementConfig? worker = model.FindElement(Guid.Parse("00000000-0000-0000-0000-000000000001"));
         worker.Should().NotBeNull();
 
         worker!.HasProperty("Name").Should().BeTrue();
@@ -560,11 +560,11 @@ public class CompiledModelTests(ITestOutputHelper output)
         </Outputs>
     </Root>";
 
-        var compiler = new XmlModelCompiler()
+        XmlModelCompiler compiler = new XmlModelCompiler()
             .AddRule("Inputs", new ElementRule().WithGroupElement("Inputs"))
             .AddRule("Outputs", new ElementRule().WithGroupElement("Outputs"));
 
-        var model = compiler.Compile(xml);
+        CompiledModel model = compiler.Compile(xml);
 
         model.Count.Should().Be(2);
         model.FindElement(Guid.Parse("00000000-0000-0000-0000-000000000001")).Should().NotBeNull();

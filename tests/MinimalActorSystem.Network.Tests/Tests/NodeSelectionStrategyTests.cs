@@ -11,7 +11,7 @@ public sealed class NodeSelectionStrategyTests(ITestOutputHelper output)
 
     private static NodeRegistry CreateTestRegistry()
     {
-        var registry = new NodeRegistry();
+        NodeRegistry registry = new();
         registry.RegisterNode("NodeA", "http://node-a:8080");
         registry.RegisterNode("NodeB", "http://node-b:8080");
         registry.RegisterNode("NodeC", "http://node-c:8080");
@@ -38,8 +38,8 @@ public sealed class NodeSelectionStrategyTests(ITestOutputHelper output)
         _output.WriteLine("Test 001: FirstAvailableStrategy selects first active node");
 
         // Arrange
-        var registry = CreateTestRegistry();
-        var strategy = new FirstAvailableStrategy();
+        NodeRegistry registry = CreateTestRegistry();
+        FirstAvailableStrategy strategy = new();
         var availableNodes = new[] { "NodeC", "NodeB", "NodeA" };
 
         // Act
@@ -59,8 +59,8 @@ public sealed class NodeSelectionStrategyTests(ITestOutputHelper output)
         _output.WriteLine("Test 002: FirstAvailableStrategy skips inactive nodes");
 
         // Arrange
-        var registry = CreateTestRegistry();
-        var strategy = new FirstAvailableStrategy();
+        NodeRegistry registry = CreateTestRegistry();
+        FirstAvailableStrategy strategy = new();
         var availableNodes = new[] { "NodeD", "NodeB", "NodeC" };
 
         // Act
@@ -80,8 +80,8 @@ public sealed class NodeSelectionStrategyTests(ITestOutputHelper output)
         _output.WriteLine("Test 003: FirstAvailableStrategy does not select current node");
 
         // Arrange
-        var registry = CreateTestRegistry();
-        var strategy = new FirstAvailableStrategy();
+        NodeRegistry registry = CreateTestRegistry();
+        FirstAvailableStrategy strategy = new();
         var availableNodes = new[] { "CurrentNode", "NodeA", "NodeB" };
 
         // Act
@@ -101,8 +101,8 @@ public sealed class NodeSelectionStrategyTests(ITestOutputHelper output)
         _output.WriteLine("Test 004: FirstAvailableStrategy returns null when no nodes available");
 
         // Arrange
-        var registry = new NodeRegistry();
-        var strategy = new FirstAvailableStrategy();
+        NodeRegistry registry = new();
+        FirstAvailableStrategy strategy = new();
         var availableNodes = new[] { "Unknown1", "Unknown2" };
 
         // Act
@@ -126,8 +126,8 @@ public sealed class NodeSelectionStrategyTests(ITestOutputHelper output)
         _output.WriteLine("Test 005: RoundRobinStrategy cycles through nodes");
 
         // Arrange
-        var registry = CreateTestRegistry();
-        var strategy = new RoundRobinStrategy();
+        NodeRegistry registry = CreateTestRegistry();
+        RoundRobinStrategy strategy = new();
         var availableNodes = new[] { "NodeA", "NodeB", "NodeC" };
 
         // Act
@@ -153,8 +153,8 @@ public sealed class NodeSelectionStrategyTests(ITestOutputHelper output)
         _output.WriteLine("Test 006: RoundRobinStrategy skips inactive nodes");
 
         // Arrange
-        var registry = CreateTestRegistry();
-        var strategy = new RoundRobinStrategy();
+        NodeRegistry registry = CreateTestRegistry();
+        RoundRobinStrategy strategy = new();
         var availableNodes = new[] { "NodeD", "NodeA", "NodeB" };
 
         // Act
@@ -176,8 +176,8 @@ public sealed class NodeSelectionStrategyTests(ITestOutputHelper output)
         _output.WriteLine("Test 007: RoundRobinStrategy does not select current node");
 
         // Arrange
-        var registry = CreateTestRegistry();
-        var strategy = new RoundRobinStrategy();
+        NodeRegistry registry = CreateTestRegistry();
+        RoundRobinStrategy strategy = new();
         var availableNodes = new[] { "CurrentNode", "NodeA", "NodeB" };
 
         // Act
@@ -201,9 +201,9 @@ public sealed class NodeSelectionStrategyTests(ITestOutputHelper output)
         _output.WriteLine("Test 008: LeastLoadedStrategy selects node with smallest queue");
 
         // Arrange
-        var registry = CreateTestRegistry();
-        var pendingQueue = new PendingMessageQueue();
-        var strategy = new LeastLoadedStrategy(pendingQueue);
+        NodeRegistry registry = CreateTestRegistry();
+        PendingMessageQueue pendingQueue = new();
+        LeastLoadedStrategy strategy = new(pendingQueue);
         var availableNodes = new[] { "NodeA", "NodeB", "NodeC" };
 
         // Добавляем сообщения в очередь для разных узлов
@@ -228,9 +228,9 @@ public sealed class NodeSelectionStrategyTests(ITestOutputHelper output)
         _output.WriteLine("Test 009: LeastLoadedStrategy skips inactive nodes");
 
         // Arrange
-        var registry = CreateTestRegistry();
-        var pendingQueue = new PendingMessageQueue();
-        var strategy = new LeastLoadedStrategy(pendingQueue);
+        NodeRegistry registry = CreateTestRegistry();
+        PendingMessageQueue pendingQueue = new();
+        LeastLoadedStrategy strategy = new(pendingQueue);
         var availableNodes = new[] { "NodeD", "NodeA", "NodeB" };
 
         pendingQueue.Enqueue(new PendingMessage(Guid.NewGuid(), "NodeA"));
@@ -253,9 +253,9 @@ public sealed class NodeSelectionStrategyTests(ITestOutputHelper output)
         _output.WriteLine("Test 010: LeastLoadedStrategy does not select current node");
 
         // Arrange
-        var registry = CreateTestRegistry();
-        var pendingQueue = new PendingMessageQueue();
-        var strategy = new LeastLoadedStrategy(pendingQueue);
+        NodeRegistry registry = CreateTestRegistry();
+        PendingMessageQueue pendingQueue = new();
+        LeastLoadedStrategy strategy = new(pendingQueue);
         var availableNodes = new[] { "CurrentNode", "NodeA", "NodeB" };
 
         pendingQueue.Enqueue(new PendingMessage(Guid.NewGuid(), "NodeA"));
@@ -278,9 +278,9 @@ public sealed class NodeSelectionStrategyTests(ITestOutputHelper output)
         _output.WriteLine("Test 011: LeastLoadedStrategy returns first node when loads are equal");
 
         // Arrange
-        var registry = CreateTestRegistry();
-        var pendingQueue = new PendingMessageQueue();
-        var strategy = new LeastLoadedStrategy(pendingQueue);
+        NodeRegistry registry = CreateTestRegistry();
+        PendingMessageQueue pendingQueue = new();
+        LeastLoadedStrategy strategy = new(pendingQueue);
         var availableNodes = new[] { "NodeA", "NodeB", "NodeC" };
 
         // Act

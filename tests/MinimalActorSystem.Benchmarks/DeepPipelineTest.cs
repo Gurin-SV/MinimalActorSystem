@@ -15,30 +15,20 @@ public sealed class DeepPipelineTest : IBenchmarkTest
     private sealed class RequestMessage(Guid sender, Guid receiver) : Letter(sender, receiver);
     private sealed class ResponseMessage(Guid sender, Guid receiver) : Letter(sender, receiver);
 
-    private sealed class ProducerActor : Actor
+    private sealed class ProducerActor(IActorSystem system, Guid uid, string name,
+        Guid consumerUid, int messagesToSend, DeepPipelineTest.Counter counter,
+        TaskCompletionSource<bool> done, DeepPipelineTest.RequestMessage requestTemplate) : Actor(system, uid, name)
     {
-        private readonly Guid _consumerUid;
-        private readonly int _messagesToSend;
-        private readonly Counter _counter;
-        private readonly TaskCompletionSource<bool> _done;
-        private readonly RequestMessage _requestTemplate;
+        private readonly Guid _consumerUid = consumerUid;
+        private readonly int _messagesToSend = messagesToSend;
+        private readonly Counter _counter = counter;
+        private readonly TaskCompletionSource<bool> _done = done;
+        private readonly RequestMessage _requestTemplate = requestTemplate;
         private int _sent;
         private int _responses;
         private int _sendFailed;
 
         public int SendFailed => _sendFailed;
-
-        public ProducerActor(IActorSystem system, Guid uid, string name,
-            Guid consumerUid, int messagesToSend, Counter counter,
-            TaskCompletionSource<bool> done, RequestMessage requestTemplate)
-            : base(system, uid, name)
-        {
-            _consumerUid = consumerUid;
-            _messagesToSend = messagesToSend;
-            _counter = counter;
-            _done = done;
-            _requestTemplate = requestTemplate;
-        }
 
         protected override ValueTask OnLetter(Letter letter)
         {
@@ -48,7 +38,7 @@ public sealed class DeepPipelineTest : IBenchmarkTest
 
                 if (_responses >= _messagesToSend)
                 {
-                    var remaining = Interlocked.Decrement(ref _counter.Value);
+                    int remaining = Interlocked.Decrement(ref _counter.Value);
                     if (remaining == 0)
                         _done.TrySetResult(true);
                 }
@@ -74,20 +64,14 @@ public sealed class DeepPipelineTest : IBenchmarkTest
         }
     }
 
-    private sealed class ConsumerActor : Actor
+    private sealed class ConsumerActor(IActorSystem system, Guid uid, string name, DeepPipelineTest.ResponseMessage responseTemplate) : Actor(system, uid, name)
     {
-        private readonly ResponseMessage _responseTemplate;
+        private readonly ResponseMessage _responseTemplate = responseTemplate;
         private int _processed;
         private int _sendFailed;
 
         public int Processed => _processed;
         public int SendFailed => _sendFailed;
-
-        public ConsumerActor(IActorSystem system, Guid uid, string name, ResponseMessage responseTemplate)
-            : base(system, uid, name)
-        {
-            _responseTemplate = responseTemplate;
-        }
 
         protected override ValueTask OnLetter(Letter letter)
         {
@@ -160,7 +144,7 @@ public sealed class DeepPipelineTest : IBenchmarkTest
         }
 
         swCreation.Stop();
-        monitor.Snapshot(out var memAfterCreate, out var peakAfterCreate, out var threadsAfterCreate, out var pendingAfterCreate, out var allocAfterCreate);
+        monitor.Snapshot(out long memAfterCreate, out long peakAfterCreate, out int threadsAfterCreate, out int pendingAfterCreate, out long allocAfterCreate);
         monitor.PrintStats("После создания и запуска", memAfterCreate, peakAfterCreate, threadsAfterCreate, pendingAfterCreate, allocAfterCreate);
         Console.WriteLine($"  Время создания: {swCreation.ElapsedMilliseconds} мс");
 
@@ -169,7 +153,7 @@ public sealed class DeepPipelineTest : IBenchmarkTest
         await allDone.Task.WaitAsync(TimeSpan.FromSeconds(120));
         swWork.Stop();
 
-        monitor.Snapshot(out var memAfterWork, out var peakAfterWork, out var threadsAfterWork, out var pendingAfterWork, out var allocAfterWork);
+        monitor.Snapshot(out long memAfterWork, out long peakAfterWork, out int threadsAfterWork, out int pendingAfterWork, out long allocAfterWork);
         monitor.PrintStats("После нагрузки", memAfterWork, peakAfterWork, threadsAfterWork, pendingAfterWork, allocAfterWork);
 
         long totalMessages = (long)pairs * messagesPerPair * 2;
@@ -199,7 +183,7 @@ public sealed class DeepPipelineTest : IBenchmarkTest
         await system.WaitForShutdownAsync();
         swShutdown.Stop();
 
-        monitor.Snapshot(out var memAfterShutdown, out var peakFinal, out var threadsAfterShutdown, out var pendingAfterShutdown, out var allocAfterShutdown);
+        monitor.Snapshot(out long memAfterShutdown, out long peakFinal, out int threadsAfterShutdown, out int pendingAfterShutdown, out long allocAfterShutdown);
         monitor.PrintStats("После завершения", memAfterShutdown, peakFinal, threadsAfterShutdown, pendingAfterShutdown, allocAfterShutdown);
         Console.WriteLine($"  Время завершения: {swShutdown.ElapsedMilliseconds} мс");
     }

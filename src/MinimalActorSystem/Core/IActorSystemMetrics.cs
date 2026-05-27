@@ -14,6 +14,17 @@ namespace MinimalActorSystem;
 public interface IActorSystemMetrics
 {
     /// <summary>
+    /// Стандартный Meter из System.Diagnostics.Metrics.
+    /// Акторы могут использовать его для создания собственных инструментов.
+    /// null, если метрики не поддерживаются реализацией.
+    /// </summary>
+    /// <remarks>
+    /// Standard Meter from System.Diagnostics.Metrics. Actors can use it to create custom instruments.
+    /// May be null if metrics are not supported.
+    /// </remarks>
+    Meter? Meter { get; }
+
+    /// <summary>
     /// Вызывается при успешной постановке письма в очередь получателя.
     /// </summary>
     void MessageSent();
@@ -37,15 +48,4 @@ public interface IActorSystemMetrics
     /// Вызывается при изменении количества акторов в реестре.
     /// </summary>
     void ActorCountChanged(int count);
-
-    /// <summary>
-    /// Стандартный Meter из System.Diagnostics.Metrics.
-    /// Акторы могут использовать его для создания собственных инструментов.
-    /// null, если метрики не поддерживаются реализацией.
-    /// </summary>
-    /// <remarks>
-    /// Standard Meter from System.Diagnostics.Metrics. Actors can use it to create custom instruments.
-    /// May be null if metrics are not supported.
-    /// </remarks>
-    Meter? Meter { get; }
 }

@@ -9,6 +9,11 @@
 public interface IPendingMessageQueue
 {
     /// <summary>
+    /// Количество сообщений в очереди.
+    /// </summary>
+    int Count { get; }
+
+    /// <summary>
     /// Помещает сообщение в очередь.
     /// </summary>
     /// <param name="message">Отложенное сообщение.</param>
@@ -41,11 +46,6 @@ public interface IPendingMessageQueue
     /// <param name="localMessageId">Локальный идентификатор сообщения.</param>
     /// <returns>Сообщение или null, если не найдено.</returns>
     PendingMessage? Get(Guid localMessageId);
-
-    /// <summary>
-    /// Количество сообщений в очереди.
-    /// </summary>
-    int Count { get; }
 
     /// <summary>
     /// Количество отложенных сообщений для указанного узла.
