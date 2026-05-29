@@ -12,15 +12,12 @@
     MinimalActorSystem/
     ├── src/               # Core and extension libraries
     │   ├── MinimalActorSystem/                 # Core actor system
-    │   ├── MinimalActorSystem.Network/         # Network abstractions
-    │   ├── MinimalActorSystem.Network.Http/    # HTTP transport implementation
     │   ├── MinimalActorSystem.SourceGenerator/ # OnLetter source generator
     │   └── MinimalActorSystem.XmlModel/        # XML configuration support
     ├── tests/             # Unit tests
-    ├── docs/              # Documentation (ru/en)
-    │   ├── ru/
-    │   └── en/
-    └── samples/           # Usage examples
+    └── docs/              # Documentation (ru/en)
+        ├── ru/
+        └── en/
 
 ## Philosophy
 
@@ -37,7 +34,6 @@
 | **Sync test mode**           | Process messages synchronously in a single thread for simple test|
 | **Mutable accumulator**      | Reuse the same letter as it travels through actor chain          |
 | **XML model**                | Build actor graph declaratively from XML configuration           |
-| **Network support**          | Distributed actor communication over HTTP (optional extension)   |
 | **High performance**         | 2.3 million messages per second                                  |
 | **No external dependencies** | Only `Microsoft.Extensions.Logging`                              |
 
@@ -61,26 +57,6 @@
     // 5. Shutdown when done
     system.Shutdown();
     await system.WaitForShutdownAsync();
-
-## Network Extension
-
-For distributed systems, add the network extension:
-
-    // Reference MinimalActorSystem.Network and MinimalActorSystem.Network.Http
-    
-    // Define your topology (common assembly for all nodes)
-    [DestinationNode("ComputeNode")]
-    public class ComputePayload { }
-    
-    // Create network actor
-    var networkActor = new MyNetworkActor(system, routerAddresses);
-    await networkActor.InitializeAsync(nodeName, nodeAddress, transport, routerClient, topologyAssembly);
-    
-    // Send message to remote node
-    var letter = new ComputeLetter(SystemUids.System, SystemUids.Network) { Payload = new ComputePayload() };
-    system.Send(letter);
-
-See [Network documentation](docs/en/Network.md) for details.
 
 ## Actor Example: Ping-Pong
 
@@ -129,7 +105,6 @@ See [Network documentation](docs/en/Network.md) for details.
 | Document | RU | EN |
 |----------|----|----|
 | Manifest (philosophy & architecture) | [RU](docs/ru/Manifest.md) | [EN](docs/en/Manifest.md) |
-| Network extension | [RU](docs/ru/Network.md) | [EN](docs/en/Network.md) |
 
 ## License
 
