@@ -38,22 +38,22 @@ public sealed class ResourceMonitor
     {
         Console.WriteLine();
         Console.WriteLine($"--- {label} ---");
-        Console.WriteLine($"  Память текущая:     {currentMemory / 1024.0 / 1024.0:F1} MB");
-        Console.WriteLine($"  Память пиковая:     {peakMemory / 1024.0 / 1024.0:F1} MB");
-        Console.WriteLine($"  Выделено с начала:  {allocatedBytes / 1024.0 / 1024.0:F1} MB");
-        Console.WriteLine($"  Потоков в пуле:     {threadCount}");
-        Console.WriteLine($"  Всего потоков:      {pendingThreads}");
-        Console.WriteLine($"  Макс потоков пула:  {_maxThreads}");
+        Console.WriteLine($"  {Localization.MemoryCurrent}: {currentMemory / 1024.0 / 1024.0:F1} {Localization.MemoryMB}");
+        Console.WriteLine($"  {Localization.MemoryPeak}: {peakMemory / 1024.0 / 1024.0:F1} {Localization.MemoryMB}");
+        Console.WriteLine($"  {Localization.AllocatedSinceStart}: {allocatedBytes / 1024.0 / 1024.0:F1} {Localization.MemoryMB}");
+        Console.WriteLine($"  {Localization.ThreadPoolThreads}: {threadCount}");
+        Console.WriteLine($"  {Localization.TotalThreads}: {pendingThreads}");
+        Console.WriteLine($"  {Localization.MaxPoolThreads}: {_maxThreads}");
     }
 
     public static void PrintGcStats()
     {
         Console.WriteLine();
-        Console.WriteLine("--- Сборка мусора ---");
+        Console.WriteLine($"--- {Localization.GarbageCollection} ---");
         for (int i = 0; i <= GC.MaxGeneration; i++)
         {
-            Console.WriteLine($"  Gen{i}: {GC.CollectionCount(i)} сборок");
+            Console.WriteLine($"  Gen{i}: {GC.CollectionCount(i)} {Localization.Collections}");
         }
-        Console.WriteLine($"  Всего выделено: {GC.GetTotalAllocatedBytes(false) / 1024.0 / 1024.0:F1} MB");
+        Console.WriteLine($"  {Localization.TotalAllocated}: {GC.GetTotalAllocatedBytes(false) / 1024.0 / 1024.0:F1} {Localization.MemoryMB}");
     }
 }

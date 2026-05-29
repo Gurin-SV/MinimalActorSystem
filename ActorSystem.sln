@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 18
-VisualStudioVersion = 18.6.11819.183 stable
+VisualStudioVersion = 18.6.11819.183
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MinimalActorSystem", "src\MinimalActorSystem\MinimalActorSystem.csproj", "{F6E85EAE-3269-D544-6390-15DA0F54B749}"
 EndProject
@@ -9,17 +9,9 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MinimalActorSystem.SourceGe
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MinimalActorSystem.XmlModel", "src\MinimalActorSystem.XmlModel\MinimalActorSystem.XmlModel.csproj", "{46FE0EB4-5CBE-560C-1072-4CB79ED31983}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MinimalActorSystem.Network.Tests", "tests\MinimalActorSystem.Network.Tests\MinimalActorSystem.Network.Tests.csproj", "{A59C0117-CEC8-F083-3F64-1F473AA0C5FE}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MinimalActorSystem.Tests", "tests\MinimalActorSystem.Tests\MinimalActorSystem.Tests.csproj", "{45FFBB2C-D12E-5CE1-5D99-37B7EEA4D7BE}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MinimalActorSystem.Network", "src\MinimalActorSystem.Network\MinimalActorSystem.Network.csproj", "{2CCEA85F-8EDF-BB91-43E1-6CE8BE04B255}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MinimalActorSystem.Benchmarks", "tests\MinimalActorSystem.Benchmarks\MinimalActorSystem.Benchmarks.csproj", "{D5AB812F-FB27-5B58-3887-1B1DE050F87E}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MinimalActorSystem.Network.TestTopology", "tests\MinimalActorSystem.Network.TestTopology\MinimalActorSystem.Network.TestTopology.csproj", "{92E087A8-F0D3-451A-641B-F25B674C44C7}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MinimalActorSystem.Network.Http", "src\MinimalActorSystem.Network.Http\MinimalActorSystem.Network.Http.csproj", "{ECBF8839-E9DC-EB95-5732-EE41E1E377B7}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "dos", "dos", "{36D591C7-65C7-A0D1-1CBC-10CDE441BDC8}"
 EndProject
@@ -27,7 +19,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "ru", "ru", "{53B2EFB6-78EC-
 	ProjectSection(SolutionItems) = preProject
 		docs\ru\Contracts.md = docs\ru\Contracts.md
 		docs\ru\Manifest.md = docs\ru\Manifest.md
-		docs\ru\Network.md = docs\ru\Network.md
 		docs\ru\SourceGenerator.md = docs\ru\SourceGenerator.md
 		docs\ru\TipsAndTricks.md = docs\ru\TipsAndTricks.md
 		docs\ru\Tutorials.md = docs\ru\Tutorials.md
@@ -37,7 +28,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "en", "en", "{EF4DB81F-B6F5-
 	ProjectSection(SolutionItems) = preProject
 		docs\en\Contracts.md = docs\en\Contracts.md
 		docs\en\Manifest.md = docs\en\Manifest.md
-		docs\en\Network.md = docs\en\Network.md
 		docs\en\SourceGenerator.md = docs\en\SourceGenerator.md
 		docs\en\TipsAndTricks.md = docs\en\TipsAndTricks.md
 		docs\en\Tutorials.md = docs\en\Tutorials.md
@@ -51,7 +41,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		build_nuget.bat = build_nuget.bat
 		LICENSE = LICENSE
 		README.md = README.md
-		run_benchmark.bat = run_benchmark.bat
+		run_benchmark.en.bat = run_benchmark.en.bat
+		run_benchmark.ru.bat = run_benchmark.ru.bat
 	EndProjectSection
 EndProject
 Global
@@ -72,30 +63,14 @@ Global
 		{46FE0EB4-5CBE-560C-1072-4CB79ED31983}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{46FE0EB4-5CBE-560C-1072-4CB79ED31983}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{46FE0EB4-5CBE-560C-1072-4CB79ED31983}.Release|Any CPU.Build.0 = Release|Any CPU
-		{A59C0117-CEC8-F083-3F64-1F473AA0C5FE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{A59C0117-CEC8-F083-3F64-1F473AA0C5FE}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{A59C0117-CEC8-F083-3F64-1F473AA0C5FE}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{A59C0117-CEC8-F083-3F64-1F473AA0C5FE}.Release|Any CPU.Build.0 = Release|Any CPU
 		{45FFBB2C-D12E-5CE1-5D99-37B7EEA4D7BE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{45FFBB2C-D12E-5CE1-5D99-37B7EEA4D7BE}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{45FFBB2C-D12E-5CE1-5D99-37B7EEA4D7BE}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{45FFBB2C-D12E-5CE1-5D99-37B7EEA4D7BE}.Release|Any CPU.Build.0 = Release|Any CPU
-		{2CCEA85F-8EDF-BB91-43E1-6CE8BE04B255}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{2CCEA85F-8EDF-BB91-43E1-6CE8BE04B255}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{2CCEA85F-8EDF-BB91-43E1-6CE8BE04B255}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{2CCEA85F-8EDF-BB91-43E1-6CE8BE04B255}.Release|Any CPU.Build.0 = Release|Any CPU
 		{D5AB812F-FB27-5B58-3887-1B1DE050F87E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{D5AB812F-FB27-5B58-3887-1B1DE050F87E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D5AB812F-FB27-5B58-3887-1B1DE050F87E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D5AB812F-FB27-5B58-3887-1B1DE050F87E}.Release|Any CPU.Build.0 = Release|Any CPU
-		{92E087A8-F0D3-451A-641B-F25B674C44C7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{92E087A8-F0D3-451A-641B-F25B674C44C7}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{92E087A8-F0D3-451A-641B-F25B674C44C7}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{92E087A8-F0D3-451A-641B-F25B674C44C7}.Release|Any CPU.Build.0 = Release|Any CPU
-		{ECBF8839-E9DC-EB95-5732-EE41E1E377B7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{ECBF8839-E9DC-EB95-5732-EE41E1E377B7}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{ECBF8839-E9DC-EB95-5732-EE41E1E377B7}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{ECBF8839-E9DC-EB95-5732-EE41E1E377B7}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

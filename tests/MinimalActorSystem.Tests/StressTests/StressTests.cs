@@ -20,12 +20,12 @@ public sealed class StressTests(ITestOutputHelper output)
 
         protected override void OnBuildModel()
         {
-            var counter = new Counter { Value = pairs };
+            Counter counter = new() { Value = pairs };
 
             for (int i = 0; i < pairs; i++)
             {
-                var pong = new PongActor(System, Guid.NewGuid(), $"pong-{i}");
-                var ping = new PingActor(System, Guid.NewGuid(), $"ping-{i}");
+                PongActor pong = new(System, Guid.NewGuid(), $"pong-{i}");
+                PingActor ping = new(System, Guid.NewGuid(), $"ping-{i}");
                 ping.Init(allDone, counter);
 
                 Create(pong);
@@ -38,7 +38,7 @@ public sealed class StressTests(ITestOutputHelper output)
 
         public void StartAll()
         {
-            foreach (var (ping, pongUid) in _list)
+            foreach ((PingActor? ping, Guid pongUid) in _list)
             {
                 ping.Start(pongUid, count);
             }
@@ -157,7 +157,7 @@ public sealed class StressTests(ITestOutputHelper output)
 
         public void StartSending()
         {
-            foreach (var target in _targets)
+            foreach (Guid target in _targets)
             {
                 SendOrRetry(new PingMassiveLetter(Uid, target, Uid));
             }
@@ -201,7 +201,7 @@ public sealed class StressTests(ITestOutputHelper output)
 
         private void RetrySend()
         {
-            foreach (var target in _targets)
+            foreach (Guid target in _targets)
             {
                 if (!System.Send(new PingMassiveLetter(Uid, target, Uid)))
                 {
@@ -224,20 +224,20 @@ public sealed class StressTests(ITestOutputHelper output)
         {
             for (int i = 0; i < actorCount; i++)
             {
-                var actor = new MassiveActor(System, Guid.NewGuid(), $"massive-{i}", _counter, allDone);
+                MassiveActor actor = new(System, Guid.NewGuid(), $"massive-{i}", _counter, allDone);
                 Create(actor);
                 _actors.Add(actor);
             }
 
-            var rng = new Random(42);
-            var allUids = _actors.Select(a => a.Uid).ToList();
+            Random rng = new(42);
+            List<Guid> allUids = [.. _actors.Select(a => a.Uid)];
 
-            foreach (var actor in _actors)
+            foreach (MassiveActor actor in _actors)
             {
-                var targets = new List<Guid>(messagesPerActor);
+                List<Guid> targets = new(messagesPerActor);
                 for (int j = 0; j < messagesPerActor; j++)
                 {
-                    var target = allUids[rng.Next(allUids.Count)];
+                    Guid target = allUids[rng.Next(allUids.Count)];
                     targets.Add(target);
                 }
                 actor.SetTargets(targets);
@@ -248,7 +248,7 @@ public sealed class StressTests(ITestOutputHelper output)
 
         public void StartAll()
         {
-            foreach (var actor in _actors)
+            foreach (MassiveActor actor in _actors)
             {
                 actor.StartSending();
             }
@@ -300,17 +300,17 @@ public sealed class StressTests(ITestOutputHelper output)
     {
         const int pairs = 1;
         const int count = 100_000;
-        var system = new ActorSystem(new Settings());
+        ActorSystem system = new(new Settings());
 
-        var allDone = new TaskCompletionSource<bool>();
-        var modelReady = new TaskCompletionSource<bool>();
-        var model = new StressModelActor(system, allDone, modelReady, pairs, count);
+        TaskCompletionSource<bool> allDone = new();
+        TaskCompletionSource<bool> modelReady = new();
+        StressModelActor model = new(system, allDone, modelReady, pairs, count);
         system.RegisterActor(model);
         system.Send(new InitializeLetter(SystemUids.System, SystemUids.Model));
 
         await modelReady.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
-        var sw = Stopwatch.StartNew();
+        Stopwatch sw = Stopwatch.StartNew();
         model.StartAll();
         await allDone.Task.WaitAsync(TimeSpan.FromSeconds(60));
         sw.Stop();
@@ -341,17 +341,17 @@ public sealed class StressTests(ITestOutputHelper output)
     {
         const int pairs = 300;
         const int count = 1_000;
-        var system = new ActorSystem(new Settings());
+        ActorSystem system = new(new Settings());
 
-        var allDone = new TaskCompletionSource<bool>();
-        var modelReady = new TaskCompletionSource<bool>();
-        var model = new StressModelActor(system, allDone, modelReady, pairs, count);
+        TaskCompletionSource<bool> allDone = new();
+        TaskCompletionSource<bool> modelReady = new();
+        StressModelActor model = new(system, allDone, modelReady, pairs, count);
         system.RegisterActor(model);
         system.Send(new InitializeLetter(SystemUids.System, SystemUids.Model));
 
         await modelReady.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
-        var sw = Stopwatch.StartNew();
+        Stopwatch sw = Stopwatch.StartNew();
         model.StartAll();
         await allDone.Task.WaitAsync(TimeSpan.FromSeconds(60));
         sw.Stop();
@@ -379,16 +379,16 @@ public sealed class StressTests(ITestOutputHelper output)
     public async Task StressTests_003()
     {
         const int actorCount = 10000;
-        var system = new ActorSystem(new Settings());
+        ActorSystem system = new(new Settings());
 
         for (int i = 0; i < actorCount; i++)
         {
-            var actor = new FakeActor(system, Guid.NewGuid(), $"actor-{i}");
+            FakeActor actor = new(system, Guid.NewGuid(), $"actor-{i}");
             system.RegisterActor(actor);
         }
         _output.WriteLine($"Registered: {system.ActorCount}");
 
-        var sw = Stopwatch.StartNew();
+        Stopwatch sw = Stopwatch.StartNew();
         _output.WriteLine($"Start: {sw.ElapsedMilliseconds} ms");
 
         sw.Restart();
@@ -408,17 +408,17 @@ public sealed class StressTests(ITestOutputHelper output)
     {
         const int actorCount = 2_000;
         const int messagesPerActor = 100;
-        var system = new ActorSystem(new Settings());
+        ActorSystem system = new(new Settings());
 
-        var allDone = new TaskCompletionSource<bool>();
-        var modelReady = new TaskCompletionSource<bool>();
+        TaskCompletionSource<bool> allDone = new();
+        TaskCompletionSource<bool> modelReady = new();
 
-        var model = new MassiveModelActor(system, allDone, modelReady, actorCount, messagesPerActor);
+        MassiveModelActor model = new(system, allDone, modelReady, actorCount, messagesPerActor);
         system.RegisterActor(model);
         system.Send(new InitializeLetter(SystemUids.System, SystemUids.Model));
         await modelReady.Task.WaitAsync(TimeSpan.FromSeconds(10));
 
-        var sw = Stopwatch.StartNew();
+        Stopwatch sw = Stopwatch.StartNew();
         model.StartAll();
         await allDone.Task.WaitAsync(TimeSpan.FromSeconds(120));
         sw.Stop();
@@ -450,18 +450,18 @@ public sealed class StressTests(ITestOutputHelper output)
     {
         const int pairs = 10;
         const int count = 10_000;
-        var settings = new Settings { TimeServiceModes = TimeServiceModes.Async };
-        var system = new ActorSystem(settings);
+        Settings settings = new() { TimeServiceModes = TimeServiceModes.Async };
+        ActorSystem system = new(settings);
 
-        var allDone = new TaskCompletionSource<bool>();
-        var modelReady = new TaskCompletionSource<bool>();
-        var model = new StressModelActor(system, allDone, modelReady, pairs, count);
+        TaskCompletionSource<bool> allDone = new();
+        TaskCompletionSource<bool> modelReady = new();
+        StressModelActor model = new(system, allDone, modelReady, pairs, count);
         system.RegisterActor(model);
         system.Send(new InitializeLetter(SystemUids.System, SystemUids.Model));
 
         await modelReady.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
-        var sw = Stopwatch.StartNew();
+        Stopwatch sw = Stopwatch.StartNew();
         model.StartAll();
         await allDone.Task.WaitAsync(TimeSpan.FromSeconds(120));
         sw.Stop();

@@ -93,7 +93,7 @@ public sealed class ActorTests(ITestOutputHelper output)
         FakeActor actor = new(system, Guid.NewGuid(), "test");
         TestLetter letter = new(Guid.NewGuid(), actor.Uid);
 
-        var result = actor.TryEnqueue(letter);
+        bool result = actor.TryEnqueue(letter);
 
         Assert.True(result);
         Assert.Equal(1, actor.QueueSize);
@@ -182,8 +182,8 @@ public sealed class ActorTests(ITestOutputHelper output)
         TestLetter letter1 = new(Guid.NewGuid(), actor.Uid);
         TestLetter letter2 = new(Guid.NewGuid(), actor.Uid);
 
-        var result1 = actor.TryEnqueue(letter1);
-        var result2 = actor.TryEnqueue(letter2);
+        bool result1 = actor.TryEnqueue(letter1);
+        bool result2 = actor.TryEnqueue(letter2);
 
         Assert.True(result1);
         Assert.True(result2); // TryWrite возвращает true даже при DropWrite
@@ -213,13 +213,13 @@ public sealed class ActorTests(ITestOutputHelper output)
     public void ActorTests_009()
     {
         ActorSystem system = SystemFactory.CreateSystem(_output);
-
         Assert.Throws<ArgumentOutOfRangeException>(() =>
-            new FakeActor(system, Guid.Empty, "invalid"));
+                  new FakeActor(system, Guid.Empty, "invalid"));
     }
 
     /// <summary>
-    /// Проверка: конструктор выбрасывает ArgumentOutOfRangeException при некорректной вместимости очереди.
+    /// Проверка: конструктор не выбрасывает ArgumentOutOfRangeException при некорректной вместимости очереди.
+    /// Размер очереди корректируется.
     /// </summary>
     [Fact]
     public void ActorTests_010()
@@ -227,11 +227,11 @@ public sealed class ActorTests(ITestOutputHelper output)
         ActorSystem system = SystemFactory.CreateSystem(_output);
         Guid uid = Guid.NewGuid();
 
-        Assert.Throws<ArgumentOutOfRangeException>(() =>
-            new FakeActor(system, uid, "zero", queueCapacity: 0));
+        FakeActor actor = new(system, uid, "zero", queueCapacity: 0);
+        Assert.Equal(1, actor.QueueCapacity);
 
-        Assert.Throws<ArgumentOutOfRangeException>(() =>
-            new FakeActor(system, uid, "too-large", queueCapacity: 200_000));
+        actor = new(system, uid, "too-large", queueCapacity: 200_000);
+        Assert.Equal(Actor.MaxQueueCapacity, actor.QueueCapacity);
     }
 
     /// <summary>

@@ -268,8 +268,8 @@ public sealed class ActorSystemTests(ITestOutputHelper output)
         FakeActor actor = new(system, uid, "test-actor-name");
         system.RegisterActor(actor);
 
-        var name = system.GetActorName(uid);
-        var unknownName = system.GetActorName(Guid.NewGuid());
+        string name = system.GetActorName(uid);
+        string unknownName = system.GetActorName(Guid.NewGuid());
 
         Assert.Equal("test-actor-name", name);
         Assert.NotEqual("test-actor-name", unknownName);
@@ -289,7 +289,7 @@ public sealed class ActorSystemTests(ITestOutputHelper output)
         system.Shutdown();
         await system.WaitForShutdownAsync();
 
-        var result = system.Send(letter);
+        bool result = system.Send(letter);
         Assert.False(result);
     }
 

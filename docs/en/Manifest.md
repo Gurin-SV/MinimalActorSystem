@@ -168,28 +168,3 @@ To improve code readability, the following conventions are adopted:
 - Actor class names end with "Actor" (e.g., PingActor, SensorActor).
 
 These conventions are not dictated by the system but are recommended for all application projects. The ActorLetterHandlerGenerator source generator relies on the On{TypeName} convention for handler methods.
-
-**28. Network communication (extension)**
-Support for distributed operation is extracted into a separate `MinimalActorSystem.Network` assembly and is not part of the core. This extension is only added when creating a cluster of multiple nodes.
-
-Key principles of the network extension:
-
-- Local actor systems run on network nodes and communicate with each other through a **network actor** (`NetworkActor`), which is a single instance per node with a fixed identifier `SystemUids.Network`.
-
-- The network actor has two queues: a queue of letters from local actors and a queue of incoming network messages. It transparently converts local letters (implementing `IPayloadLetter`) into serializable network messages (`NetworkLetter`) and back.
-
-- Routing is defined in the **Topology** assembly, which is common to all nodes. It describes DTOs (Payload) marked with `[DestinationNode]` attributes and carrier letter classes implementing `IPayloadLetter`.
-
-- Name resolution uses one or more **routers** — web services that maintain a `symbolic node name → network address` table, periodically check node availability via `/health`, and do not exchange data with each other.
-
-- The transport layer (`INetworkTransport`) and router client (`IRouterClient`) are fully implemented by the application developer according to their standards (HTTP, gRPC, WebSockets, security, authentication). The `MinimalActorSystem.Network` assembly provides only abstractions.
-
-- For convenience, the separate assembly `MinimalActorSystem.Network.Http` provides ready-made implementations `HttpNetworkTransport` and `HttpRouterClient` based on `HttpClient`. They are not mandatory and are only added when needed via `Microsoft.Extensions.Http`.
-
-- On startup, a node registers with all routers. If the destination node is unknown, the letter is placed in a pending queue. When a new node is discovered (notification from the router), accumulated letters are automatically sent.
-
-- Timeouts and response waiting remain at the application actor level using `ITimeService`. Each network letter is assigned a local `Guid` to enable cancellation.
-
-- For detailed architecture description, components, and usage examples, see [Network.md](docs/en/Network.md).
-
-Thus, the system core remains minimal and unaware of the network, while all distributed capabilities are added through the extension without "breaking" existing code.

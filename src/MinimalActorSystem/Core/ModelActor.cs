@@ -45,7 +45,7 @@ public abstract class ModelActor(IActorSystem system, int queueCapacity = 256)
             }
         }
         else
-        { 
+        {
             await OnModelLetter(letter);
         }
     }

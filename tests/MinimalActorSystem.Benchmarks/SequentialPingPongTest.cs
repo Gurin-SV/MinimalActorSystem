@@ -1,14 +1,11 @@
 ﻿using System.Diagnostics;
-using System.Diagnostics.Metrics;
 
 namespace MinimalActorSystem.Benchmarks;
 
 public sealed class SequentialPingPongTest : IBenchmarkTest
 {
-    public string Name => "Последовательный Ping-Pong";
-    public string Description => "Пары ping/pong обмениваются сообщениями последовательно. "
-        + "В любой момент активны только 2 актора. "
-        + "Тест измеряет скорость последовательной цепочки сообщений.";
+    public string Name => Localization.SequentialPingPongName;
+    public string Description => Localization.SequentialPingPongDesc;
 
     private class Counter { public int Value; }
 
@@ -85,48 +82,39 @@ public sealed class SequentialPingPongTest : IBenchmarkTest
         }
     }
 
-    public async Task RunAsync(Meter meter)
+    public async Task RunAsync()
     {
         const int pairs = 3000;
         const int messagesPerPair = 5000;
 
-        // Прикладные метрики
-        var roundsCounter = meter.CreateCounter<long>("ping_pong.rounds", description: "Completed rounds");
-        var pingFailedCounter = meter.CreateCounter<long>("ping_pong.ping_failed", description: "Failed ping deliveries");
-        var pongFailedCounter = meter.CreateCounter<long>("ping_pong.pong_failed", description: "Failed pong deliveries");
+        ResourceMonitor monitor = new();
+        Console.WriteLine(Localization.ConfigFormat(pairs, messagesPerPair));
+        Console.WriteLine(Localization.TotalActorsFormat(pairs * 2, (long)pairs * messagesPerPair * 2));
 
-        var monitor = new ResourceMonitor();
-        Console.WriteLine($"Конфигурация: {pairs} пар, {messagesPerPair} сообщений на пару");
-        Console.WriteLine($"Всего акторов: {pairs * 2}, всего сообщений: {(long)pairs * messagesPerPair * 2:N0}");
+        ActorSystem system = new(new Settings());
+        TaskCompletionSource<bool> allDone = new();
+        Counter counter = new() { Value = pairs };
 
-        var system = new ActorSystem(new Settings())
-        {
-            Metrics = new SystemMetrics(meter)
-        };
+        Console.WriteLine($"\n{Localization.CreatingActors}");
+        Stopwatch swCreation = Stopwatch.StartNew();
 
-        var allDone = new TaskCompletionSource<bool>();
-        var counter = new Counter { Value = pairs };
-
-        Console.WriteLine($"\nСоздаю {pairs * 2} акторов...");
-        var swCreation = Stopwatch.StartNew();
-
-        var startMessages = new StartMessage[pairs];
-        var pingMessages = new PingMessage[pairs];
-        var pongMessages = new PongMessage[pairs];
-        var pingActors = new List<PingActor>(pairs);
-        var pongActors = new List<PongActor>(pairs);
+        StartMessage[] startMessages = new StartMessage[pairs];
+        PingMessage[] pingMessages = new PingMessage[pairs];
+        PongMessage[] pongMessages = new PongMessage[pairs];
+        List<PingActor> pingActors = new(pairs);
+        List<PongActor> pongActors = new(pairs);
 
         for (int i = 0; i < pairs; i++)
         {
-            var pongUid = Guid.NewGuid();
-            var pingUid = Guid.NewGuid();
+            Guid pongUid = Guid.NewGuid();
+            Guid pingUid = Guid.NewGuid();
 
             startMessages[i] = new StartMessage(SystemUids.System, pingUid);
             pingMessages[i] = new PingMessage(pingUid, pongUid);
             pongMessages[i] = new PongMessage(pongUid, pingUid);
 
-            var pong = new PongActor(system, pongUid, $"pong-{i}", pongMessages[i]);
-            var ping = new PingActor(system, pingUid, $"ping-{i}", pongUid, counter, allDone, messagesPerPair);
+            PongActor pong = new(system, pongUid, $"pong-{i}", pongMessages[i]);
+            PingActor ping = new(system, pingUid, $"ping-{i}", pongUid, counter, allDone, messagesPerPair);
             ping.Init(pingMessages[i], pongMessages[i]);
 
             system.RegisterActor(pong);
@@ -138,52 +126,47 @@ public sealed class SequentialPingPongTest : IBenchmarkTest
 
         swCreation.Stop();
         monitor.Snapshot(out long memAfterCreate, out long peakAfterCreate, out int threadsAfterCreate, out int pendingAfterCreate, out long allocAfterCreate);
-        monitor.PrintStats("После создания", memAfterCreate, peakAfterCreate, threadsAfterCreate, pendingAfterCreate, allocAfterCreate);
-        Console.WriteLine($"  Время создания: {swCreation.ElapsedMilliseconds} мс");
+        monitor.PrintStats(Localization.AfterCreation, memAfterCreate, peakAfterCreate, threadsAfterCreate, pendingAfterCreate, allocAfterCreate);
+        Console.WriteLine($"  {Localization.CreationTime}: {swCreation.ElapsedMilliseconds} {Localization.MilliSeconds}");
 
-        Console.WriteLine($"\nОтправляю стартовые сообщения {pairs} акторам...");
-        var swWork = Stopwatch.StartNew();
+        Console.WriteLine($"\n{Localization.SendingStartMessages} {pairs} {Localization.ActorsLower}...");
+        Stopwatch swWork = Stopwatch.StartNew();
 
         for (int i = 0; i < pairs; i++)
         {
             system.Send(startMessages[i]);
         }
 
-        Console.WriteLine("Ожидание завершения...");
+        Console.WriteLine(Localization.WaitingCompletion);
         await allDone.Task.WaitAsync(TimeSpan.FromSeconds(120));
 
         swWork.Stop();
 
         monitor.Snapshot(out long memAfterWork, out long peakAfterWork, out int threadsAfterWork, out int pendingAfterWork, out long allocAfterWork);
-        monitor.PrintStats("После нагрузки", memAfterWork, peakAfterWork, threadsAfterWork, pendingAfterWork, allocAfterWork);
+        monitor.PrintStats(Localization.AfterLoad, memAfterWork, peakAfterWork, threadsAfterWork, pendingAfterWork, allocAfterWork);
 
         long totalMessages = (long)pairs * messagesPerPair * 2;
         double totalUs = swWork.Elapsed.TotalMicroseconds;
         int totalPingFailed = pingActors.Sum(p => p.SendFailed);
         int totalPongFailed = pongActors.Sum(p => p.SendFailed);
 
-        // Прикладные метрики
-        roundsCounter.Add(pairs);
-        pingFailedCounter.Add(totalPingFailed);
-        pongFailedCounter.Add(totalPongFailed);
-
         Console.WriteLine();
-        Console.WriteLine("=== Результаты производительности ===");
-        Console.WriteLine($"  Сообщений всего:      {totalMessages:N0}");
-        Console.WriteLine($"  Недоставлено ping:    {totalPingFailed}");
-        Console.WriteLine($"  Недоставлено pong:    {totalPongFailed}");
-        Console.WriteLine($"  Время работы:         {swWork.ElapsedMilliseconds:N0} мс");
-        Console.WriteLine($"  На сообщение:         {totalUs / totalMessages:F2} мкс");
-        Console.WriteLine($"  Сообщений в секунду:  {totalMessages / (swWork.ElapsedMilliseconds / 1000.0):N0}");
+        Console.WriteLine("=== " + Localization.Results + " ===");
+        Console.WriteLine($"  {Localization.MessagesTotal}: {totalMessages:N0}");
+        Console.WriteLine($"  {Localization.FailedPing}: {totalPingFailed}");
+        Console.WriteLine($"  {Localization.FailedPong}: {totalPongFailed}");
+        Console.WriteLine($"  {Localization.WorkTime}: {swWork.ElapsedMilliseconds:N0} {Localization.MilliSeconds}");
+        Console.WriteLine($"  {Localization.TimePerMessage}: {totalUs / totalMessages:F2} {Localization.MicroSeconds}");
+        Console.WriteLine($"  {Localization.MessagesPerSecond}: {totalMessages / (swWork.ElapsedMilliseconds / 1000.0):N0}");
 
-        Console.WriteLine("\nЗавершение системы...");
-        var swShutdown = Stopwatch.StartNew();
+        Console.WriteLine($"\n{Localization.ShuttingDown}");
+        Stopwatch swShutdown = Stopwatch.StartNew();
         system.Shutdown();
         await system.WaitForShutdownAsync();
         swShutdown.Stop();
 
         monitor.Snapshot(out long memAfterShutdown, out long peakFinal, out int threadsAfterShutdown, out int pendingAfterShutdown, out long allocAfterShutdown);
-        monitor.PrintStats("После завершения", memAfterShutdown, peakFinal, threadsAfterShutdown, pendingAfterShutdown, allocAfterShutdown);
-        Console.WriteLine($"  Время завершения: {swShutdown.ElapsedMilliseconds} мс");
+        monitor.PrintStats(Localization.AfterShutdown, memAfterShutdown, peakFinal, threadsAfterShutdown, pendingAfterShutdown, allocAfterShutdown);
+        Console.WriteLine($"  {Localization.ShutdownTime}: {swShutdown.ElapsedMilliseconds} {Localization.MilliSeconds}");
     }
 }

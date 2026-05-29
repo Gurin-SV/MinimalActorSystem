@@ -16,6 +16,11 @@ public abstract class Actor
     public const int DefaultQueueCapacity = 256;
 
     /// <summary>
+    /// Максимальный размер очереди сообщений.
+    /// </summary>
+    public const int MaxQueueCapacity = 100_000;
+
+    /// <summary>
     /// Ссылка на акторную систему. Единственный способ взаимодействия актора с внешним миром.
     /// </summary>
     public IActorSystem System { get; }
@@ -54,8 +59,10 @@ public abstract class Actor
     {
         if (uid == Guid.Empty)
             throw new ArgumentOutOfRangeException(nameof(uid), "Invalid uid");
-        if (queueCapacity < 1 || queueCapacity > 100_000)
-            throw new ArgumentOutOfRangeException(nameof(queueCapacity), "Invalid queue capacity");
+        if (queueCapacity < 1)
+            queueCapacity = 1;
+        else if (queueCapacity > MaxQueueCapacity)
+            queueCapacity = MaxQueueCapacity;
 
         System = system;
         Uid = uid;
